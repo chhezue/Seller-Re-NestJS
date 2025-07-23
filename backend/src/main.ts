@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
+import * as process from 'node:process';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,6 +13,11 @@ async function bootstrap() {
   console.log('✅ Supabase URL:', configService.get('SUPABASE_URL'));
   console.log('✅ Supabase Key:', configService.get('SUPABASE_ANON_KEY'));
 
-  await app.listen(3000);
+  if (process.argv.includes('--makedummy')) {
+    console.log('makedummy start');
+  } else {
+    await app.listen(3000);
+  }
 }
+
 bootstrap();
