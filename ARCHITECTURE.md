@@ -24,21 +24,21 @@ src/
 │
 ├── 📁 users/                       # 👤 사용자 (프로필, 신고, 소셜 계정)
 │   ├── dto/
-│   ├── entities/                   # - user.entity.ts, user_report.entity.ts, social_account.entity.ts
+│   ├── entities/                   # - user.base.entity.ts, user_report.base.entity.ts, social_account.base.entity.ts
 │   ├── users.module.ts
 │   ├── users.controller.ts
 │   └── users.service.ts
 │
 ├── 📁 products/                    # 🛍️ 상품 (CRUD, 검색, 이미지, 즐겨찾기, 신고)
 │   ├── dto/
-│   ├── entities/                   # - product.entity.ts, product_image.entity.ts, user_favorite.entity.ts, product_report.entity.ts
+│   ├── entities/                   # - product.base.entity.ts, product_image.base.entity.ts, user_favorite.base.entity.ts, product_report.base.entity.ts
 │   ├── products.module.ts
 │   ├── products.controller.ts
 │   └── products.service.ts
 │
 ├── 📁 chat/                        # 💬 실시간 채팅
 │   ├── dto/
-│   ├── entities/                   # - chat_room.entity.ts, chat_message.entity.ts
+│   ├── entities/                   # - chat_room.base.entity.ts, chat_message.base.entity.ts
 │   ├── chat.module.ts
 │   ├── chat.gateway.ts             # - WebSocket 로직 담당
 │   └── chat.service.ts
@@ -46,26 +46,26 @@ src/
 ├── -------------------------------- (보조 도메인 및 기능)
 │
 ├── 📁 categories/                  # 🗂️ 카테고리
-│   ├── entities/                   # - category.entity.ts
+│   ├── entities/                   # - category.base.entity.ts
 │   ├── categories.module.ts
 │   ├── categories.controller.ts
 │   └── categories.service.ts
 │
 ├── 📁 regions/                     # 🗺️ 지역 정보
-│   ├── entities/                   # - region.entity.ts
+│   ├── entities/                   # - region.base.entity.ts
 │   ├── regions.module.ts
 │   ├── regions.controller.ts
 │   └── regions.service.ts
 │
 ├── 📁 reviews/                     # ⭐ 리뷰 및 평점
 │   ├── dto/
-│   ├── entities/                   # - review.entity.ts
+│   ├── entities/                   # - review.base.entity.ts
 │   ├── reviews.module.ts
 │   ├── reviews.controller.ts
 │   └── reviews.service.ts
 │
 ├── 📁 transactions/               # 💳 거래 내역
-│   ├── entities/                   # - transaction.entity.ts
+│   ├── entities/                   # - transaction.base.entity.ts
 │   ├── transactions.module.ts
 │   ├── transactions.controller.ts
 │   └── transactions.service.ts
