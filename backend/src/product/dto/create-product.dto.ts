@@ -1,59 +1,64 @@
-import { BaseModel } from '../../common/entity/base.entity';
-import { Column, Entity } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import {
   PRODUCT_CONDITION,
   PRODUCT_STATUS,
   TRADE_TYPE,
-} from '../const/products.const';
+} from '../const/product.const';
 
-@Entity()
-export class ProductsModel extends BaseModel {
+export class CreateProductDto {
   @ApiProperty({ description: '제품명' })
-  @Column()
+  @IsNotEmpty()
+  @IsString()
   name: string;
 
   @ApiProperty({ description: '제품 상세 설명' })
-  @Column()
+  @IsString()
+  @IsNotEmpty()
   description: string;
 
   @ApiProperty({ description: '카테고리 ID' })
-  @Column()
+  @IsUUID()
+  @IsNotEmpty()
   categoryId: string;
 
   @ApiProperty({ description: '가격' })
-  @Column()
+  @IsNumber()
+  @IsNotEmpty()
   price: number;
 
-  @ApiProperty({ description: '판매자 ID' })
-  @Column()
-  sellerId: string;
-
-  @ApiProperty({ description: '거래 지역 ID' })
-  @Column()
-  regionId: string;
+  // @ApiProperty({ description: '판매자 ID' })
+  // @IsUUID()
+  // sellerId: string;
+  //
+  // @ApiProperty({ description: '거래 지역 ID' })
+  // @IsUUID()
+  // regionId: string;
 
   @ApiProperty({ description: '판매 상태', enum: PRODUCT_STATUS })
-  @Column({ default: PRODUCT_STATUS.ON_SALE })
+  @IsEnum(PRODUCT_STATUS)
+  @IsNotEmpty()
   status: PRODUCT_STATUS;
 
   @ApiProperty({ description: '거래 형식', enum: TRADE_TYPE })
-  @Column({ default: TRADE_TYPE.SELL })
+  @IsEnum(TRADE_TYPE)
+  @IsNotEmpty()
   tradeType: TRADE_TYPE;
 
   @ApiProperty({ description: '제품 상태', enum: PRODUCT_CONDITION })
-  @Column({ default: PRODUCT_CONDITION.USED })
+  @IsEnum(PRODUCT_CONDITION)
+  @IsNotEmpty()
   condition: PRODUCT_CONDITION;
 
   @ApiProperty({ description: '가격 제안 가능 여부' })
-  @Column()
+  @IsBoolean()
+  @IsNotEmpty()
   isNegotiable: boolean;
-
-  @ApiProperty({ description: '조회수' })
-  @Column({ default: 0 })
-  viewCount: number;
-
-  @ApiProperty({ description: '즐겨찾기 수' })
-  @Column({ default: 0 })
-  favoriteCount: number;
 }

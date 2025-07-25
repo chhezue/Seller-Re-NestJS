@@ -32,9 +32,9 @@ src/
 ├── 📁 products/                    # 🛍️ 상품 (CRUD, 검색, 이미지, 즐겨찾기, 신고)
 │   ├── dto/
 │   ├── entities/                   # - product.base.entity.ts, product_image.base.entity.ts, user_favorite.base.entity.ts, product_report.base.entity.ts
-│   ├── products.module.ts
-│   ├── products.controller.ts
-│   └── products.service.ts
+│   ├── product.module.ts
+│   ├── product.controller.ts
+│   └── product.service.ts
 │
 ├── 📁 chat/                        # 💬 실시간 채팅
 │   ├── dto/
