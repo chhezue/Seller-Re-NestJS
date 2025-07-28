@@ -6,6 +6,6 @@ export class RegionModel extends BaseModel {
   @Column()
   name: string; // 지역명
 
-  @Column()
-  parentId: string; // 상위 지역 ID
+  @Column({ nullable: true })
+  parentId: string | null; // 상위 지역 ID
 }
