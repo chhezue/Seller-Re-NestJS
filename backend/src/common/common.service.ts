@@ -13,7 +13,7 @@ export class CommonService {
     private readonly categoryRepository: Repository<CategoryModel>,
   ) {}
 
-  async getCategories() {
+  async getCategories(): Promise<CategoryModel[]> {
     return await this.categoryRepository.find({
       select: ['id', 'name'],
     });

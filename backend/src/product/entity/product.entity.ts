@@ -1,10 +1,11 @@
 import { BaseModel } from '../../common/entity/base.entity';
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import {
   PRODUCT_CONDITION,
   PRODUCT_STATUS,
   TRADE_TYPE,
 } from '../const/product.const';
+import { CategoryModel } from '../../common/entity/category.entity';
 
 @Entity()
 export class ProductModel extends BaseModel {
@@ -14,17 +15,18 @@ export class ProductModel extends BaseModel {
   @Column()
   description: string; // 제품 상세 설명
 
-  @Column()
-  categoryId: string; // 카테고리 ID
+  @ManyToOne(() => CategoryModel, (category) => category.products)
+  @JoinColumn({ name: 'category_id' })
+  category: CategoryModel; // 타입은 string이 아닌 Category 엔티티 자체여야 합니다.
 
   @Column()
   price: number; // 가격
 
-  @Column()
-  sellerId: string; // 판매자 ID
-
-  @Column()
-  regionId: string; // 거래 지역 ID
+  // @Column()
+  // sellerId: string; // 판매자 ID
+  //
+  // @Column()
+  // regionId: string; // 거래 지역 ID
 
   @Column({ default: PRODUCT_STATUS.ON_SALE })
   status: PRODUCT_STATUS; // 판매 상태

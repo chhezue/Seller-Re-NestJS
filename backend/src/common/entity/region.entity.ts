@@ -1,8 +1,10 @@
-import { BaseModel } from './base.entity';
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
-export class RegionModel extends BaseModel {
+export class RegionModel {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
   @Column()
   name: string; // 지역명
 
