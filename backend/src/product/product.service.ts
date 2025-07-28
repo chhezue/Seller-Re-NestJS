@@ -31,7 +31,14 @@ export class ProductService {
   async createProduct(
     createProductDto: CreateProductDto,
   ): Promise<ProductModel> {
-    return await this.productRepository.save(createProductDto);
+    const { categoryId, ...rest } = createProductDto;
+    const newProduct = this.productRepository.create({
+      ...rest,
+      category: {
+        id: categoryId,
+      },
+    });
+    return await this.productRepository.save(newProduct);
   }
 
   async updateProduct(

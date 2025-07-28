@@ -19,7 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "premakedummy": "npm run build",
-    "makedummy": "node dist/main.js --makedummy"
+    "makedummy": "ts-node -r tsconfig-paths/register ./script/create-dummy-data.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
