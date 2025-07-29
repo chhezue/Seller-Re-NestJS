@@ -6,6 +6,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { SupabaseModule } from './supabase/supabase.module';
 import { ProductModule } from './product/product.module';
 import { CommonModule } from './common/common.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { LogsModule } from './logs/logs.module';
 
 @Module({
   imports: [
@@ -14,7 +18,7 @@ import { CommonModule } from './common/common.module';
       envFilePath: '.env.development',
     }),
     TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
+      imports: [ConfigModule, EventEmitterModule.forRoot(), LogsModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
@@ -34,6 +38,8 @@ import { CommonModule } from './common/common.module';
     SupabaseModule,
     ProductModule,
     CommonModule,
+    UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

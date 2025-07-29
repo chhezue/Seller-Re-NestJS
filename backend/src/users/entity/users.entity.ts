@@ -21,7 +21,7 @@ export class UsersModel extends BaseModel {
     nullable: false,
   })
   @Exclude({ toPlainOnly: true })
-  passwordHash: string;
+  password: string;
 
   @Column({ name: 'profile_image', type: 'text', nullable: true })
   profileImage: string;
