@@ -3,12 +3,8 @@ import { BaseModel } from '../../common/entity/base.entity';
 import { IsString } from 'class-validator';
 import { Exclude } from 'class-transformer';
 import { RegionModel } from '../../common/entity/region.entity';
-
-export enum UserStatus {
-  ACTIVE = 'ACTIVE',
-  SUSPENDED = 'SUSPENDED',
-  DELETED = 'DELETED',
-}
+import { UserRolesEnum } from '../const/roles.const';
+import { UserStatusEnum } from '../const/status.const';
 
 @Entity()
 export class UsersModel extends BaseModel {
@@ -36,13 +32,17 @@ export class UsersModel extends BaseModel {
   @OneToOne(() => RegionModel, (region) => region.id)
   region_id: RegionModel;
 
-  @Column({ name: 'is_admin', type: 'boolean', default: false })
-  is_admin: boolean;
+  @Column({
+    type: 'enum',
+    enum: Object.values(UserRolesEnum),
+    default: UserRolesEnum.USER,
+  })
+  role: UserRolesEnum;
 
   @Column({
     type: 'enum',
-    enum: UserStatus,
-    default: UserStatus.ACTIVE,
+    enum: Object.values(UserStatusEnum),
+    default: UserStatusEnum.ACTIVE,
   })
-  status: UserStatus;
+  status: UserStatusEnum;
 }
