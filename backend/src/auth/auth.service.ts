@@ -41,8 +41,7 @@ export class AuthService {
   ) {
     const existingUser = await this.authenticateWithEmailAndPassword(user, ip);
 
-    //TODO. refactor to generate jwt-token
-    return true;
+    return this.loginUser(existingUser);
   }
 
   async authenticateWithEmailAndPassword(
@@ -83,5 +82,15 @@ export class AuthService {
       ...user,
       password: hash,
     });
+
+    return this.loginUser(newUser);
+  }
+
+  //TODO. jwt token
+  loginUser(user: Pick<UsersModel, 'email' | 'id'>) {
+    return {
+      accessToken: `accessToken ${user.email} ${user.id}`,
+      refreshToken: `refreshToken ${user.email} ${user.id}`,
+    };
   }
 }
