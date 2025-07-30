@@ -9,12 +9,18 @@ import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
+  private readonly jwtSecret: string;
+
   constructor(
     private readonly userService: UsersService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) {
+    this.jwtSecret =
+      this.configService.get<string>('JWT_SECRET') +
+      this.configService.get<string>('CAT');
+  }
 
   extractTokenFromHeader(headerRawToken: string, isBearer: boolean) {
     const splitToken = headerRawToken.split(' ');
@@ -53,7 +59,7 @@ export class AuthService {
     const existingUser = await this.userService.getUserByEmail(user.email);
 
     if (!existingUser) {
-      throw new UnauthorizedException('');
+      throw new UnauthorizedException('email is not exists.');
     }
 
     const isPasswordMatch = await bcrypt.compare(
@@ -88,7 +94,6 @@ export class AuthService {
     return this.loginUser(newUser);
   }
 
-  //TODO. jwt token
   loginUser(user: Pick<UsersModel, 'email' | 'id'>) {
     return {
       accessToken: this.signToken(user, false),
@@ -104,11 +109,25 @@ export class AuthService {
     };
 
     return this.jwtService.sign(payload, {
-      secret:
-        this.configService.get<string>(JWT_SECRET_KEY) +
-        this.configService.get<string>(CAT),
+      secret: this.jwtSecret,
       // refresh: 1d, access: 1h
       expiresIn: isRefreshToken ? 60 * 60 * 7 : 60 * 60,
+    });
+  }
+
+  verifyToken(token: string) {
+    try {
+      return this.jwtService.verify(token, {
+        secret: this.jwtSecret,
+      });
+    } catch (error) {
+      throw new UnauthorizedException('Invalid token or expired token');
+    }
+  }
+
+  rotateToken(token: string, isRefreshToken: boolean) {
+    const decoded = this.jwtService.verify(token, {
+      secret: this.jwtSecret,
     });
   }
 }
