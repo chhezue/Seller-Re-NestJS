@@ -4,7 +4,6 @@
 /build
 
 # Logs
-logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
@@ -54,3 +53,8 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# backend
+/backend/dist/
+/backend/node_modules/
+/backend/.env.development
