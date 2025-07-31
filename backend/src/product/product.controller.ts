@@ -7,10 +7,12 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ApiOperation } from '@nestjs/swagger';
+import { GetProductDto } from './dto/get-product.dto';
 
 @Controller('product')
 export class ProductController {
@@ -18,8 +20,8 @@ export class ProductController {
 
   @ApiOperation({ description: '상품 목록 조회' })
   @Get()
-  async getAllProducts() {
-    return await this.productService.getAllProducts();
+  async getAllProducts(@Query() getProductDto: GetProductDto) {
+    return await this.productService.getAllProducts(getProductDto);
   }
 
   @ApiOperation({ description: '상품 상세 조회' })

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { GetProductDto } from './dto/get-product.dto';
 
 @Injectable()
 export class ProductService {
@@ -12,8 +13,71 @@ export class ProductService {
     private readonly productRepository: Repository<ProductModel>,
   ) {}
 
-  async getAllProducts(): Promise<ProductModel[]> {
-    return await this.productRepository.find();
+  async getAllProducts(
+    getProductDto: GetProductDto,
+  ): Promise<{ products: ProductModel[]; nextCursor: string | null }> {
+    const {
+      categoryId,
+      status,
+      tradeType,
+      condition,
+      isNegotiable,
+      minPrice,
+      maxPrice,
+      keyword,
+      cursor,
+      limit,
+    } = getProductDto;
+    const queryBuilder = this.productRepository.createQueryBuilder('product');
+
+    if (categoryId) {
+      queryBuilder.andWhere('product.category = :categoryId', { categoryId });
+    }
+    if (status) {
+      queryBuilder.andWhere('product.status = :status', { status });
+    }
+    if (tradeType) {
+      queryBuilder.andWhere('product.tradeType = :tradeType', { tradeType });
+    }
+    if (condition) {
+      queryBuilder.andWhere('product.condition = :condition', { condition });
+    }
+    if (isNegotiable) {
+      queryBuilder.andWhere('product.isNegotiable = :isNegotiable', {
+        isNegotiable,
+      });
+    }
+    if (keyword) {
+      queryBuilder.andWhere(
+        '(product.name LIKE :keyword OR product.description LIKE :keyword)',
+        { keyword: `%${keyword}%` },
+      );
+    }
+    if (minPrice) {
+      queryBuilder.andWhere('product.price >= :minPrice', { minPrice });
+    }
+    if (maxPrice) {
+      queryBuilder.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
+    if (cursor) {
+      // cursor는 Date 객체여야 할 수 있으므로 타입 변환이 필요할 수 있습니다.
+      queryBuilder.andWhere('product.createdAt < :cursor', {
+        cursor: new Date(cursor),
+      });
+    }
+
+    queryBuilder.orderBy('product.createdAt', 'DESC');
+    queryBuilder.take(limit);
+
+    const products = await queryBuilder.getMany();
+
+    const lastItem = products.length > 0 ? products[products.length - 1] : null;
+    const nextCursor = lastItem ? lastItem.createdAt.toISOString() : null;
+
+    return {
+      products,
+      nextCursor,
+    };
   }
 
   async getProduct(productId: string): Promise<ProductModel> {
