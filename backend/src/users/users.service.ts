@@ -27,26 +27,23 @@ export class UsersService {
       | 'region_id'
     >,
   ) {
-    const isExistsUserName = await this.usersRepository.findOne({
-      where: { username: user.username },
+    const existingUser = await this.usersRepository.findOne({
+      where: [{ username: user.username }, { email: user.email }],
     });
 
-    if (isExistsUserName) {
-      throw new BadRequestException({
-        message: 'username is already exists.',
-        field: 'exists username',
-      });
-    }
-
-    const isExistsEmail = await this.usersRepository.findOne({
-      where: { email: user.email },
-    });
-
-    if (isExistsEmail) {
-      throw new BadRequestException({
-        message: 'email is already exists.',
-        field: 'exists email',
-      });
+    if (existingUser) {
+      if (existingUser.username === user.username) {
+        throw new BadRequestException({
+          message: 'username is already exists.',
+          field: 'exists username',
+        });
+      }
+      if (existingUser.email === user.email) {
+        throw new BadRequestException({
+          message: 'email is already exists.',
+          field: 'exists email',
+        });
+      }
     }
 
     const newUserObject = this.usersRepository.create({
@@ -59,5 +56,9 @@ export class UsersService {
     });
 
     return await this.usersRepository.save(newUserObject);
+  }
+
+  async updateUser(userId: string, dto: Partial<UsersModel>) {
+    await this.usersRepository.update(userId, dto);
   }
 }
