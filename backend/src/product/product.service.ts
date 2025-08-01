@@ -75,8 +75,8 @@ export class ProductService {
     const nextCursor = lastItem ? lastItem.createdAt.toISOString() : null;
 
     return {
-      products,
-      nextCursor,
+      products, // 조회된 상품 목록
+      nextCursor, // 다음 페이지를 위한 커서
     };
   }
 
