@@ -19,7 +19,7 @@ export class AuthController {
     return await this.authService.loginWithEmail(credentials, req.ip);
   }
 
-  @Post('register')
+  @Post('users')
   async postRegister(@Body() registerUserDto: RegisterUserDto) {
     return await this.authService.registerWithEmail(registerUserDto);
   }

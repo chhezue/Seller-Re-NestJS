@@ -1,25 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-
-export interface LoginFailedPayload {
-  email: string;
-  ip: string;
-  timestamp: Date;
-}
+import { InjectRepository } from '@nestjs/typeorm';
+import { LoginAttemptLogAtFailedModel } from '../common/entity/login-attempt-log.entity';
+import { Repository } from 'typeorm';
+import { LoginFailedDto } from '../auth/dto/login-failed.dto';
 
 @Injectable()
 export class LogsService {
+  constructor(
+    @InjectRepository(LoginAttemptLogAtFailedModel)
+    private readonly loginAttemptLogRepository: Repository<LoginAttemptLogAtFailedModel>,
+  ) {}
+
   private readonly logger = new Logger(LogsService.name);
 
   @OnEvent('login.failed')
-  handleLoginFailedEvent(payload: LoginFailedPayload) {
+  async handleLoginFailedEvent(payload: LoginFailedDto) {
     this.logger.warn(
-      `[Login Failed] Email: ${payload.email} | IP: ${payload.ip} | Time: ${payload.timestamp.toISOString()}`,
+      `[Login Failed] ID: ${payload.user.id} | Email: ${payload.user.email} | IP: ${payload.ip} | Failed Count : ${payload.user.passwordFailedCount + 1} | Time: ${new Date().toISOString()}`,
     );
 
-    // 여기에 실제 로그 파일 저장, DB 저장, 또는 외부 로깅 서비스(Sentry, Datadog)로
-    // 전송하는 로직을 구현할 수 있습니다.
+    const newLog = this.loginAttemptLogRepository.create({
+      user: payload.user,
+      ip: payload.ip,
+    });
 
-    //TODO. fail count ++
+    await this.loginAttemptLogRepository.save(newLog);
   }
 }
