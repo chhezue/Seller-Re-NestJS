@@ -13,6 +13,17 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ApiOperation } from '@nestjs/swagger';
 import { GetProductDto } from './dto/get-product.dto';
+import {
+  enumTransform,
+  PRODUCT_CONDITION_LABELS,
+  PRODUCT_STATUS_LABELS,
+  TRADE_TYPE_LABELS,
+} from './util/enum-transform.util';
+import {
+  PRODUCT_CONDITION,
+  PRODUCT_STATUS,
+  TRADE_TYPE,
+} from './const/product.const';
 
 @Controller('product')
 export class ProductController {
@@ -22,6 +33,16 @@ export class ProductController {
   @Get()
   async getAllProducts(@Query() getProductDto: GetProductDto) {
     return await this.productService.getAllProducts(getProductDto);
+  }
+
+  @ApiOperation({ description: '상품 관련 옵션 반환' })
+  @Get('/enums')
+  async getAllEnums() {
+    return {
+      status: enumTransform(PRODUCT_STATUS, PRODUCT_STATUS_LABELS),
+      tradeType: enumTransform(TRADE_TYPE, TRADE_TYPE_LABELS),
+      condition: enumTransform(PRODUCT_CONDITION, PRODUCT_CONDITION_LABELS),
+    };
   }
 
   @ApiOperation({ description: '상품 상세 조회' })
