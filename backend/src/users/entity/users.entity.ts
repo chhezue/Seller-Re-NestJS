@@ -1,10 +1,11 @@
-import { Column, Entity, OneToOne } from 'typeorm';
+import { Column, Entity, OneToMany, OneToOne } from 'typeorm';
 import { BaseModel } from '../../common/entity/base.entity';
 import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Exclude } from 'class-transformer';
 import { RegionModel } from '../../common/entity/region.entity';
 import { UserRolesEnum } from '../const/roles.const';
 import { UserStatusEnum } from '../const/status.const';
+import { LoginAttemptLogAtFailedModel } from '../../common/entity/login-attempt-log.entity';
 
 @Entity()
 export class UsersModel extends BaseModel {
@@ -57,4 +58,14 @@ export class UsersModel extends BaseModel {
     default: UserStatusEnum.ACTIVE,
   })
   status: UserStatusEnum;
+
+  @Column({
+    type: 'int',
+    name: 'password_failed_count',
+    default: 0,
+  })
+  passwordFailedCount: number;
+
+  @OneToMany(() => LoginAttemptLogAtFailedModel, (log) => log.user)
+  loginAttempts: LoginAttemptLogAtFailedModel[];
 }

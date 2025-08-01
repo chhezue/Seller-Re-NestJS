@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UsersModel } from '../users/entity/users.entity';
 import { UsersService } from '../users/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -6,10 +10,12 @@ import * as bcrypt from 'bcrypt';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { UserStatusEnum } from '../users/const/status.const';
 
 @Injectable()
 export class AuthService {
   private readonly jwtSecret: string;
+  private maxLoginAttempts: number;
 
   constructor(
     private readonly userService: UsersService,
@@ -20,6 +26,11 @@ export class AuthService {
     this.jwtSecret =
       this.configService.get<string>('JWT_SECRET') +
       this.configService.get<string>('CAT');
+
+    this.maxLoginAttempts = parseInt(
+      this.configService.get<string>('AUTH_MAX_LOGIN_ATTEMPTS', '5'),
+      10,
+    );
   }
 
   extractTokenFromHeader(headerRawToken: string, isBearer: boolean) {
@@ -62,22 +73,44 @@ export class AuthService {
       throw new UnauthorizedException('email is not exists.');
     }
 
+    if (existingUser.status === UserStatusEnum.LOCKED) {
+      throw new ForbiddenException('User is locked.');
+    }
+
     const isPasswordMatch = await bcrypt.compare(
       user.password,
       existingUser.password,
     );
 
-    if (!isPasswordMatch) {
-      this.eventEmitter.emit('login.failed', {
-        email: user.email,
-        ip: ip,
-        timestamp: new Date(),
-      });
-
-      throw new UnauthorizedException('email or password is not matched.');
+    if (isPasswordMatch) {
+      if (existingUser.passwordFailedCount > 0) {
+        await this.userService.updateUser(existingUser.id, {
+          passwordFailedCount: 0,
+        });
+      }
+      return existingUser;
     }
 
-    return existingUser;
+    const newFailedCount = existingUser.passwordFailedCount + 1;
+    const shouldLock = newFailedCount >= this.maxLoginAttempts;
+
+    await this.userService.updateUser(existingUser.id, {
+      passwordFailedCount: newFailedCount,
+      status: shouldLock ? UserStatusEnum.LOCKED : existingUser.status,
+    });
+
+    this.eventEmitter.emit('login.failed', {
+      user: existingUser,
+      ip: ip,
+    });
+
+    if (shouldLock) {
+      throw new ForbiddenException(
+        'Account has been locked due to too many failed login attempts.',
+      );
+    }
+
+    throw new UnauthorizedException('email or password is not matched.');
   }
 
   async registerWithEmail(user: RegisterUserDto) {
