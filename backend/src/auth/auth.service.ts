@@ -15,7 +15,7 @@ import { UserStatusEnum } from '../users/const/status.const';
 @Injectable()
 export class AuthService {
   private readonly jwtSecret: string;
-  private maxLoginAttempts: number;
+  private readonly maxLoginAttempts: number;
 
   constructor(
     private readonly userService: UsersService,
@@ -158,9 +158,21 @@ export class AuthService {
     }
   }
 
-  rotateToken(token: string, isRefreshToken: boolean) {
+  async rotateToken(token: string, isRefreshToken: boolean) {
     const decoded = this.jwtService.verify(token, {
       secret: this.jwtSecret,
     });
+
+    if (decoded.type !== 'refresh') {
+      throw new UnauthorizedException('only refresh token can be rotated');
+    }
+
+    const user = await this.userService.getUserByEmail(decoded.email);
+
+    if (!user) {
+      throw new UnauthorizedException('not exists user, please login again');
+    }
+
+    return this.signToken(user, isRefreshToken);
   }
 }

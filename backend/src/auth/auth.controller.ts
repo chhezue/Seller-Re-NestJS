@@ -23,4 +23,23 @@ export class AuthController {
   async postRegister(@Body() registerUserDto: RegisterUserDto) {
     return await this.authService.registerWithEmail(registerUserDto);
   }
+
+  @Post('token/access')
+  async postTokenAccess(@Headers('authorization') rawToken: string) {
+    return await this.reissueToken(rawToken, false);
+  }
+
+  @Post('token/refresh')
+  async postTokenRefresh(@Headers('authorization') rawToken: string) {
+    return await this.reissueToken(rawToken, true);
+  }
+
+  private async reissueToken(rawToken: string, isRefresh: boolean) {
+    const token = this.authService.extractTokenFromHeader(rawToken, true);
+    const newToken = await this.authService.rotateToken(token, isRefresh);
+
+    const tokenType = isRefresh ? 'refreshToken' : 'accessToken';
+
+    return { [tokenType]: newToken };
+  }
 }
