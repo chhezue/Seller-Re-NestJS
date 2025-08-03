@@ -10,18 +10,12 @@ import { ProductModel } from '../../product/entity/product.entity';
 
 @Entity()
 export class UsersModel extends BaseModel {
-  @IsString()
-  @IsNotEmpty()
   @Column({ type: 'varchar', length: 50, nullable: false })
   username: string;
 
-  @IsEmail()
-  @IsNotEmpty()
   @Column({ type: 'varchar', length: 255, unique: true, nullable: false })
   email: string;
 
-  @IsString()
-  @IsNotEmpty()
   @Column({
     name: 'password_hash',
     type: 'varchar',
@@ -31,18 +25,12 @@ export class UsersModel extends BaseModel {
   @Exclude({ toPlainOnly: true })
   password: string;
 
-  @IsString()
-  @IsOptional()
   @Column({ name: 'profile_image', type: 'text', nullable: true })
   profileImage: string;
 
-  @IsString()
-  @IsOptional()
   @Column({ name: 'phone_number', type: 'varchar', length: 20, nullable: true })
   phoneNumber: string;
 
-  @IsString()
-  @IsOptional()
   @OneToOne(() => RegionModel, (region) => region.id)
   region_id: RegionModel;
 
