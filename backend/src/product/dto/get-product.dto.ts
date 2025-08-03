@@ -42,7 +42,7 @@ export class GetProductDto extends PageDto {
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
-  readonly isNegotiable: boolean;
+  readonly isNegotiable?: boolean;
 
   @ApiProperty({ description: '최소 가격' })
   @IsOptional()

@@ -83,6 +83,7 @@ export class ProductService {
   async getProduct(productId: string): Promise<ProductModel> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
+      relations: ['author', 'category', 'region'],
     });
 
     if (!product) {
@@ -110,7 +111,19 @@ export class ProductService {
     updateProductDto: UpdateProductDto,
   ): Promise<ProductModel> {
     await this.getProduct(productId); // 상품 존재 여부 확인
-    await this.productRepository.update(productId, updateProductDto); // update()는 업데이트만 하고 엔티티를 반환하지는 않음.
+
+    // categoryId가 있으면 category 객체로 변환
+    const { categoryId, ...rest } = updateProductDto;
+    const updateData = categoryId
+      ? {
+          ...rest,
+          category: {
+            id: categoryId,
+          },
+        }
+      : rest;
+
+    await this.productRepository.update(productId, updateData); // update()는 업데이트만 하고 엔티티를 반환하지는 않음.
     return this.getProduct(productId); // 변경된 최신 상태를 다시 가져와서 반환
   }
 
