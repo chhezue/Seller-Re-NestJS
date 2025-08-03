@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { ProductModel } from '../../product/entity/product.entity';
 
 @Entity()
 export class RegionModel {
@@ -10,4 +11,7 @@ export class RegionModel {
 
   @Column({ nullable: true })
   parentId: string | null; // 상위 지역 ID
+
+  @OneToMany(() => ProductModel, (product) => product.region)
+  products: ProductModel[];
 }
