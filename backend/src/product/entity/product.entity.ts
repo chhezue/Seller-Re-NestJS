@@ -6,6 +6,8 @@ import {
   TRADE_TYPE,
 } from '../const/product.const';
 import { CategoryModel } from '../../common/entity/category.entity';
+import { UsersModel } from '../../users/entity/users.entity';
+import { RegionModel } from '../../common/entity/region.entity';
 
 @Entity()
 export class ProductModel extends BaseModel {
@@ -22,11 +24,13 @@ export class ProductModel extends BaseModel {
   @Column()
   price: number; // 가격
 
-  // @Column()
-  // sellerId: string; // 판매자 ID
-  //
-  // @Column()
-  // regionId: string; // 거래 지역 ID
+  @ManyToOne(() => UsersModel, (user) => user.products)
+  @JoinColumn({ name: 'author_id' })
+  author: UsersModel; // 작성자
+
+  @ManyToOne(() => RegionModel)
+  @JoinColumn({ name: 'region_id' })
+  region: RegionModel; // 작성자의 지역 정보 자동 할당
 
   @Column({ default: PRODUCT_STATUS.ON_SALE })
   status: PRODUCT_STATUS; // 판매 상태

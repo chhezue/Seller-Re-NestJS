@@ -6,6 +6,7 @@ import { RegionModel } from '../../common/entity/region.entity';
 import { UserRolesEnum } from '../const/roles.const';
 import { UserStatusEnum } from '../const/status.const';
 import { LoginAttemptLogAtFailedModel } from '../../common/entity/login-attempt-log.entity';
+import { ProductModel } from '../../product/entity/product.entity';
 
 @Entity()
 export class UsersModel extends BaseModel {
@@ -68,4 +69,7 @@ export class UsersModel extends BaseModel {
 
   @OneToMany(() => LoginAttemptLogAtFailedModel, (log) => log.user)
   loginAttempts: LoginAttemptLogAtFailedModel[];
+
+  @OneToMany(() => ProductModel, (product) => product.author)
+  products: ProductModel[];
 }
