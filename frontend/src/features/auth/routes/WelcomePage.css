@@ -1,0 +1,23 @@
+.welcome-text {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
+  opacity: 1;
+  transition: opacity 1s ease-in-out;
+
+  /* 중앙 정렬 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  height: 100vh; /* 화면 전체 높이 */
+  text-align: center;
+}
+
+.fade-in {
+  opacity: 1;
+}
+
+.fade-out {
+  opacity: 0;
+}
