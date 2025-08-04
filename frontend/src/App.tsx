@@ -1,54 +1,30 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate} from 'react-router-dom';
-import LoginPage from './features/auth/routes/LoginPage';
-import RegisterPage from './features/auth/routes/RegisterPage';
-import WelcomePage from './features/auth/routes/WelcomePage';
-import HomePage from './features/products/routes/HomePage';
+import { BrowserRouter as Router } from 'react-router-dom';
 import useAuth from './features/auth/hooks/useAuth';
+import AppRoutes from './AppRoutes'; // 그대로 유지
+import Header from './components/shared/Header';
+import Footer from './components/shared/Footer';
 
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
-
-  return (
-    <Routes>
-      {/* 비로그인 상태 */}
-      {!isAuthenticated ? (
-        <>
-          <Route path="/" element={<WelcomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          {/* 보호된 경로 접근 시 강제 로그인 이동 */}
-          <Route path="/homepage" element={<Navigate to="/login" replace />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </>
-      ) : (
-        <>
-          {/* 로그인된 상태 */}
-          <Route path="/homepage" element={<HomePage />} />
-          {/* 로그인 후 다른 경로 접근 시 자동 홈 이동 */}
-          <Route path="/" element={<Navigate to="/homepage" replace />} />
-          <Route path="/login" element={<Navigate to="/homepage" replace />} />
-          <Route path="/register" element={<Navigate to="/homepage" replace />} />
-          <Route path="*" element={<Navigate to="/homepage" replace />} />
-        </>
-      )}
-    </Routes>
-  );
-};
-
 const App = () => {
-  const { initialized } = useAuth();
+  const { initialized, isAuthenticated } = useAuth();
 
   if (!initialized) {
-    return null; // 또는 로딩 화면 출력
+    return null; // 로딩 중
   }
 
   return (
     <Router>
-      <AppRoutes />
+      {isAuthenticated && <Header />}  {/* ✅ 로그인 시만 보임 */}
+
+      <main style={{ minHeight: 'calc(100vh - 120px)' }}>
+        <AppRoutes />
+      </main>
+
+      {isAuthenticated && <Footer />}  {/* ✅ 로그인 시만 보임 */}
+
       <ToastContainer
         position="top-center"
         autoClose={3000}

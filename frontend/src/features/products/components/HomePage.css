@@ -1,28 +1,17 @@
-.main-container {
+.main-homepage{
   padding: 20px;
+}
+
+.main-container {
   font-family: 'Pretendard', sans-serif;
   background: #f5f5f5;
   min-height: 100vh;
-}
-
-.main-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
 }
 
 .main-logo {
   font-size: 24px;
   font-weight: bold;
   color: #333;
-}
-
-.main-header-icons .icon {
-  font-size: 20px;
-  margin-left: 15px;
-  color: #444;
-  cursor: pointer;
 }
 
 .main-categories {
@@ -86,4 +75,21 @@
   font-weight: bold;
   color: #e8652d;
   font-size: 14px;
+}
+
+/* HomePage.css */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeInUp 0.8s ease-out;
 }
