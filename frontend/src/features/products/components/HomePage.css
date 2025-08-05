@@ -1,5 +1,10 @@
-.main-homepage{
+.main-homepage {
   padding: 20px;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
 }
 
 .main-container {
@@ -28,7 +33,7 @@
   border-radius: 20px;
   font-size: 14px;
   cursor: pointer;
-  transition: 0.2s;
+  transition: background 0.2s, color 0.2s;
 }
 
 .main-categories button:hover {
@@ -38,21 +43,28 @@
 
 .main-items {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 20px;
+}
+
+@media (max-width: 600px) {
+  .main-items {
+    grid-template-columns: 1fr;
+  }
 }
 
 .item-card {
   background: white;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  transition: 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
 }
 
 .item-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .item-card img {
@@ -71,14 +83,6 @@
   color: #222;
 }
 
-.item-info p {
-  font-weight: bold;
-  color: #e8652d;
-  font-size: 14px;
-}
-
-/* HomePage.css */
-
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -92,4 +96,87 @@
 
 .fade-in {
   animation: fadeInUp 0.8s ease-out;
+}
+
+.price-info {
+  font-weight: bold;
+  color: #e8652d;
+  font-size: 14px;
+}
+
+.extra-info {
+  font-size: 13px;
+  color: #666;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.item-tags-inline {
+  display: flex;
+  gap: 5px;
+  margin-left: 10px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 12px;
+  color: white;
+}
+
+/* 거래 타입 */
+.trade.sell {
+  background-color: #1abc9c; /* 민트색 */
+}
+
+.trade.share {
+  background-color: #8645ff; /* 붉은색 */
+}
+
+/* 상품 상태 */
+.condition.new {
+  background-color: #27ae60; /* 초록 */
+}
+
+.condition.like_new {
+  background-color: #2ecc71; /* 연초록 */
+}
+
+.condition.used {
+  background-color: #e67e22; /* 주황 */
+}
+
+.condition.for_parts {
+  background-color: #95a5a6; /* 회색 */
+}
+
+/* 로딩 및 오류 텍스트 */
+.loading-text,
+.error-text {
+  text-align: center;
+  font-size: 16px;
+  color: #666;
+  margin-top: 20px;
+}
+.item-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.inline-tag {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.item-info h3 {
+  font-size: 15px;
+  margin: 0; /* 수정: 태그와 수평정렬 */
+  color: #222;
 }

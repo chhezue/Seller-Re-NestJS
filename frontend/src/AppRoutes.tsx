@@ -5,6 +5,8 @@ import RegisterPage from './features/auth/routes/RegisterPage';
 import WelcomePage from './features/auth/routes/WelcomePage';
 import HomePage from './features/products/routes/HomePage';
 import NewProductPage from './features/products/routes/NewProductPage';
+import ProductDetailPage  from './features/products/routes/ProductDetailPage';
+
 import useAuth from './features/auth/hooks/useAuth';
 
 const AppRoutes = () => {
@@ -31,6 +33,7 @@ const AppRoutes = () => {
           {/* 로그인 상태 */}
           <Route path="/homepage" element={<HomePage />} />
           <Route path="/NewProductPage" element={<NewProductPage />} />
+          <Route path="/item/:id" element={<ProductDetailPage />} />
 
           {/* 로그인 후 /, /login 등 접근 시 homepage로 리다이렉트 */}
           <Route path="/" element={<Navigate to="/homepage" replace />} />

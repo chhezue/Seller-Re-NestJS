@@ -1,0 +1,120 @@
+.product-detail-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.product-detail-content {
+  display: flex;
+  gap: 30px;
+}
+
+.product-image-section {
+  flex: 1;
+}
+
+.product-image {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.product-info-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.product-title-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.status-label {
+  font-size: 13px;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 12px;
+  color: white;
+}
+
+.status-label.on-sale {
+  background-color: #2980b9; /* 파랑 */
+}
+
+.status-label.sold-out {
+  background-color: #7f8c8d; /* 회색 */
+}
+
+.product_name {
+  margin: 0;
+  font-size: 22px;
+}
+
+.category-time {
+  font-size: 14px;
+  color: #666;
+  margin: 5px 0 10px 0;
+}
+
+.price {
+  font-size: 20px;
+  font-weight: bold;
+  margin: 5px 0;
+}
+
+.description {
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 5px 0;
+}
+
+.detail-stats {
+  font-size: 14px;
+  color: #555;
+  margin-top: 10px;
+}
+
+.contact-seller-button {
+  margin-top: 15px;
+  padding: 12px 20px;
+  background-color: black;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.contact-seller-button:hover {
+  background-color: #333;
+}
+
+.price-line {
+  font-size: 16px;
+  font-weight: bold;
+  margin: 5px 0;
+}
+
+.price-line.yes {
+  color: #2c3e50; /* 일반 텍스트 + 제안 가능 초록 포함 */
+}
+
+.price-line.no {
+  color: #2c3e50;
+}
+
+.price-line.yes span {
+  color: #27ae60; /* 초록 */
+  font-weight: normal;
+}
+
+.price-line.no span {
+  color: #e74c3c; /* 빨강 */
+  font-weight: normal;
+}
+
