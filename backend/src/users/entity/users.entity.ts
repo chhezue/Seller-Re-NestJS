@@ -1,4 +1,11 @@
-import { Column, Entity, OneToMany, OneToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+} from 'typeorm';
 import { BaseModel } from '../../common/entity/base.entity';
 import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Exclude } from 'class-transformer';
@@ -31,8 +38,12 @@ export class UsersModel extends BaseModel {
   @Column({ name: 'phone_number', type: 'varchar', length: 20, nullable: true })
   phoneNumber: string;
 
-  @OneToOne(() => RegionModel, (region) => region.id)
-  region_id: RegionModel;
+  @ManyToOne(() => RegionModel, {
+    eager: true, // user 조회시 region도 같이 조회.
+    nullable: true,
+  })
+  @JoinColumn({ name: 'region_id' })
+  region: RegionModel;
 
   @Column({
     type: 'enum',
