@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import '../components/HomePage.css';
+import ProductFilters from '../components/ProductFilters'; // 카테고리 컴포넌트 추가
 
 interface Product {
   id: string;
@@ -19,12 +20,16 @@ const HomePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [animate, setAnimate] = useState(false);
-
-  const categories = ['전자기기', '가구/인테리어', '유아용품', '생활가전', '의류', '기타'];
+  const hasFetched = useRef(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
 
   useEffect(() => {
     setAnimate(true);
-    fetchProducts();
+
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchProducts();
+    }
   }, []);
 
   const fetchProducts = async () => {
@@ -33,6 +38,7 @@ const HomePage: React.FC = () => {
       const data = await response.json();
 
       if (response.ok && Array.isArray(data.products)) {
+        console.log('받은 매물 데이터:', data.products);
         setProducts(data.products);
       } else {
         setError('매물 데이터를 불러올 수 없습니다.');
@@ -81,11 +87,7 @@ const HomePage: React.FC = () => {
   return (
     <div className={`main-container ${animate ? 'fade-in' : ''}`}>
       <div className="main-homepage">
-        <div className="main-categories">
-          {categories.map((category, index) => (
-            <button key={index} className="category-btn">{category}</button>
-          ))}
-        </div>
+        <ProductFilters onCategorySelect={(id) => setSelectedCategory(id)} />
 
         {loading ? (
           <p className="loading-text">로딩 중...</p>

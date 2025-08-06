@@ -10,6 +10,7 @@ const ProductDetailPage: React.FC = () => {
     const fetchProduct = async () => {
         const response = await fetch(`http://127.0.0.1:3000/api/product/${id}`);
         const data = await response.json();
+       // console.log('받은 상품 데이터:', data);
         setProduct(data);
     };
 

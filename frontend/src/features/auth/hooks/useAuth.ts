@@ -32,10 +32,12 @@ const useAuth = () => {
     const decodeToken = (token: string): void => {
     try {
         const decoded = jwtDecode<DecodedToken>(token); // ✅ 타입 지정
+       // console.log('디코딩된 토큰:', decoded);  // ✅ 디코딩 값 로그 출력
+
         if (decoded.username && typeof decoded.username === 'string') {
-            setUsername(decoded.username);
+        setUsername(decoded.username);
         } else {
-            setUsername(null);
+        setUsername(null);
         }
     } catch (err) {
         console.error('토큰 디코딩 실패:', err);

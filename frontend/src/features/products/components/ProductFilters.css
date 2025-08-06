@@ -1,0 +1,54 @@
+.category-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    animation: fadeSlideIn 0.6s ease-out; /* 전체 바 애니메이션 */
+}
+
+.category-button {
+    padding: 8px 14px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+    font-size: 14px;
+}
+
+/* 🔹 호버 시 효과 */
+.category-button:hover {
+    background: #e0e4ea;
+    border-color: #888;
+    color: #333;
+    transform: scale(1.05); /* 살짝 커짐 */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* 🔸 선택된 버튼 */
+.category-button.selected {
+    background: #40526a;
+    color: white;
+    border-color: #40526a;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    transform: scale(1.05);
+}
+
+/* 🔸 클릭 시 눌림 효과 */
+.category-button:active {
+    transform: scale(0.97);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* 🔹 전체 바 애니메이션 정의 */
+@keyframes fadeSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
