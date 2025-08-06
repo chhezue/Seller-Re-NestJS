@@ -10,7 +10,7 @@ const ProductDetailPage: React.FC = () => {
     const fetchProduct = async () => {
         const response = await fetch(`http://127.0.0.1:3000/api/product/${id}`);
         const data = await response.json();
-       // console.log('받은 상품 데이터:', data);
+        console.log('받은 상품 데이터:', data);
         setProduct(data);
     };
 
@@ -66,10 +66,10 @@ const ProductDetailPage: React.FC = () => {
             </p>
 
             <p className={`price-line ${product.isNegotiable ? 'yes' : 'no'}`}>
-            가격: {product.price.toLocaleString()}원 
-            {product.isNegotiable ? ' (✅ 제안 가능)' : ' (🚫 제안 불가)'}
+            {product.tradeType === 'SHARE'
+                ? '나눔'
+                : `가격: ${product.price.toLocaleString()}원 ${product.isNegotiable ? '(✅ 제안 가능)' : '(🚫 제안 불가)'}`}
             </p>
-
             <p className="description">설명: {product.description}</p>
 
             {/* 채팅 | 관심 | 조회 */}

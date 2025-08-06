@@ -11,8 +11,7 @@ interface Product {
   viewCount?: number;
   updatedAt?: string;
   createdAt: string;
-  tradeType: 'SELL' | 'SHARE';
-  condition: 'NEW' | 'LIKE_NEW' | 'USED' | 'FOR_PARTS';
+  tradeType: string; // 변경! 유연하게
 }
 
 const HomePage: React.FC = () => {
@@ -71,19 +70,6 @@ const HomePage: React.FC = () => {
     return formatRelativeTime(baseTime);
   };
 
-  const tradeTypeLabel = (type: Product['tradeType']) =>
-    type === 'SELL' ? '판매 상품' : '나눔 상품';
-
-  const conditionLabel = (condition: Product['condition']) => {
-    switch (condition) {
-      case 'NEW': return '새상품';
-      case 'LIKE_NEW': return '사용감 적음';
-      case 'USED': return '중고';
-      case 'FOR_PARTS': return '사용감 많음';
-      default: return '';
-    }
-  };
-
   return (
     <div className={`main-container ${animate ? 'fade-in' : ''}`}>
       <div className="main-homepage">
@@ -99,22 +85,14 @@ const HomePage: React.FC = () => {
               <Link to={`/item/${item.id}`} key={item.id} className="item-card">
                 <img src={item.imageUrl || '/images/default.jpg'} alt={item.name} />
                 <div className="item-info">
-                  <div className="item-title-row">
-                    <span className={`tag condition ${item.condition.toLowerCase()} inline-tag`}>
-                      {conditionLabel(item.condition)}
-                    </span>
-                    <h3>{item.name}</h3>
-                  </div>
+                  <h3 className="truncate-text">{item.name}</h3>
 
-                  <p className="price-info">{item.price.toLocaleString()}원</p>
+                  <p className="price-info">
+                    {item.tradeType === 'SHARE' ? '나눔' : `${item.price.toLocaleString()}원`}
+                  </p>
 
                   <p className="extra-info">
                     👁 {item.viewCount ?? 0}회 | {getDisplayTime(item.updatedAt, item.createdAt)}
-                    <span className="item-tags-inline">
-                      <span className={`tag trade ${item.tradeType === 'SELL' ? 'sell' : 'share'}`}>
-                        {tradeTypeLabel(item.tradeType)}
-                      </span>
-                    </span>
                   </p>
                 </div>
               </Link>

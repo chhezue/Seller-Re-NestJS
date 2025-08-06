@@ -1,44 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './NewProductPage.css';
 
-// Enum 정의
-enum PRODUCT_STATUS {
-  ON_SALE = 'ON_SALE',
-  RESERVED = 'RESERVED',
-  SOLD = 'SOLD',
+interface OptionItem {
+  key: string;
+  label: string;
 }
 
-enum TRADE_TYPE {
-  SELL = 'SELL',
-  SHARE = 'SHARE',
+interface EnumResponse {
+  status: OptionItem[];
+  tradeType: OptionItem[];
+  condition: OptionItem[];
 }
-
-enum PRODUCT_CONDITION {
-  NEW = 'NEW',
-  LIKE_NEW = 'LIKE_NEW',
-  USED = 'USED',
-  FOR_PARTS = 'FOR_PARTS',
-}
-
-// 한글 매핑 객체
-const statusLabels: Record<PRODUCT_STATUS, string> = {
-  ON_SALE: '판매중',
-  RESERVED: '예약중',
-  SOLD: '판매완료'
-};
-
-const tradeTypeLabels: Record<TRADE_TYPE, string> = {
-  SELL: '판매',
-  SHARE: '나눔'
-};
-
-const conditionLabels: Record<PRODUCT_CONDITION, string> = {
-  NEW: '새 상품',
-  LIKE_NEW: '사용감 적음',
-  USED: '중고',
-  FOR_PARTS: '사용감 많음'
-};
 
 const NewProductPage: React.FC = () => {
   const navigate = useNavigate();
@@ -65,9 +38,31 @@ const NewProductPage: React.FC = () => {
 
   const [categoryId, setCategoryId] = useState('');
   const [isNegotiable, setIsNegotiable] = useState(true);
-  const [status, setStatus] = useState<PRODUCT_STATUS>(PRODUCT_STATUS.ON_SALE);
-  const [tradeType, setTradeType] = useState<TRADE_TYPE>(TRADE_TYPE.SELL);
-  const [condition, setCondition] = useState<PRODUCT_CONDITION>(PRODUCT_CONDITION.USED);
+  const [status, setStatus] = useState('ON_SALE');
+  const [tradeType, setTradeType] = useState('SELL');
+  const [condition, setCondition] = useState('USED');
+
+  const [statusOptions, setStatusOptions] = useState<OptionItem[]>([]);
+  const [tradeTypeOptions, setTradeTypeOptions] = useState<OptionItem[]>([]);
+  const [conditionOptions, setConditionOptions] = useState<OptionItem[]>([]);
+
+  useEffect(() => {
+    const fetchEnums = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:3000/api/product/enums');
+        const data: EnumResponse = await response.json();
+
+        setStatusOptions(data.status);
+        setTradeTypeOptions(data.tradeType);
+        setConditionOptions(data.condition);
+      } catch (error) {
+        console.error('옵션 불러오기 실패:', error);
+        setErrorMessage('상품 옵션 정보를 불러오지 못했습니다.');
+      }
+    };
+
+    fetchEnums();
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -97,13 +92,13 @@ const NewProductPage: React.FC = () => {
       isNegotiable
     };
 
-    console.log('전송할 JSON 데이터:', productData);
-
+    const token = localStorage.getItem('accessToken');  // 토큰 꺼냄
     try {
       const response = await fetch('http://127.0.0.1:3000/api/product', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         },
         body: JSON.stringify(productData)
       });
@@ -113,8 +108,6 @@ const NewProductPage: React.FC = () => {
         navigate('/homepage');
       } else {
         const errorText = await response.text();
-        console.error('등록 실패 상태:', response.status);
-        console.error('등록 실패 메시지:', errorText);
         setErrorMessage(`상품 등록 실패: ${response.status} - ${errorText}`);
       }
     } catch (error) {
@@ -191,25 +184,25 @@ const NewProductPage: React.FC = () => {
           </label>
 
           <label>상품 상태
-            <select value={condition} onChange={(e) => setCondition(e.target.value as PRODUCT_CONDITION)}>
-              {Object.entries(conditionLabels).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
+            <select value={condition} onChange={(e) => setCondition(e.target.value)}>
+              {conditionOptions.map(opt => (
+                <option key={opt.key} value={opt.key}>{opt.label}</option>
               ))}
             </select>
           </label>
 
           <label>거래 방식
-            <select value={tradeType} onChange={(e) => setTradeType(e.target.value as TRADE_TYPE)}>
-              {Object.entries(tradeTypeLabels).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
+            <select value={tradeType} onChange={(e) => setTradeType(e.target.value)}>
+              {tradeTypeOptions.map(opt => (
+                <option key={opt.key} value={opt.key}>{opt.label}</option>
               ))}
             </select>
           </label>
 
           <label>판매 상태
-            <select value={status} onChange={(e) => setStatus(e.target.value as PRODUCT_STATUS)}>
-              {Object.entries(statusLabels).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
+            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+              {statusOptions.map(opt => (
+                <option key={opt.key} value={opt.key}>{opt.label}</option>
               ))}
             </select>
           </label>

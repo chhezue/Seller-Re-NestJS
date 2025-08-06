@@ -127,15 +127,19 @@ export class AuthService {
     return this.loginUser(newUser);
   }
 
-  loginUser(user: Pick<UsersModel, 'email' | 'id'>) {
+  loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username'>) {
     return {
       accessToken: this.signToken(user, false),
       refreshToken: this.signToken(user, true),
     };
   }
 
-  signToken(user: Pick<UsersModel, 'email' | 'id'>, isRefreshToken: boolean) {
+  signToken(
+    user: Pick<UsersModel, 'email' | 'id' | 'username'>,
+    isRefreshToken: boolean,
+  ) {
     const payload = {
+      username: user.username,
       email: user.email,
       sub: user.id,
       type: isRefreshToken ? 'refresh' : 'access',
