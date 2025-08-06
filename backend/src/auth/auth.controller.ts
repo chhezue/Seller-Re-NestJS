@@ -11,10 +11,7 @@ import { AuthService } from './auth.service';
 import { Request } from 'express';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { IsPublic } from '../common/decorator/is-public.decorator';
-import {
-  AccessTokenGuard,
-  RefreshTokenGuard,
-} from './guard/bearer-token.guard';
+import { RefreshTokenGuard } from './guard/bearer-token.guard';
 import { User } from '../users/decorator/user.decorator';
 import { UsersModel } from '../users/entity/users.entity';
 
@@ -24,7 +21,6 @@ export class AuthController {
 
   @Post('login')
   @IsPublic()
-  @UseGuards(RefreshTokenGuard)
   async postLoginEmail(
     @Headers('authorization') rawToken: string,
     @Req() req: Request,
@@ -66,9 +62,16 @@ export class AuthController {
   }
 
   @Get('test/here')
-  @UseGuards(AccessTokenGuard)
+  // @UseGuards(AccessTokenGuard)  // app.module 에서 전역으로 사용중임
   async testHere(@User() user: UsersModel) {
     console.log('testHere.user : ', user);
+    return user;
+  }
+
+  @Get('test/here2')
+  @IsPublic()
+  async testHere2(@User() user: UsersModel) {
+    console.log('its public. but... user : ', user);
     return user;
   }
 }
