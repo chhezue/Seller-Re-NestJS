@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { ClassSerializerInterceptor, Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -10,6 +10,11 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LogsModule } from './logs/logs.module';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import {
+  AccessTokenGuard,
+  RefreshTokenGuard,
+} from './auth/guard/bearer-token.guard';
 
 @Module({
   imports: [
@@ -42,6 +47,22 @@ import { LogsModule } from './logs/logs.module';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    //interceptor: use ClassSerializerInterceptor to transfer DTO
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ClassSerializerInterceptor,
+    },
+    //guard: authentication and authorization
+    {
+      provide: APP_GUARD,
+      useClass: AccessTokenGuard,
+    },
+    // TODO. implement rolesGuard
+    // {
+    //   provide: APP_GUARD, useClass: RolesGuard
+    // }
+  ],
 })
 export class AppModule {}
