@@ -12,39 +12,51 @@ import { UsersService } from '../../users/users.service';
 @Injectable()
 export class BearerTokenGuard implements CanActivate {
   constructor(
-    private readonly reflector: Reflector,
+    protected readonly reflector: Reflector,
     private readonly authService: AuthService,
     private readonly userService: UsersService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride(IS_PUBLIC_KEY, [
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
     const req = context.switchToHttp().getRequest();
+    const rawToken = req.headers.authorization;
 
     if (isPublic) {
+      if (rawToken) {
+        try {
+          const token = this.authService.extractTokenFromHeader(rawToken, true);
+          const payload = await this.authService.verifyToken(token);
+          const user = await this.userService.getUserByEmail(payload.email);
+
+          req.user = user;
+          req.token = token;
+          req.tokenType = payload.type;
+        } catch (e) {}
+      }
       req.isRouterPublic = true;
       return true;
     }
-
-    const rawToken = req.headers.authorization;
 
     if (!rawToken) {
       throw new UnauthorizedException('No Token Provided');
     }
 
-    const token = this.authService.extractTokenFromHeader(rawToken, true);
+    try {
+      const token = this.authService.extractTokenFromHeader(rawToken, true);
+      const payload = await this.authService.verifyToken(token);
+      const user = await this.userService.getUserByEmail(payload.email);
 
-    const result = await this.authService.verifyToken(token);
-
-    const user = await this.userService.getUserByEmail(result.email);
-
-    req.user = user;
-    req.token = token;
-    req.tokenType = result.type;
+      req.user = user;
+      req.token = token;
+      req.tokenType = payload.type;
+    } catch (e) {
+      throw new UnauthorizedException('Invalid Token');
+    }
 
     return true;
   }

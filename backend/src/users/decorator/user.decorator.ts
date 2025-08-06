@@ -12,9 +12,12 @@ export const User = createParamDecorator(
     const user = req.user as UsersModel;
 
     if (!user) {
-      throw new InternalServerErrorException(
-        'User Decorator must be used with an accessTokenGuard',
-      );
+      if (!req.isRouterPublic) {
+        throw new InternalServerErrorException(
+          'User decorator cannot be used on a protected route without an authentication guard.',
+        );
+      }
+      return null;
     }
 
     if (data) {
