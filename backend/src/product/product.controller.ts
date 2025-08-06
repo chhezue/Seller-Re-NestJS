@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -24,18 +25,24 @@ import {
   PRODUCT_STATUS,
   TRADE_TYPE,
 } from './const/product.const';
+import { User } from '../users/decorator/user.decorator';
+import { UsersModel } from '../users/entity/users.entity';
+import { AccessTokenGuard } from '../auth/guard/bearer-token.guard';
+import { IsPublic } from '../common/decorator/is-public.decorator';
 
 @Controller('product')
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @ApiOperation({ description: '상품 목록 조회' })
+  @IsPublic()
   @Get()
   async getAllProducts(@Query() getProductDto: GetProductDto) {
     return await this.productService.getAllProducts(getProductDto);
   }
 
   @ApiOperation({ description: '상품 관련 옵션 반환' })
+  @IsPublic()
   @Get('/enums')
   async getAllEnums() {
     return {
@@ -52,9 +59,13 @@ export class ProductController {
   }
 
   @ApiOperation({ description: '상품 등록' })
+  @UseGuards(AccessTokenGuard)
   @Post()
-  async createProduct(@Body() createProductDto: CreateProductDto) {
-    return await this.productService.createProduct(createProductDto);
+  async createProduct(
+    @Body() createProductDto: CreateProductDto,
+    @User() user: UsersModel,
+  ) {
+    return await this.productService.createProduct(createProductDto, user);
   }
 
   @ApiOperation({ description: '상품 수정' })
