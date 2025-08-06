@@ -45,7 +45,7 @@ export class UsersService {
       username: username,
       email: email,
       ...rest,
-      region_id: region_id ? { id: region_id } : null,
+      region: region_id ? { id: region_id } : null,
     });
 
     return await this.usersRepository.save(newUserObject);
