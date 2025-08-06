@@ -12,22 +12,21 @@ import { UsersService } from '../../users/users.service';
 @Injectable()
 export class BearerTokenGuard implements CanActivate {
   constructor(
-    private readonly reflector: Reflector,
+    protected readonly reflector: Reflector,
     private readonly authService: AuthService,
     private readonly userService: UsersService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride(IS_PUBLIC_KEY, [
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
 
     const req = context.switchToHttp().getRequest();
+    const rawToken = req.headers.authorization;
 
     if (isPublic) {
-      const rawToken = req.headers.authorization;
-
       if (rawToken) {
         try {
           const token = this.authService.extractTokenFromHeader(rawToken, true);
@@ -43,20 +42,18 @@ export class BearerTokenGuard implements CanActivate {
       return true;
     }
 
-    const rawToken = req.headers.authorization;
-
     if (!rawToken) {
       throw new UnauthorizedException('No Token Provided');
     }
 
     try {
       const token = this.authService.extractTokenFromHeader(rawToken, true);
-      const result = await this.authService.verifyToken(token);
-      const user = await this.userService.getUserByEmail(result.email);
+      const payload = await this.authService.verifyToken(token);
+      const user = await this.userService.getUserByEmail(payload.email);
 
       req.user = user;
       req.token = token;
-      req.tokenType = result.type;
+      req.tokenType = payload.type;
     } catch (e) {
       throw new UnauthorizedException('Invalid Token');
     }
