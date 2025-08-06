@@ -1,8 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 import { CommonService } from './common.service';
+import { IsPublic } from './decorator/is-public.decorator';
 
 @Controller('common')
+@IsPublic()
 export class CommonController {
   constructor(private readonly commonService: CommonService) {}
 

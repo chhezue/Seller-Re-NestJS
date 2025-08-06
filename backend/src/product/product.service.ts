@@ -94,6 +94,17 @@ export class ProductService {
     return product;
   }
 
+  async getMySales(user: UsersModel): Promise<ProductModel[]> {
+    return await this.productRepository.find({
+      where: {
+        author: {
+          id: user.id,
+        },
+      },
+      relations: ['author', 'category', 'region'],
+    });
+  }
+
   async createProduct(
     createProductDto: CreateProductDto,
     user: UsersModel,
@@ -142,5 +153,14 @@ export class ProductService {
     }
 
     return productId;
+  }
+
+  async isProductOwner(userId: string, productId: string): Promise<boolean> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+      relations: ['author'],
+    });
+
+    return product && product.author.id === userId;
   }
 }

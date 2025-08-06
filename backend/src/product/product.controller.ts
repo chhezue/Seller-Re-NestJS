@@ -27,8 +27,8 @@ import {
 } from './const/product.const';
 import { User } from '../users/decorator/user.decorator';
 import { UsersModel } from '../users/entity/users.entity';
-import { AccessTokenGuard } from '../auth/guard/bearer-token.guard';
 import { IsPublic } from '../common/decorator/is-public.decorator';
+import { ProductOwnerGuard } from './guard/product-owner.guard';
 
 @Controller('product')
 export class ProductController {
@@ -52,6 +52,12 @@ export class ProductController {
     };
   }
 
+  @ApiOperation({ description: '내 상품 목록 조회' })
+  @Get('/my-sales')
+  async getMySales(@User() user: UsersModel) {
+    return await this.productService.getMySales(user);
+  }
+
   @ApiOperation({ description: '상품 상세 조회' })
   @Get('/:productId')
   async getProduct(@Param('productId') productId: string) {
@@ -59,7 +65,6 @@ export class ProductController {
   }
 
   @ApiOperation({ description: '상품 등록' })
-  @UseGuards(AccessTokenGuard)
   @Post()
   async createProduct(
     @Body() createProductDto: CreateProductDto,
@@ -69,6 +74,7 @@ export class ProductController {
   }
 
   @ApiOperation({ description: '상품 수정' })
+  @UseGuards(ProductOwnerGuard)
   @Patch('/:productId')
   async updateProduct(
     @Param('productId') productId: string,
@@ -78,6 +84,7 @@ export class ProductController {
   }
 
   @ApiOperation({ description: '상품 삭제' })
+  @UseGuards(ProductOwnerGuard)
   @Delete('/:productId')
   async deleteProduct(@Param('productId') productId: string) {
     return await this.productService.deleteProduct(productId);
