@@ -26,6 +26,19 @@ export class BearerTokenGuard implements CanActivate {
     const req = context.switchToHttp().getRequest();
 
     if (isPublic) {
+      const rawToken = req.headers.authorization;
+
+      if (rawToken) {
+        try {
+          const token = this.authService.extractTokenFromHeader(rawToken, true);
+          const payload = await this.authService.verifyToken(token);
+          const user = await this.userService.getUserByEmail(payload.email);
+
+          req.user = user;
+          req.token = token;
+          req.tokenType = payload.type;
+        } catch (e) {}
+      }
       req.isRouterPublic = true;
       return true;
     }
@@ -36,15 +49,17 @@ export class BearerTokenGuard implements CanActivate {
       throw new UnauthorizedException('No Token Provided');
     }
 
-    const token = this.authService.extractTokenFromHeader(rawToken, true);
+    try {
+      const token = this.authService.extractTokenFromHeader(rawToken, true);
+      const result = await this.authService.verifyToken(token);
+      const user = await this.userService.getUserByEmail(result.email);
 
-    const result = await this.authService.verifyToken(token);
-
-    const user = await this.userService.getUserByEmail(result.email);
-
-    req.user = user;
-    req.token = token;
-    req.tokenType = result.type;
+      req.user = user;
+      req.token = token;
+      req.tokenType = result.type;
+    } catch (e) {
+      throw new UnauthorizedException('Invalid Token');
+    }
 
     return true;
   }
