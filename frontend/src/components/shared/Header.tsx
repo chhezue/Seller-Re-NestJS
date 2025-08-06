@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-    faSearch,
     faPlusCircle,
     faUser,
     faBell,
@@ -36,7 +35,6 @@ const Header: React.FC = () => {
         </div>
 
         <div className="header-right">
-            <FontAwesomeIcon icon={faSearch} className="icon" title="검색" />
             <Link to="/notifications">
                 <FontAwesomeIcon icon={faBell} className="icon" title="알림" />
             </Link>

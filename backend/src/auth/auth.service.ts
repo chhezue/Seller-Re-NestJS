@@ -148,7 +148,7 @@ export class AuthService {
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
       // refresh: 1d, access: 1h
-      expiresIn: isRefreshToken ? 60 * 60 * 7 : 60 * 60,
+      expiresIn: isRefreshToken ? 30 : 10,
     });
   }
 

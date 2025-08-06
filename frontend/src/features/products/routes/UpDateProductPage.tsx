@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import './NewProductPage.css';
 
 interface OptionItem {
@@ -13,7 +13,8 @@ interface EnumResponse {
   condition: OptionItem[];
 }
 
-const NewProductPage: React.FC = () => {
+const UpDateProductPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
@@ -26,13 +27,13 @@ const NewProductPage: React.FC = () => {
   const categories = [
     { id: "12baa412-1840-4c8c-b7f6-abe92ef6abdb", name: "디지털기기" },
     { id: "820cc9c6-881d-436f-8209-f93713f45db6", name: "생활가전" },
-    { id: "6e204078-bdd2-4485-9a11-30133fa445d1", name: "가구/인테리어" },
-    { id: "55730a45-4c1f-45bf-9333-400415071321", name: "생활/주방" },
+    { id: "6e204078-bdd2-4485-9a11-30133fa445d1", name: "가구/인터넷" },
+    { id: "55730a45-4c1f-45bf-9333-400415071321", name: "생화/주방" },
     { id: "027d14de-42e0-4fdd-a901-d722769fc9e9", name: "유아동" },
     { id: "0a24654e-1af7-477e-998d-0a2927d41808", name: "유아도서" },
     { id: "85a670b0-1a66-4cd5-aeb9-9b7c46566daf", name: "여성의류" },
     { id: "b1f6c45c-766f-48ad-b138-ad50757442a9", name: "여성잡화" },
-    { id: "2bbc8cdc-ecc4-4b4e-baaf-446d11f04d20", name: "남성패션/잡화" },
+    { id: "2bbc8cdc-ecc4-4b4e-baaf-446d11f04d20", name: "남성패션/자화" },
     { id: "5c884485-6a1d-4791-9c8a-03c719a21e18", name: "뷰티/미용" }
   ];
 
@@ -46,7 +47,7 @@ const NewProductPage: React.FC = () => {
   const [tradeTypeOptions, setTradeTypeOptions] = useState<OptionItem[]>([]);
   const [conditionOptions, setConditionOptions] = useState<OptionItem[]>([]);
 
-  const isShare = tradeType === 'SHARE';  // 거래 방식이 나눔인지 확인
+  const isShare = tradeType === 'SHARE';
 
   useEffect(() => {
     const fetchEnums = async () => {
@@ -67,11 +68,37 @@ const NewProductPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:3000/api/product/${id}`);
+        const product = await response.json();
+
+        setTitle(product.name);
+        setPrice(product.price);
+        setDescription(product.description);
+        setCategoryId(product.category.id); // 이 값이 categories 중 하나와 정확히 일치해야 선택됨
+        setIsNegotiable(product.isNegotiable);
+        setStatus(product.status);
+        setTradeType(product.tradeType);
+        setCondition(product.condition);
+        if (product.imageUrl) {
+          setPreviewImages([product.imageUrl]);
+        }
+      } catch (error) {
+        console.error('상품 데이터 로드 실패:', error);
+        setErrorMessage('상품 정보를 불러오지 못했습니다.');
+      }
+    };
+
+    if (id) fetchProduct();
+  }, [id]);
+
+  useEffect(() => {
     if (isShare) {
-      setPrice(0);         // 나눔이면 가격 0으로 초기화
-      setIsNegotiable(false); // 가격 제안도 false
+      setPrice(0);
+      setIsNegotiable(false);
     }
-  }, [isShare]);
+  }, [tradeType]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -104,8 +131,8 @@ const NewProductPage: React.FC = () => {
     const token = localStorage.getItem('accessToken');
 
     try {
-      const response = await fetch('http://127.0.0.1:3000/api/product', {
-        method: 'POST',
+      const response = await fetch(`http://127.0.0.1:3000/api/product/${id}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
@@ -114,14 +141,14 @@ const NewProductPage: React.FC = () => {
       });
 
       if (response.ok) {
-        alert('상품 등록 성공!');
-        navigate('/homepage');
+        alert('상품 수정 성공!');
+        navigate(`/product/${id}`);
       } else {
         const errorText = await response.text();
-        setErrorMessage(`상품 등록 실패: ${response.status} - ${errorText}`);
+        setErrorMessage(`상품 수정 실패: ${response.status} - ${errorText}`);
       }
     } catch (error) {
-      console.error('등록 중 오류:', error);
+      console.error('수정 중 오류:', error);
       setErrorMessage('서버 오류. 잠시 후 다시 시도해주세요.');
     }
   };
@@ -129,7 +156,7 @@ const NewProductPage: React.FC = () => {
   return (
     <div className="new-product-page">
       <div className="left-panel">
-        <h3>이미지 등록</h3>
+        <h3>이미지 수정</h3>
         <input type="file" accept="image/*" multiple onChange={handleImageChange} />
         <div className="preview-container">
           {previewImages.map((src, idx) => (
@@ -139,64 +166,65 @@ const NewProductPage: React.FC = () => {
       </div>
 
       <div className="right-panel">
-        <h2>상품 등록</h2>
+        <h2>상품 수정</h2>
         {errorMessage && <p className="error-message">{errorMessage}</p>}
         <form className="product-form" onSubmit={handleSubmit}>
           <label>상품명
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
           </label>
 
-          <div className={`price-row ${isShare ? 'disabled-section' : ''}`}>
+        <div className={`price-row ${tradeType === 'SHARE' ? 'disabled-section' : ''}`}>
             <label className="price-label">
-              가격 (원)
-              <input
+                가격 (원)
+                <input
                 type="text"
                 value={price ? price.toLocaleString() : ''}
                 onChange={(e) => {
-                  const raw = e.target.value.replace(/,/g, '');
-                  const num = Number(raw);
-                  setPrice(isNaN(num) ? 0 : num);
+                    const raw = e.target.value.replace(/,/g, '');
+                    const num = Number(raw);
+                    setPrice(isNaN(num) ? 0 : num);
                 }}
                 placeholder="가격을 입력하세요"
-                disabled={isShare}
-              />
+                disabled={tradeType === 'SHARE'}  // 실제 입력 방지
+                />
             </label>
 
             <label className="custom-checkbox-inline">
-              <input
+                <input
                 type="checkbox"
                 checked={isNegotiable}
                 onChange={(e) => setIsNegotiable(e.target.checked)}
-                disabled={isShare}
-              />
-              <span className="checkmark"></span>
-              가격 제안 받기
+                disabled={tradeType === 'SHARE'}  // 제안 방지
+                />
+                <span className="checkmark"></span>
+                가격 제안 받기
             </label>
-          </div>
+        </div>
 
-          <div className="price-buttons">
-            {[10000, 50000, 100000].map((val) => (
-              <button
-                key={val}
-                type="button"
-                onClick={() => setPrice(prev => prev + val)}
-                disabled={isShare}
-              >
-                +{val.toLocaleString()}원
-              </button>
-            ))}
-          </div>
+        {/* ✅ 추가된 가격 버튼들 */}
+        <div className="price-buttons">
+        {[10000, 50000, 100000].map((val) => (
+            <button
+            key={val}
+            type="button"
+            onClick={() => setPrice(prev => prev + val)}
+            disabled={tradeType === 'SHARE'}
+            >
+            +{val.toLocaleString()}원
+            </button>
+        ))}
+        </div>
 
           <label>설명
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
           </label>
 
           <label>카테고리 선택
-            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-              <option value="">-- 선택 --</option>
-              {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
-              ))}
+            <select value={String(categoryId)} onChange={(e) => setCategoryId(e.target.value)}>
+                <option value="">-- 선택 --</option>
+                {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
             </select>
           </label>
 
@@ -224,12 +252,11 @@ const NewProductPage: React.FC = () => {
             </select>
           </label>
 
-          <button type="submit">등록하기</button>
+          <button type="submit">수정하기</button>
         </form>
-        <p className="category-id">(선택된 카테고리 ID: <strong>{categoryId || '없음'}</strong>)</p>
       </div>
     </div>
   );
 };
 
-export default NewProductPage;
+export default UpDateProductPage;

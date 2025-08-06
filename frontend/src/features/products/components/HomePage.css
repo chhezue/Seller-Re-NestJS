@@ -5,7 +5,7 @@
 }
 
 .main-homepage {
-  padding: 20px;
+  padding: 20px 165px;
 }
 
 a {
@@ -19,38 +19,11 @@ a {
   color: #333;
 }
 
-.main-categories {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 25px;
-}
-
-.main-categories button {
-  padding: 8px 14px;
-  border: 1px solid #ddd;
-  background: white;
-  border-radius: 20px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-}
-
-.main-categories button:hover {
-  background: #40526a;
-  color: white;
-}
-
 .main-items {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, 250px); /* ✅ 고정 너비로 유동 배치 */
   gap: 20px;
-}
-
-@media (max-width: 600px) {
-  .main-items {
-    grid-template-columns: 1fr;
-  }
+  justify-content: space-between; /* ✅ 중앙 정렬 */
 }
 
 .item-card {
@@ -60,6 +33,8 @@ a {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
   cursor: pointer;
+  position: relative;
+  width: 255px; /* ✅ 카드 고정 너비 */
 }
 
 .item-card:hover {
@@ -67,27 +42,43 @@ a {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.item-card img {
+.image-wrapper {
+  position: relative;
   width: 100%;
-  height: 140px;
+  height: 200px;
+  overflow: hidden;
+}
+
+.product-image {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  display: block;
+}
+
+/* 상태 배지 스타일 */
+.status-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  border-radius: 4px;
+  z-index: 1;
+}
+
+.status-badge.reserved {
+  background-color: #27ae60;
+}
+
+.status-badge.sold {
+  background-color: #666;
 }
 
 .item-info {
   padding: 10px;
-}
-
-.item-title-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-
-.item-info h3 {
-  font-size: 15px;
-  margin: 0;
-  color: #222;
 }
 
 .truncate-text {
@@ -112,28 +103,6 @@ a {
   margin-bottom: 0;
 }
 
-.item-tags-inline {
-  display: flex;
-  gap: 5px;
-  margin-left: 10px;
-  flex-wrap: wrap;
-}
-
-.tag {
-  padding: 3px 8px;
-  font-size: 12px;
-  font-weight: bold;
-  border-radius: 12px;
-  color: white;
-}
-
-.inline-tag {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 10px;
-  white-space: nowrap;
-}
-
 .loading-text,
 .error-text {
   text-align: center;
@@ -155,4 +124,27 @@ a {
 
 .fade-in {
   animation: fadeInUp 0.8s ease-out;
+}
+
+.content-layout {
+  display: flex;
+  gap: 30px;
+}
+
+.sidebar {
+  width: 200px;
+}
+
+.main-content {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .content-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+  }
 }
