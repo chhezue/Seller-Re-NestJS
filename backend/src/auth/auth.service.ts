@@ -143,7 +143,7 @@ export class AuthService {
 
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
-      // refresh: 7수저d, access: 1h
+      // refresh: 7d, access: 1h
       expiresIn: isRefreshToken ? '7d' : '1h',
     });
   }
