@@ -13,8 +13,8 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  @UseGuards(BasicTokenGuard)
   @IsPublic()
+  @UseGuards(BasicTokenGuard)
   async postLoginEmail(@User() user: UsersModel) {
     return this.authService.loginUser(user);
   }
