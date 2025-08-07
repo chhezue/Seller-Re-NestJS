@@ -16,7 +16,7 @@ export class AuthController {
   @IsPublic()
   @UseGuards(BasicTokenGuard)
   async postLoginEmail(@User() user: UsersModel) {
-    return this.authService.loginUser(user);
+    return await this.authService.loginUser(user);
   }
 
   @Post('users')

@@ -11,6 +11,10 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserStatusEnum } from '../users/const/status.const';
+import { InjectRepository } from '@nestjs/typeorm';
+import { RefreshTokenModel } from './entity/refresh-token.entity';
+import { Repository } from 'typeorm';
+import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +22,8 @@ export class AuthService {
   private readonly maxLoginAttempts: number;
 
   constructor(
+    @InjectRepository(RefreshTokenModel)
+    private readonly refreshTokenRepository: Repository<RefreshTokenModel>,
     private readonly userService: UsersService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
@@ -127,14 +133,14 @@ export class AuthService {
     return this.loginUser(newUser);
   }
 
-  loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username'>) {
+  async loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username'>) {
     return {
-      accessToken: this.signToken(user, false),
-      refreshToken: this.signToken(user, true),
+      accessToken: await this.signToken(user, false),
+      refreshToken: await this.signToken(user, true),
     };
   }
 
-  signToken(
+  async signToken(
     user: Pick<UsersModel, 'email' | 'id' | 'username'>,
     isRefreshToken: boolean,
   ) {
@@ -143,12 +149,26 @@ export class AuthService {
       email: user.email,
       sub: user.id,
       type: isRefreshToken ? 'refresh' : 'access',
+      jti: isRefreshToken ? uuid() : undefined,
     };
+
+    // refresh: 7d, access: 1h
+    const expiresIn = isRefreshToken ? '7d' : '1h';
+
+    if (isRefreshToken) {
+      const expires = new Date();
+      expires.setDate(expires.getDate() + 7);
+
+      await this.refreshTokenRepository.save({
+        user: { id: user.id },
+        jti: payload.jti,
+        expiresAt: expires,
+      });
+    }
 
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
-      // refresh: 7d, access: 1h
-      expiresIn: isRefreshToken ? '7d' : '1h',
+      expiresIn,
     });
   }
 
@@ -170,13 +190,23 @@ export class AuthService {
   }
 
   async rotateToken(token: string, isRefreshToken: boolean) {
-    const decoded = this.jwtService.verify(token, {
-      secret: this.jwtSecret,
-    });
+    const decoded = this.verifyToken(token);
 
     if (decoded.type !== 'refresh') {
       throw new UnauthorizedException('only refresh token can be rotated');
     }
+
+    const refreshToken = await this.refreshTokenRepository.findOne({
+      where: { jti: decoded.jti, user: { id: decoded.sub } },
+    });
+
+    if (!refreshToken || refreshToken.isRevoked) {
+      throw new UnauthorizedException('This token has been revoked.');
+    }
+
+    await this.refreshTokenRepository.update(refreshToken.id, {
+      isRevoked: true,
+    });
 
     const user = await this.userService.getUserByEmail(decoded.email);
 
@@ -184,6 +214,6 @@ export class AuthService {
       throw new UnauthorizedException('not exists user, please login again');
     }
 
-    return this.signToken(user, isRefreshToken);
+    return await this.signToken(user, isRefreshToken);
   }
 }
