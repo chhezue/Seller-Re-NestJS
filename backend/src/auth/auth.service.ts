@@ -147,8 +147,8 @@ export class AuthService {
 
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
-      // refresh: 1d, access: 1h
-      expiresIn: isRefreshToken ? 60 * 60 * 7 : 60 * 60,
+      // refresh: 7d, access: 1h
+      expiresIn: isRefreshToken ? '7d' : '1h',
     });
   }
 
@@ -160,6 +160,13 @@ export class AuthService {
     } catch (error) {
       throw new UnauthorizedException('Invalid token or expired token');
     }
+  }
+
+  async reissueToken(token: string, isRefresh: boolean) {
+    const newToken = await this.rotateToken(token, isRefresh);
+    const tokenType = isRefresh ? 'refreshToken' : 'accessToken';
+
+    return { [tokenType]: newToken };
   }
 
   async rotateToken(token: string, isRefreshToken: boolean) {

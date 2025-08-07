@@ -1,45 +1,57 @@
-import { Controller, Post, Headers, Req, Body } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { Request } from 'express';
 import { RegisterUserDto } from './dto/register-user.dto';
+import { IsPublic } from '../common/decorator/is-public.decorator';
+import { RefreshTokenGuard } from './guard/bearer-token.guard';
+import { User } from '../users/decorator/user.decorator';
+import { UsersModel } from '../users/entity/users.entity';
+import { BasicTokenGuard } from './guard/basic-token.guard';
+import { Token } from './decorator/token.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  async postLoginEmail(
-    @Headers('authorization') rawToken: string,
-    @Req() req: Request,
-  ) {
-    const token = this.authService.extractTokenFromHeader(rawToken, false);
-
-    const credentials = this.authService.decodedBasicToken(token);
-
-    return await this.authService.loginWithEmail(credentials, req.ip);
+  @IsPublic()
+  @UseGuards(BasicTokenGuard)
+  async postLoginEmail(@User() user: UsersModel) {
+    return this.authService.loginUser(user);
   }
 
   @Post('users')
+  @IsPublic()
   async postRegister(@Body() registerUserDto: RegisterUserDto) {
     return await this.authService.registerWithEmail(registerUserDto);
   }
 
   @Post('token/access')
-  async postTokenAccess(@Headers('authorization') rawToken: string) {
-    return await this.reissueToken(rawToken, false);
+  @IsPublic()
+  @UseGuards(RefreshTokenGuard)
+  async postTokenAccess(@Token() token: string) {
+    return await this.authService.reissueToken(token, false);
   }
 
   @Post('token/refresh')
-  async postTokenRefresh(@Headers('authorization') rawToken: string) {
-    return await this.reissueToken(rawToken, true);
+  @IsPublic()
+  @UseGuards(RefreshTokenGuard)
+  async postTokenRefresh(@Token() token: string) {
+    return await this.authService.reissueToken(token, true);
   }
 
-  private async reissueToken(rawToken: string, isRefresh: boolean) {
-    const token = this.authService.extractTokenFromHeader(rawToken, true);
-    const newToken = await this.authService.rotateToken(token, isRefresh);
+  //TEST API
 
-    const tokenType = isRefresh ? 'refreshToken' : 'accessToken';
+  @Get('test/here')
+  // @UseGuards(AccessTokenGuard)  // app.module 에서 전역으로 사용중임
+  async testHere(@User() user: UsersModel) {
+    console.log('testHere.user : ', user);
+    return user;
+  }
 
-    return { [tokenType]: newToken };
+  @Get('test/here2')
+  @IsPublic()
+  async testHere2(@User() user: UsersModel) {
+    console.log('its public. but... user : ', user);
+    return user;
   }
 }

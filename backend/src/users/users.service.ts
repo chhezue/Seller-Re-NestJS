@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UsersModel } from './entity/users.entity';
 import { Repository } from 'typeorm';
+import { RegisterUserDto } from '../auth/dto/register-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -17,28 +18,22 @@ export class UsersService {
   }
 
   async createUser(
-    user: Pick<
-      UsersModel,
-      | 'username'
-      | 'email'
-      | 'password'
-      | 'profileImage'
-      | 'phoneNumber'
-      | 'region_id'
-    >,
+    user: Omit<RegisterUserDto, 'password'> & { password: string },
   ) {
+    const { username, email, region_id, ...rest } = user;
+
     const existingUser = await this.usersRepository.findOne({
-      where: [{ username: user.username }, { email: user.email }],
+      where: [{ username }, { email }],
     });
 
     if (existingUser) {
-      if (existingUser.username === user.username) {
+      if (existingUser.username === username) {
         throw new BadRequestException({
           message: 'username is already exists.',
           field: 'exists username',
         });
       }
-      if (existingUser.email === user.email) {
+      if (existingUser.email === email) {
         throw new BadRequestException({
           message: 'email is already exists.',
           field: 'exists email',
@@ -47,12 +42,10 @@ export class UsersService {
     }
 
     const newUserObject = this.usersRepository.create({
-      username: user.username,
-      email: user.email,
-      password: user.password,
-      profileImage: user.profileImage,
-      phoneNumber: user.phoneNumber,
-      region_id: user.region_id,
+      username: username,
+      email: email,
+      ...rest,
+      region: region_id ? { id: region_id } : null,
     });
 
     return await this.usersRepository.save(newUserObject);
