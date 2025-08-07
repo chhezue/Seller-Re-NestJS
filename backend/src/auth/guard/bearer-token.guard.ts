@@ -84,16 +84,12 @@ export class AccessTokenGuard extends BearerTokenGuard {
 @Injectable()
 export class RefreshTokenGuard extends BearerTokenGuard {
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    await super.canActivate(context);
-
     const req = context.switchToHttp().getRequest();
 
-    if (req.isRouterPublic) {
-      return true;
-    }
-
     if (req.tokenType !== 'refresh') {
-      throw new UnauthorizedException('No Refresh Token Provided');
+      throw new UnauthorizedException(
+        'Invalid Token Type. Refresh Token is required.',
+      );
     }
 
     return true;
