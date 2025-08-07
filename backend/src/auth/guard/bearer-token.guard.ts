@@ -84,6 +84,8 @@ export class AccessTokenGuard extends BearerTokenGuard {
 @Injectable()
 export class RefreshTokenGuard extends BearerTokenGuard {
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    await super.canActivate(context);
+
     const req = context.switchToHttp().getRequest();
 
     if (req.tokenType !== 'refresh') {

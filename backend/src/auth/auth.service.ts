@@ -158,6 +158,13 @@ export class AuthService {
     }
   }
 
+  async reissueToken(token: string, isRefresh: boolean) {
+    const newToken = await this.rotateToken(token, isRefresh);
+    const tokenType = isRefresh ? 'refreshToken' : 'accessToken';
+
+    return { [tokenType]: newToken };
+  }
+
   async rotateToken(token: string, isRefreshToken: boolean) {
     const decoded = this.jwtService.verify(token, {
       secret: this.jwtSecret,
