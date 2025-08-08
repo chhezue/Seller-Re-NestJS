@@ -25,18 +25,11 @@ export class AuthController {
     return await this.authService.registerWithEmail(registerUserDto);
   }
 
-  @Post('token/access')
-  @IsPublic()
-  @UseGuards(RefreshTokenGuard)
-  async postTokenAccess(@Token() token: string) {
-    return await this.authService.reissueToken(token, false);
-  }
-
   @Post('token/refresh')
   @IsPublic()
   @UseGuards(RefreshTokenGuard)
   async postTokenRefresh(@Token() token: string) {
-    return await this.authService.reissueToken(token, true);
+    return await this.authService.rotateRefreshToken(token);
   }
 
   //TEST API

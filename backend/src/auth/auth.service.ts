@@ -134,37 +134,32 @@ export class AuthService {
   }
 
   async loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username'>) {
+    const jti = uuid();
+    const accessToken = this.signToken(user, false);
+    const refreshToken = this.signToken(user, true, jti);
+
+    await this.saveRefreshToken(user.id, jti);
     return {
-      accessToken: await this.signToken(user, false),
-      refreshToken: await this.signToken(user, true),
+      accessToken,
+      refreshToken,
     };
   }
 
-  async signToken(
+  signToken(
     user: Pick<UsersModel, 'email' | 'id' | 'username'>,
     isRefreshToken: boolean,
+    jti?: string,
   ) {
     const payload = {
       username: user.username,
       email: user.email,
       sub: user.id,
       type: isRefreshToken ? 'refresh' : 'access',
-      jti: isRefreshToken ? uuid() : undefined,
+      ...(jti && { jti }), // if jti exists, add it to the payload
     };
 
     // refresh: 7d, access: 1h
     const expiresIn = isRefreshToken ? '7d' : '1h';
-
-    if (isRefreshToken) {
-      const expires = new Date();
-      expires.setDate(expires.getDate() + 7);
-
-      await this.refreshTokenRepository.save({
-        user: { id: user.id },
-        jti: payload.jti,
-        expiresAt: expires,
-      });
-    }
 
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
@@ -182,38 +177,39 @@ export class AuthService {
     }
   }
 
-  async reissueToken(token: string, isRefresh: boolean) {
-    const newToken = await this.rotateToken(token, isRefresh);
-    const tokenType = isRefresh ? 'refreshToken' : 'accessToken';
-
-    return { [tokenType]: newToken };
-  }
-
-  async rotateToken(token: string, isRefreshToken: boolean) {
+  async rotateRefreshToken(token: string) {
     const decoded = this.verifyToken(token);
 
     if (decoded.type !== 'refresh') {
-      throw new UnauthorizedException('only refresh token can be rotated');
+      throw new UnauthorizedException(
+        'a refreshToken must be provided for rotation.',
+      );
     }
 
     const refreshToken = await this.refreshTokenRepository.findOne({
-      where: { jti: decoded.jti, user: { id: decoded.sub } },
+      where: { jti: decoded.jti },
+      relations: { user: true },
     });
 
     if (!refreshToken || refreshToken.isRevoked) {
       throw new UnauthorizedException('This token has been revoked.');
     }
 
-    await this.refreshTokenRepository.update(refreshToken.id, {
-      isRevoked: true,
+    refreshToken.isRevoked = true;
+
+    await this.refreshTokenRepository.save(refreshToken);
+
+    return this.loginUser(refreshToken.user);
+  }
+
+  private async saveRefreshToken(userId: string, jti: string) {
+    const expires = new Date();
+    expires.setDate(expires.getDate() + 7);
+
+    await this.refreshTokenRepository.save({
+      user: { id: userId },
+      jti,
+      expiresAt: expires,
     });
-
-    const user = await this.userService.getUserByEmail(decoded.email);
-
-    if (!user) {
-      throw new UnauthorizedException('not exists user, please login again');
-    }
-
-    return await this.signToken(user, isRefreshToken);
   }
 }
