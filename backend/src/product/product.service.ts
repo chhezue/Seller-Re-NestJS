@@ -5,6 +5,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { GetProductDto } from './dto/get-product.dto';
+import { UsersModel } from '../users/entity/users.entity';
 
 @Injectable()
 export class ProductService {
@@ -93,17 +94,33 @@ export class ProductService {
     return product;
   }
 
+  async getMySales(user: UsersModel): Promise<ProductModel[]> {
+    return await this.productRepository.find({
+      where: {
+        author: {
+          id: user.id,
+        },
+      },
+      relations: ['author', 'category', 'region'],
+    });
+  }
+
   async createProduct(
     createProductDto: CreateProductDto,
+    user: UsersModel,
   ): Promise<ProductModel> {
     const { categoryId, ...rest } = createProductDto;
+    const { id, region } = user;
+
     const newProduct = this.productRepository.create({
       ...rest,
-      category: {
-        id: categoryId,
-      },
+      category: { id: categoryId },
+      author: { id },
+      region: region ?? null, // region이 존재할 때만 포함
     });
-    return await this.productRepository.save(newProduct);
+
+    const savedProduct = await this.productRepository.save(newProduct);
+    return await this.getProduct(savedProduct.id); // author 정보 포함 반환
   }
 
   async updateProduct(
@@ -136,5 +153,14 @@ export class ProductService {
     }
 
     return productId;
+  }
+
+  async isProductOwner(userId: string, productId: string): Promise<boolean> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId },
+      relations: ['author'],
+    });
+
+    return product && product.author.id === userId;
   }
 }

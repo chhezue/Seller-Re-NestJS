@@ -127,7 +127,7 @@ export class AuthService {
     return this.loginUser(newUser);
   }
 
-  loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username'>) {
+  loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username' | 'username'>) {
     return {
       accessToken: this.signToken(user, false),
       refreshToken: this.signToken(user, true),
@@ -135,10 +135,14 @@ export class AuthService {
   }
 
   signToken(
-    user: Pick<UsersModel, 'email' | 'id' | 'username'>,
+    
+    user: Pick<UsersModel, 'email' | 'id' | 'username' | 'username'>,
+   
     isRefreshToken: boolean,
+  ,
   ) {
     const payload = {
+      username: user.username,
       username: user.username,
       email: user.email,
       sub: user.id,
@@ -147,8 +151,8 @@ export class AuthService {
 
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
-      // refresh: 1d, access: 1h
-      expiresIn: isRefreshToken ? 30 : 10,
+      // refresh: 7d, access: 1h
+      expiresIn: isRefreshToken ? '7d' : '1h',
     });
   }
 
@@ -160,6 +164,13 @@ export class AuthService {
     } catch (error) {
       throw new UnauthorizedException('Invalid token or expired token');
     }
+  }
+
+  async reissueToken(token: string, isRefresh: boolean) {
+    const newToken = await this.rotateToken(token, isRefresh);
+    const tokenType = isRefresh ? 'refreshToken' : 'accessToken';
+
+    return { [tokenType]: newToken };
   }
 
   async rotateToken(token: string, isRefreshToken: boolean) {
