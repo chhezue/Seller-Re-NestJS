@@ -4,8 +4,10 @@ import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsString,
   IsUUID,
+  ValidateIf,
 } from 'class-validator';
 import {
   PRODUCT_CONDITION,
@@ -29,18 +31,12 @@ export class CreateProductDto {
   @IsNotEmpty()
   categoryId: string;
 
-  @ApiProperty({ description: '가격' })
+  @ApiProperty({ description: "가격 (거래 형식이 '판매(SELL)'일 때만 필요)" })
+  @ValidateIf((o) => o.tradeType === TRADE_TYPE.SELL) // tradeType이 SELL일 때만 아래 유효성 검사를 실행
   @IsNumber()
   @IsNotEmpty()
-  price: number;
-
-  // @ApiProperty({ description: '판매자 ID' })
-  // @IsUUID()
-  // sellerId: string;
-  //
-  // @ApiProperty({ description: '거래 지역 ID' })
-  // @IsUUID()
-  // regionId: string;
+  @IsOptional() // tradeType이 SHARE일 경우
+  price?: number;
 
   @ApiProperty({ description: '판매 상태', enum: PRODUCT_STATUS })
   @IsEnum(PRODUCT_STATUS)
@@ -57,8 +53,12 @@ export class CreateProductDto {
   @IsNotEmpty()
   condition: PRODUCT_CONDITION;
 
-  @ApiProperty({ description: '가격 제안 가능 여부' })
+  @ApiProperty({
+    description: "가격 제안 가능 여부 (거래 형식이 '판매(SELL)'일 때만 필요)",
+  })
+  @ValidateIf((o) => o.tradeType === TRADE_TYPE.SELL) // tradeType이 SELL일 때만 아래 유효성 검사를 실행
   @IsBoolean()
   @IsNotEmpty()
-  isNegotiable: boolean;
+  @IsOptional() // tradeType이 SHARE일 경우
+  isNegotiable?: boolean;
 }

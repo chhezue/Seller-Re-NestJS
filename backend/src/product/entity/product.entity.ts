@@ -17,18 +17,20 @@ export class ProductModel extends BaseModel {
   @Column()
   description: string; // 제품 상세 설명
 
-  @ManyToOne(() => CategoryModel, (category) => category.products)
+  @ManyToOne(() => CategoryModel, (category) => category.products, {
+    eager: true,
+  })
   @JoinColumn({ name: 'category_id' })
   category: CategoryModel; // 타입은 string이 아닌 Category 엔티티 자체여야 합니다.
 
-  @Column()
+  @Column({ default: 0 })
   price: number; // 가격
 
-  @ManyToOne(() => UsersModel, (user) => user.products)
+  @ManyToOne(() => UsersModel, (user) => user.products, { eager: true })
   @JoinColumn({ name: 'author_id' })
   author: UsersModel; // 작성자
 
-  @ManyToOne(() => RegionModel)
+  @ManyToOne(() => RegionModel, { nullable: true, eager: true })
   @JoinColumn({ name: 'region_id' })
   region: RegionModel; // 작성자의 지역 정보 자동 할당
 
@@ -41,7 +43,7 @@ export class ProductModel extends BaseModel {
   @Column({ default: PRODUCT_CONDITION.USED })
   condition: PRODUCT_CONDITION; // 제품 상태
 
-  @Column()
+  @Column({ default: false })
   isNegotiable: boolean; // 가격 제안 가능 여부
 
   @Column({ default: 0 })
