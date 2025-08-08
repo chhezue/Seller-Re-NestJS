@@ -70,13 +70,27 @@ const UpDateProductPage: React.FC = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const response = await fetch(`http://127.0.0.1:3000/api/product/${id}`);
+        const token = localStorage.getItem('accessToken'); // ✅ 저장된 토큰 꺼내기
+
+        const response = await fetch(`http://127.0.0.1:3000/api/product/${id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }), // ✅ 토큰이 있을 때만 헤더 추가
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
         const product = await response.json();
 
+        // 상태 세팅
         setTitle(product.name);
         setPrice(product.price);
         setDescription(product.description);
-        setCategoryId(product.category.id); // 이 값이 categories 중 하나와 정확히 일치해야 선택됨
+        setCategoryId(product.category.id);
         setIsNegotiable(product.isNegotiable);
         setStatus(product.status);
         setTradeType(product.tradeType);
