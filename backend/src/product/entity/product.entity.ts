@@ -1,5 +1,5 @@
 import { BaseModel } from '../../common/entity/base.entity';
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import {
   PRODUCT_CONDITION,
   PRODUCT_STATUS,
@@ -8,6 +8,7 @@ import {
 import { CategoryModel } from '../../common/entity/category.entity';
 import { UsersModel } from '../../users/entity/users.entity';
 import { RegionModel } from '../../common/entity/region.entity';
+import { ProductImageModel } from '../../uploads/entity/product-image.entity';
 
 @Entity()
 export class ProductModel extends BaseModel {
@@ -51,4 +52,10 @@ export class ProductModel extends BaseModel {
 
   @Column({ default: 0 })
   favoriteCount: number; // 즐겨찾기 수
+
+  @OneToMany(() => ProductImageModel, (image) => image.product, {
+    nullable: false,
+    eager: true,
+  })
+  images: ProductImageModel[];
 }

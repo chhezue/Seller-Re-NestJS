@@ -15,6 +15,7 @@ import {
   AccessTokenGuard,
   RefreshTokenGuard,
 } from './auth/guard/bearer-token.guard';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import {
     CommonModule,
     UsersModule,
     AuthModule,
+    UploadsModule,
   ],
   controllers: [AppController],
   providers: [

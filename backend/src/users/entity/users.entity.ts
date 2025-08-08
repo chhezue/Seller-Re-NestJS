@@ -7,13 +7,13 @@ import {
   OneToOne,
 } from 'typeorm';
 import { BaseModel } from '../../common/entity/base.entity';
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Exclude } from 'class-transformer';
 import { RegionModel } from '../../common/entity/region.entity';
 import { UserRolesEnum } from '../const/roles.const';
 import { UserStatusEnum } from '../const/status.const';
 import { LoginAttemptLogAtFailedModel } from '../../common/entity/login-attempt-log.entity';
 import { ProductModel } from '../../product/entity/product.entity';
+import { FileModel } from '../../uploads/entity/file.entity';
 
 @Entity()
 export class UsersModel extends BaseModel {
@@ -32,6 +32,13 @@ export class UsersModel extends BaseModel {
   @Exclude({ toPlainOnly: true })
   password: string;
 
+  // @OneToOne(() => FileModel, {
+  //   nullable: true,
+  //   eager: true, // 사용자 조회 시 이미지 파일 정보도 항상 함께 가져옴.
+  //   onDelete: 'SET NULL', // 연결된 파일이 삭제될 경우 이 필드를 null로 설정
+  // })
+  // @JoinColumn({ name: 'profile_image_id' })
+  // profileImage: FileModel;
   @Column({ name: 'profile_image', type: 'text', nullable: true })
   profileImage: string;
 
