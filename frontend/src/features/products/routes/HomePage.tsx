@@ -14,7 +14,6 @@ interface Product {
   createdAt: string;
   tradeType: string;
   status: string;
-  // ❌ categoryId 없음 (데이터 기준)
 }
 
 const HomePage: React.FC = () => {

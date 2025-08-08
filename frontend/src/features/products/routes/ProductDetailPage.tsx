@@ -11,19 +11,38 @@ const ProductDetailPage: React.FC = () => {
     const { userId, initialized } = useAuth(); // 현재 로그인 사용자 ID
 
     useEffect(() => {
-        const fetchProduct = async () => {
-            try {
-                const response = await fetch(`http://127.0.0.1:3000/api/product/${id}`);
-                const data = await response.json();
-                console.log('상품 데이터:', data);
-                setProduct(data);
-            } catch (error) {
-                console.error('상품 데이터 불러오기 실패:', error);
-            }
-        };
+    const fetchProduct = async () => {
+        const token = localStorage.getItem("accessToken");
 
-        fetchProduct();
-    }, [id]);
+        if (!token) {
+        alert("로그인이 필요합니다.");
+        navigate("/login");
+        return;
+        }
+
+        try {
+        const response = await fetch(`http://127.0.0.1:3000/api/product/${id}`, {
+            headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('상품 데이터:', data);
+        setProduct(data);
+        } catch (error) {
+        console.error('상품 데이터 불러오기 실패:', error);
+        }
+    };
+
+    fetchProduct();
+    }, [id, navigate]);
+
 
     const formatRelativeTime = (isoDate?: string) => {
         if (!isoDate) return '';

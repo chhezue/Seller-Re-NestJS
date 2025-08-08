@@ -127,7 +127,7 @@ export class AuthService {
     return this.loginUser(newUser);
   }
 
-  loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username' | 'username'>) {
+  loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username'>) {
     return {
       accessToken: this.signToken(user, false),
       refreshToken: this.signToken(user, true),
@@ -136,13 +136,11 @@ export class AuthService {
 
   signToken(
     
-    user: Pick<UsersModel, 'email' | 'id' | 'username' | 'username'>,
+    user: Pick<UsersModel, 'email' | 'id' | 'username'>,
    
     isRefreshToken: boolean,
-  ,
   ) {
     const payload = {
-      username: user.username,
       username: user.username,
       email: user.email,
       sub: user.id,

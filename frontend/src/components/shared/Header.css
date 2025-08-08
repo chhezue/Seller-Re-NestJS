@@ -44,14 +44,15 @@
     color: #333;
 }
 
-.login-btn {
-    margin-left: 20px;
-    padding: 5px 10px;
-    background-color: #007bff;
-    color: white;
-    border-radius: 5px;
-    text-decoration: none;
-    font-size: 14px;
+
+.login-main-button{
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
 }
 
 .hamburger-menu {
@@ -86,14 +87,6 @@
 .logout-btn:hover {
   background-color: #d32f2f;
 }
-
-.login-btn {
-  margin-left: 15px;
-  font-size: 14px;
-  color: #007bff;
-  text-decoration: none;
-}
-
 
 .main-footer {
   background-color: #f9f9f9;
