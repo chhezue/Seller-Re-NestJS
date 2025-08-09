@@ -10,6 +10,13 @@
   "scripts": {
     "start:backend": "cd backend && npm run start",
     "start:backend:dev": "cd backend && npm run start:dev",
-    "build:backend": "cd backend && npm run build"
+    "build:backend": "cd backend && npm run build",
+    "start:frontend:dev": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm:start:backend:dev\" \"npm:start:frontend:dev\"",
+    "dev:hoo": "rimraf backend/dist && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "rimraf": "^6.0.1"
   }
 }
