@@ -15,6 +15,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { RefreshTokenModel } from './entity/refresh-token.entity';
 import { Repository } from 'typeorm';
 import { v4 as uuid } from 'uuid';
+import { TokenRotationFailedDto } from '../logs/dto/token-rotation-failed.dto';
 
 @Injectable()
 export class AuthService {
@@ -60,15 +61,6 @@ export class AuthService {
     return { email, password };
   }
 
-  async loginWithEmail(
-    user: Pick<UsersModel, 'email' | 'password'>,
-    ip: string,
-  ) {
-    const existingUser = await this.authenticateWithEmailAndPassword(user, ip);
-
-    return this.loginUser(existingUser);
-  }
-
   async authenticateWithEmailAndPassword(
     user: Pick<UsersModel, 'email' | 'password'>,
     ip: string,
@@ -76,7 +68,7 @@ export class AuthService {
     const existingUser = await this.userService.getUserByEmail(user.email);
 
     if (!existingUser) {
-      throw new UnauthorizedException('email is not exists.');
+      throw new UnauthorizedException('email or password is not matched.');
     }
 
     if (existingUser.status === UserStatusEnum.LOCKED) {
@@ -159,7 +151,9 @@ export class AuthService {
     };
 
     // refresh: 7d, access: 1h
-    const expiresIn = isRefreshToken ? '7d' : '1h';
+    const expiresIn = isRefreshToken
+      ? this.configService.get<string>('JWT_REFRESH_EXPIRES_IN')
+      : this.configService.get<string>('JWT_ACCESS_EXPIRES_IN');
 
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
@@ -177,7 +171,7 @@ export class AuthService {
     }
   }
 
-  async rotateRefreshToken(token: string) {
+  async rotateRefreshToken(token: string, reqIP: string) {
     const decoded = this.verifyToken(token);
 
     if (decoded.type !== 'refresh') {
@@ -191,14 +185,50 @@ export class AuthService {
       relations: { user: true },
     });
 
-    if (!refreshToken || refreshToken.isRevoked) {
-      throw new UnauthorizedException('This token has been revoked.');
+    if (!refreshToken) {
+      /**
+       * DB에 JTI가 없다는 것은 정상조 발급된 토큰이 아니거나,
+       * 이미 rotate되어 이전 jti가 폐기된 후 함참 뒤에 사용된 경우.
+       * 누군가 탈취한 토큰을 사용하려 했을 가능성이 있으므로,
+       * decoded.sub (userId)를 이용해 해당 유저의 모든 토큰을 무효화 하고
+       * 강제 로그아웃 기능을 추가하기를 권장함.
+       *
+       * await this.revokeAllTokensForUser(decoded.sub);
+       */
+      const payload: TokenRotationFailedDto = {
+        userId: decoded.sub,
+        email: decoded.email,
+        ip: reqIP,
+      };
+      this.eventEmitter.emit('token.rotation.failed.NoRefreshToken', payload);
+      throw new UnauthorizedException('Invalid Refresh Token');
+    }
+
+    if (refreshToken.isRevoked) {
+      /**
+       * 이미 폐기된 토큰으로 재발급을 시도하는 경우는 정상적이지 않은 시도일 확률이 높음.
+       * 정상 사용자가 실수로 이전 토큰을 사용했을수도 있지만,
+       * 공격자가 탈취한 토큰을 사용하는 것일 확률이 더 높으므로
+       * 사용자에게 강제 로그아웃 기능을 적용함.
+       */
+      await this.revokeAllTokensForUser(refreshToken.user.id);
+
+      const payload: TokenRotationFailedDto = {
+        userId: refreshToken.user.id,
+        email: refreshToken.user.email,
+        ip: reqIP,
+      };
+      this.eventEmitter.emit(
+        'token.rotation.failed.RevokedRefreshToken',
+        payload,
+      );
+      throw new UnauthorizedException(
+        'Abnormal access detected. All Sessions have been terminated',
+      );
     }
 
     refreshToken.isRevoked = true;
-
     await this.refreshTokenRepository.save(refreshToken);
-
     return this.loginUser(refreshToken.user);
   }
 
@@ -211,5 +241,15 @@ export class AuthService {
       jti,
       expiresAt: expires,
     });
+  }
+
+  private async revokeAllTokensForUser(userId: string) {
+    await this.refreshTokenRepository.update(
+      {
+        user: { id: userId },
+        isRevoked: false,
+      },
+      { isRevoked: true },
+    );
   }
 }
