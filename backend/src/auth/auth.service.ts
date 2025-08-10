@@ -138,7 +138,9 @@ export class AuthService {
   }
 
   signToken(
+    
     user: Pick<UsersModel, 'email' | 'id' | 'username'>,
+   
     isRefreshToken: boolean,
     jti?: string,
   ) {

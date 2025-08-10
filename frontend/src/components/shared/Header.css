@@ -1,0 +1,128 @@
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 125px;
+    background-color: #ffffff;
+    border-bottom: 1px solid #ddd;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
+.main-logo a {
+    text-decoration: none;
+    color: #333;
+    font-size: 24px;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.nav-links {
+    margin-left: 20px;
+}
+
+.nav-links a {
+    margin-right: 15px;
+    text-decoration: none;
+    color: #555;
+    font-weight: 500;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+}
+
+.icon {
+    font-size: 18px;
+    margin-left: 15px;
+    cursor: pointer;
+    color: #333;
+}
+
+
+.login-main-button{
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.hamburger-menu {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 20px;
+}
+
+.user-info {
+  display: inline-block;
+  margin-left: 15px;
+  font-size: 14px;
+  color: #333;
+}
+
+.username {
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.logout-btn {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.logout-btn:hover {
+  background-color: #d32f2f;
+}
+
+.main-footer {
+  background-color: #f9f9f9;
+  border-top: 1px solid #ddd;
+  padding: 20px;
+  font-size: 14px;
+  color: #555;
+}
+
+.footer-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.footer-logo h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.footer-logo p {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: #777;
+}
+
+.footer-links a {
+  margin-left: 15px;
+  color: #555;
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  text-decoration: underline;
+}
