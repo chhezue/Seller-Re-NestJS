@@ -7,13 +7,12 @@ import {
   OneToOne,
 } from 'typeorm';
 import { BaseModel } from '../../common/entity/base.entity';
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Exclude } from 'class-transformer';
 import { RegionModel } from '../../common/entity/region.entity';
 import { UserRolesEnum } from '../const/roles.const';
 import { UserStatusEnum } from '../const/status.const';
-import { LoginAttemptLogAtFailedModel } from '../../common/entity/login-attempt-log.entity';
 import { ProductModel } from '../../product/entity/product.entity';
+import { LoginAttemptLogAtFailedModel } from '../../logs/entity/login-attempt-log.entity';
 
 @Entity()
 export class UsersModel extends BaseModel {

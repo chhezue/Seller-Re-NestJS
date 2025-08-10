@@ -11,6 +11,11 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserStatusEnum } from '../users/const/status.const';
+import { InjectRepository } from '@nestjs/typeorm';
+import { RefreshTokenModel } from './entity/refresh-token.entity';
+import { Repository } from 'typeorm';
+import { v4 as uuid } from 'uuid';
+import { TokenRotationFailedDto } from '../logs/dto/token-rotation-failed.dto';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +23,8 @@ export class AuthService {
   private readonly maxLoginAttempts: number;
 
   constructor(
+    @InjectRepository(RefreshTokenModel)
+    private readonly refreshTokenRepository: Repository<RefreshTokenModel>,
     private readonly userService: UsersService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
@@ -54,15 +61,6 @@ export class AuthService {
     return { email, password };
   }
 
-  async loginWithEmail(
-    user: Pick<UsersModel, 'email' | 'password'>,
-    ip: string,
-  ) {
-    const existingUser = await this.authenticateWithEmailAndPassword(user, ip);
-
-    return this.loginUser(existingUser);
-  }
-
   async authenticateWithEmailAndPassword(
     user: Pick<UsersModel, 'email' | 'password'>,
     ip: string,
@@ -70,7 +68,7 @@ export class AuthService {
     const existingUser = await this.userService.getUserByEmail(user.email);
 
     if (!existingUser) {
-      throw new UnauthorizedException('email is not exists.');
+      throw new UnauthorizedException('email or password is not matched.');
     }
 
     if (existingUser.status === UserStatusEnum.LOCKED) {
@@ -127,10 +125,15 @@ export class AuthService {
     return this.loginUser(newUser);
   }
 
-  loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username'>) {
+  async loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username'>) {
+    const jti = uuid();
+    const accessToken = this.signToken(user, false);
+    const refreshToken = this.signToken(user, true, jti);
+
+    await this.saveRefreshToken(user.id, jti);
     return {
-      accessToken: this.signToken(user, false),
-      refreshToken: this.signToken(user, true),
+      accessToken,
+      refreshToken,
     };
   }
 
@@ -139,18 +142,24 @@ export class AuthService {
     user: Pick<UsersModel, 'email' | 'id' | 'username'>,
    
     isRefreshToken: boolean,
+    jti?: string,
   ) {
     const payload = {
       username: user.username,
       email: user.email,
       sub: user.id,
       type: isRefreshToken ? 'refresh' : 'access',
+      ...(jti && { jti }), // if jti exists, add it to the payload
     };
+
+    // refresh: 7d, access: 1h
+    const expiresIn = isRefreshToken
+      ? this.configService.get<string>('JWT_REFRESH_EXPIRES_IN')
+      : this.configService.get<string>('JWT_ACCESS_EXPIRES_IN');
 
     return this.jwtService.sign(payload, {
       secret: this.jwtSecret,
-      // refresh: 7d, access: 1h
-      expiresIn: isRefreshToken ? '7d' : '1h',
+      expiresIn,
     });
   }
 
@@ -164,28 +173,85 @@ export class AuthService {
     }
   }
 
-  async reissueToken(token: string, isRefresh: boolean) {
-    const newToken = await this.rotateToken(token, isRefresh);
-    const tokenType = isRefresh ? 'refreshToken' : 'accessToken';
-
-    return { [tokenType]: newToken };
-  }
-
-  async rotateToken(token: string, isRefreshToken: boolean) {
-    const decoded = this.jwtService.verify(token, {
-      secret: this.jwtSecret,
-    });
+  async rotateRefreshToken(token: string, reqIP: string) {
+    const decoded = this.verifyToken(token);
 
     if (decoded.type !== 'refresh') {
-      throw new UnauthorizedException('only refresh token can be rotated');
+      throw new UnauthorizedException(
+        'a refreshToken must be provided for rotation.',
+      );
     }
 
-    const user = await this.userService.getUserByEmail(decoded.email);
+    const refreshToken = await this.refreshTokenRepository.findOne({
+      where: { jti: decoded.jti },
+      relations: { user: true },
+    });
 
-    if (!user) {
-      throw new UnauthorizedException('not exists user, please login again');
+    if (!refreshToken) {
+      /**
+       * DB에 JTI가 없다는 것은 정상조 발급된 토큰이 아니거나,
+       * 이미 rotate되어 이전 jti가 폐기된 후 함참 뒤에 사용된 경우.
+       * 누군가 탈취한 토큰을 사용하려 했을 가능성이 있으므로,
+       * decoded.sub (userId)를 이용해 해당 유저의 모든 토큰을 무효화 하고
+       * 강제 로그아웃 기능을 추가하기를 권장함.
+       *
+       * await this.revokeAllTokensForUser(decoded.sub);
+       */
+      const payload: TokenRotationFailedDto = {
+        userId: decoded.sub,
+        email: decoded.email,
+        ip: reqIP,
+      };
+      this.eventEmitter.emit('token.rotation.failed.NoRefreshToken', payload);
+      throw new UnauthorizedException('Invalid Refresh Token');
     }
 
-    return this.signToken(user, isRefreshToken);
+    if (refreshToken.isRevoked) {
+      /**
+       * 이미 폐기된 토큰으로 재발급을 시도하는 경우는 정상적이지 않은 시도일 확률이 높음.
+       * 정상 사용자가 실수로 이전 토큰을 사용했을수도 있지만,
+       * 공격자가 탈취한 토큰을 사용하는 것일 확률이 더 높으므로
+       * 사용자에게 강제 로그아웃 기능을 적용함.
+       */
+      await this.revokeAllTokensForUser(refreshToken.user.id);
+
+      const payload: TokenRotationFailedDto = {
+        userId: refreshToken.user.id,
+        email: refreshToken.user.email,
+        ip: reqIP,
+      };
+      this.eventEmitter.emit(
+        'token.rotation.failed.RevokedRefreshToken',
+        payload,
+      );
+      throw new UnauthorizedException(
+        'Abnormal access detected. All Sessions have been terminated',
+      );
+    }
+
+    refreshToken.isRevoked = true;
+    await this.refreshTokenRepository.save(refreshToken);
+    return this.loginUser(refreshToken.user);
+  }
+
+  private async saveRefreshToken(userId: string, jti: string) {
+    const expires = new Date();
+    expires.setDate(expires.getDate() + 7);
+
+    await this.refreshTokenRepository.save({
+      user: { id: userId },
+      jti,
+      expiresAt: expires,
+    });
+  }
+
+  private async revokeAllTokensForUser(userId: string) {
+    await this.refreshTokenRepository.update(
+      {
+        user: { id: userId },
+        isRevoked: false,
+      },
+      { isRevoked: true },
+    );
   }
 }

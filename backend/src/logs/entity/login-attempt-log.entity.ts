@@ -1,6 +1,6 @@
-import { BaseModel } from './base.entity';
 import { Column, CreateDateColumn, Entity, ManyToOne } from 'typeorm';
 import { UsersModel } from '../../users/entity/users.entity';
+import { BaseModel } from '../../common/entity/base.entity';
 
 @Entity()
 export class LoginAttemptLogAtFailedModel extends BaseModel {
