@@ -4,9 +4,15 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { BasicTokenGuard } from './guard/basic-token.guard';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { RefreshTokenModel } from './entity/refresh-token.entity';
 
 @Module({
-  imports: [UsersModule, JwtModule.register({})],
+  imports: [
+    UsersModule,
+    JwtModule.register({}),
+    TypeOrmModule.forFeature([RefreshTokenModel]),
+  ],
   controllers: [AuthController],
   providers: [AuthService, BasicTokenGuard],
   exports: [AuthService],

@@ -28,15 +28,26 @@ export class BearerTokenGuard implements CanActivate {
 
     if (isPublic) {
       if (rawToken) {
-        try {
-          const token = this.authService.extractTokenFromHeader(rawToken, true);
-          const payload = await this.authService.verifyToken(token);
-          const user = await this.userService.getUserByEmail(payload.email);
+        if (rawToken.startsWith('Bearer ')) {
+          try {
+            const token = this.authService.extractTokenFromHeader(
+              rawToken,
+              true,
+            );
+            const payload = await this.authService.verifyToken(token);
+            const user = await this.userService.getUserByEmail(payload.email);
 
-          req.user = user;
-          req.token = token;
-          req.tokenType = payload.type;
-        } catch (e) {}
+            console.log('token : ', token);
+            console.log('payload: ', payload);
+            console.log('user: ', user);
+
+            req.user = user;
+            req.token = token;
+            req.tokenType = payload.type;
+          } catch (e) {
+            throw e;
+          }
+        }
       }
       req.isRouterPublic = true;
       return true;
@@ -82,17 +93,19 @@ export class AccessTokenGuard extends BearerTokenGuard {
 }
 
 @Injectable()
-export class RefreshTokenGuard extends BearerTokenGuard {
+export class RefreshTokenGuard implements CanActivate {
+  constructor(private readonly authService: AuthService) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    await super.canActivate(context);
-
     const req = context.switchToHttp().getRequest();
+    const rawToken = req.headers.authorization;
 
-    if (req.tokenType !== 'refresh') {
-      throw new UnauthorizedException(
-        'Invalid Token Type. Refresh Token is required.',
-      );
+    if (!rawToken) {
+      throw new UnauthorizedException('No Refresh Token Provided');
     }
+    const token = this.authService.extractTokenFromHeader(rawToken, true);
+
+    req.token = token;
 
     return true;
   }
