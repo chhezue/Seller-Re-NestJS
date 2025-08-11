@@ -90,6 +90,14 @@ export class AuthService {
       });
     }
 
+    if (existingUser.status === UserStatusEnum.SUSPENDED) {
+      throw new ForbiddenException({
+        message:
+          'This account has been suspended. Please contact customer support.',
+        errorCode: AuthErrorCode.ACCOUNT_SUSPENDED,
+      });
+    }
+
     if (existingUser.status === UserStatusEnum.DELETED) {
       // To prevent user enumeration, treat deleted users the same as non-existent ones.
       throw new UnauthorizedException({

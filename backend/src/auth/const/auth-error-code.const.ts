@@ -14,6 +14,12 @@ export enum AuthErrorCode {
   ACCOUNT_LOCKED = 'ACCOUNT_LOCKED',
 
   /**
+   * The account has been temporarily suspended by an administrator.
+   * The user should contact support for resolution.
+   */
+  ACCOUNT_SUSPENDED = 'ACCOUNT_SUSPENDED',
+
+  /**
    * The provided token is invalid, expired, or malformed.
    * This is a general-purpose error for any token validation failure.
    */
