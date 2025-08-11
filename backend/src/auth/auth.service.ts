@@ -16,6 +16,7 @@ import { RefreshTokenModel } from './entity/refresh-token.entity';
 import { Repository } from 'typeorm';
 import { v4 as uuid } from 'uuid';
 import { TokenRotationFailedDto } from '../logs/dto/token-rotation-failed.dto';
+import { AuthErrorCode } from './const/auth-error-code.const';
 
 @Injectable()
 export class AuthService {
@@ -44,7 +45,11 @@ export class AuthService {
     const splitToken = headerRawToken.split(' ');
     const prefix = isBearer ? 'Bearer' : 'Basic';
     if (splitToken.length !== 2 || splitToken[0] !== prefix) {
-      throw new UnauthorizedException('Invalid token format');
+      // throw new UnauthorizedException('Invalid token format');
+      throw new UnauthorizedException({
+        message: 'Invalid token format.',
+        errorCode: AuthErrorCode.INVALID_TOKEN,
+      });
     }
 
     return splitToken[1];
@@ -55,7 +60,10 @@ export class AuthService {
     const [email, password] = decoded.split(':');
 
     if (!email || !password) {
-      throw new UnauthorizedException('Invalid Base Token(email or password)');
+      throw new UnauthorizedException({
+        message: 'Invalid authorization credentials.',
+        errorCode: AuthErrorCode.INVALID_TOKEN,
+      });
     }
 
     return { email, password };
@@ -68,11 +76,26 @@ export class AuthService {
     const existingUser = await this.userService.getUserByEmail(user.email);
 
     if (!existingUser) {
-      throw new UnauthorizedException('email or password is not matched.');
+      throw new UnauthorizedException({
+        message: 'Email or password does not match.',
+        errorCode: AuthErrorCode.AUTHENTICATION_FAILED,
+      });
     }
 
     if (existingUser.status === UserStatusEnum.LOCKED) {
-      throw new ForbiddenException('User is locked.');
+      throw new ForbiddenException({
+        message:
+          'This account is locked due to multiple failed login attempts. Please try again later or reset your password.',
+        errorCode: AuthErrorCode.ACCOUNT_LOCKED,
+      });
+    }
+
+    if (existingUser.status === UserStatusEnum.DELETED) {
+      // To prevent user enumeration, treat deleted users the same as non-existent ones.
+      throw new UnauthorizedException({
+        message: 'Email or password does not match.',
+        errorCode: AuthErrorCode.AUTHENTICATION_FAILED,
+      });
     }
 
     const isPasswordMatch = await bcrypt.compare(
@@ -103,12 +126,18 @@ export class AuthService {
     });
 
     if (shouldLock) {
-      throw new ForbiddenException(
-        'Account has been locked due to too many failed login attempts.',
-      );
+      throw new ForbiddenException({
+        message:
+          'Account has been locked due to too many failed login attempts.',
+        errorCode: AuthErrorCode.ACCOUNT_LOCKED,
+      });
     }
 
-    throw new UnauthorizedException('email or password is not matched.');
+    // Generic failure for wrong password
+    throw new UnauthorizedException({
+      message: 'Email or password does not match.',
+      errorCode: AuthErrorCode.AUTHENTICATION_FAILED,
+    });
   }
 
   async registerWithEmail(user: RegisterUserDto) {
@@ -138,9 +167,8 @@ export class AuthService {
   }
 
   signToken(
-    
     user: Pick<UsersModel, 'email' | 'id' | 'username'>,
-   
+
     isRefreshToken: boolean,
     jti?: string,
   ) {
@@ -169,7 +197,10 @@ export class AuthService {
         secret: this.jwtSecret,
       });
     } catch (error) {
-      throw new UnauthorizedException('Invalid token or expired token');
+      throw new UnauthorizedException({
+        message: 'Invalid or expired token.',
+        errorCode: AuthErrorCode.INVALID_TOKEN,
+      });
     }
   }
 
@@ -177,9 +208,10 @@ export class AuthService {
     const decoded = this.verifyToken(token);
 
     if (decoded.type !== 'refresh') {
-      throw new UnauthorizedException(
-        'a refreshToken must be provided for rotation.',
-      );
+      throw new UnauthorizedException({
+        message: 'A refresh token must be provided for rotation.',
+        errorCode: AuthErrorCode.INVALID_TOKEN_TYPE,
+      });
     }
 
     const refreshToken = await this.refreshTokenRepository.findOne({
@@ -203,7 +235,10 @@ export class AuthService {
         ip: reqIP,
       };
       this.eventEmitter.emit('token.rotation.failed.NoRefreshToken', payload);
-      throw new UnauthorizedException('Invalid Refresh Token');
+      throw new UnauthorizedException({
+        message: 'Invalid Refresh Token.',
+        errorCode: AuthErrorCode.INVALID_TOKEN,
+      });
     }
 
     if (refreshToken.isRevoked) {
@@ -224,9 +259,10 @@ export class AuthService {
         'token.rotation.failed.RevokedRefreshToken',
         payload,
       );
-      throw new UnauthorizedException(
-        'Abnormal access detected. All Sessions have been terminated',
-      );
+      throw new UnauthorizedException({
+        message: 'Abnormal access detected. All sessions have been terminated.',
+        errorCode: AuthErrorCode.INVALID_TOKEN,
+      });
     }
 
     refreshToken.isRevoked = true;
