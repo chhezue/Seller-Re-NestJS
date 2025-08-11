@@ -2,13 +2,16 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UsersModel } from './entity/users.entity';
 import { Repository } from 'typeorm';
-import { RegisterUserDto } from '../auth/dto/register-user.dto';
+import { ConfigService } from '@nestjs/config';
+import { CreateUserDto } from './dto/create-user.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(UsersModel)
     private readonly usersRepository: Repository<UsersModel>,
+    private readonly configService: ConfigService,
   ) {}
 
   async getUserByEmail(email: string) {
@@ -17,10 +20,8 @@ export class UsersService {
     });
   }
 
-  async createUser(
-    user: Omit<RegisterUserDto, 'password'> & { password: string },
-  ) {
-    const { username, email, region_id, ...rest } = user;
+  async createUser(userDto: CreateUserDto) {
+    const { username, email, password, region_id, ...rest } = userDto;
 
     const existingUser = await this.usersRepository.findOne({
       where: [{ username }, { email }],
@@ -29,21 +30,27 @@ export class UsersService {
     if (existingUser) {
       if (existingUser.username === username) {
         throw new BadRequestException({
-          message: 'username is already exists.',
-          field: 'exists username',
+          field: 'username',
+          message: 'This username is already taken.',
         });
       }
       if (existingUser.email === email) {
         throw new BadRequestException({
-          message: 'email is already exists.',
-          field: 'exists email',
+          field: 'email',
+          message: 'This email is already registered.',
         });
       }
     }
 
+    const hashedPassword = await bcrypt.hash(
+      password,
+      parseInt(this.configService.get<string>('HASH_ROUNDS', '10')),
+    );
+
     const newUserObject = this.usersRepository.create({
       username: username,
       email: email,
+      password: hashedPassword,
       ...rest,
       region: region_id ? { id: region_id } : null,
     });

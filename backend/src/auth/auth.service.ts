@@ -7,7 +7,6 @@ import { UsersModel } from '../users/entity/users.entity';
 import { UsersService } from '../users/users.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import * as bcrypt from 'bcrypt';
-import { RegisterUserDto } from './dto/register-user.dto';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserStatusEnum } from '../users/const/status.const';
@@ -146,20 +145,6 @@ export class AuthService {
       message: 'Email or password does not match.',
       errorCode: AuthErrorCode.AUTHENTICATION_FAILED,
     });
-  }
-
-  async registerWithEmail(user: RegisterUserDto) {
-    const hash = await bcrypt.hash(
-      user.password,
-      parseInt(this.configService.get<string>('HASH_ROUNDS') ?? '10'),
-    );
-
-    const newUser = await this.userService.createUser({
-      ...user,
-      password: hash,
-    });
-
-    return this.loginUser(newUser);
   }
 
   async loginUser(user: Pick<UsersModel, 'email' | 'id' | 'username'>) {
