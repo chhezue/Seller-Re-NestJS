@@ -30,4 +30,15 @@ export enum AuthErrorCode {
    * For example, using an access token to refresh tokens.
    */
   INVALID_TOKEN_TYPE = 'INVALID_TOKEN_TYPE',
+  /**
+   * A general validation error for request bodies.
+   * e.g., trying to unlock an account without providing email or phone.
+   */
+  VALIDATION_FAILED = 'VALIDATION_FAILED',
+
+  /**
+   * The account is not in the required state for the operation.
+   * e.g., trying to unlock an account that is not locked.
+   */
+  ACCOUNT_STATE_INVALID = 'ACCOUNT_STATE_INVALID',
 }

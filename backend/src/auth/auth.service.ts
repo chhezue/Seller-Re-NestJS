@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   UnauthorizedException,
@@ -16,6 +17,7 @@ import { Repository } from 'typeorm';
 import { v4 as uuid } from 'uuid';
 import { TokenRotationFailedDto } from '../logs/dto/token-rotation-failed.dto';
 import { AuthErrorCode } from './const/auth-error-code.const';
+import { UnlockAccountDto } from './dto/unlock-account.dto';
 
 @Injectable()
 export class AuthService {
@@ -282,5 +284,40 @@ export class AuthService {
       },
       { isRevoked: true },
     );
+  }
+
+  async unlockAccount(dto: UnlockAccountDto) {
+    const { email, phoneNumber } = dto;
+
+    if (!email && !phoneNumber) {
+      throw new BadRequestException({
+        message: 'Either email or phone number must be provided.',
+        errorCode: AuthErrorCode.VALIDATION_FAILED,
+      });
+    }
+
+    let user: UsersModel | null = null;
+
+    if (email) {
+      user = await this.userService.getUserByEmail(email);
+    } else if (phoneNumber) {
+      user = await this.userService.getUserByPhoneNumber(phoneNumber);
+    }
+
+    if (!user || user.status !== UserStatusEnum.LOCKED) {
+      throw new BadRequestException({
+        message: 'The account is not locked.',
+        errorCode: AuthErrorCode.ACCOUNT_STATE_INVALID,
+      });
+    }
+
+    await this.userService.updateUser(user.id, {
+      status: UserStatusEnum.ACTIVE,
+      passwordFailedCount: 0,
+    });
+
+    return {
+      message: 'Your account has been successfully unlocked. You can now log in.',
+    };
   }
 }

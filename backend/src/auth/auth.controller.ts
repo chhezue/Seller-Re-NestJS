@@ -1,4 +1,13 @@
-import { Controller, Post, UseGuards, Get, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UseGuards,
+  Get,
+  Req,
+  Body,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { IsPublic } from '../common/decorator/is-public.decorator';
 import { RefreshTokenGuard } from './guard/bearer-token.guard';
@@ -7,6 +16,7 @@ import { UsersModel } from '../users/entity/users.entity';
 import { BasicTokenGuard } from './guard/basic-token.guard';
 import { Token } from './decorator/token.decorator';
 import { Request } from 'express';
+import { UnlockAccountDto } from './dto/unlock-account.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -24,6 +34,13 @@ export class AuthController {
   @UseGuards(RefreshTokenGuard)
   async postTokenRefresh(@Token() token: string, @Req() req: Request) {
     return await this.authService.rotateRefreshToken(token, req.ip);
+  }
+
+  @Post('unlock')
+  @IsPublic()
+  @HttpCode(HttpStatus.OK)
+  async postUnlockAccount(@Body() body: UnlockAccountDto) {
+    return this.authService.unlockAccount(body);
   }
 
   //TEST API

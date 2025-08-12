@@ -61,4 +61,10 @@ export class UsersService {
   async updateUser(userId: string, dto: Partial<UsersModel>) {
     await this.usersRepository.update(userId, dto);
   }
+
+  async getUserByPhoneNumber(phoneNumber: string): Promise<UsersModel | null> {
+    return this.usersRepository.findOne({
+      where: { phoneNumber },
+    });
+  }
 }
