@@ -28,6 +28,7 @@ import { VerifyUnlockDto } from './dto/verify-unlock.dto';
 export class AuthService {
   private readonly jwtSecret: string;
   private readonly maxLoginAttempts: number;
+  private readonly unlockCodeTtl: number;
 
   constructor(
     @InjectRepository(RefreshTokenModel)
@@ -40,6 +41,9 @@ export class AuthService {
     private cacheManager: Cache,
     private readonly mailService: MailService,
   ) {
+    console.log(
+      `[${new Date().toISOString()}] AuthService initialized. Cache Manager is ${this.cacheManager ? 'available' : 'NOT available'}.`,
+    );
     this.jwtSecret =
       this.configService.get<string>('JWT_SECRET') +
       this.configService.get<string>('CAT');
@@ -48,6 +52,11 @@ export class AuthService {
       this.configService.get<string>('AUTH_MAX_LOGIN_ATTEMPTS', '5'),
       10,
     );
+
+    this.unlockCodeTtl =
+      parseInt(
+        this.configService.get<string>('AUTH_UNLOCK_CODE_TTL_SECONDS', '300'),
+      ) * 1000;
   }
 
   extractTokenFromHeader(headerRawToken: string, isBearer: boolean) {
@@ -310,7 +319,7 @@ export class AuthService {
     ).toString();
     const cacheKey = `unlock-code:${email}`;
 
-    await this.cacheManager.set(cacheKey, verificationCode, 300);
+    await this.cacheManager.set(cacheKey, verificationCode, this.unlockCodeTtl);
 
     await this.mailService.sendAccountUnlockVerification(
       user,
@@ -325,6 +334,7 @@ export class AuthService {
   async verifyAndUnlockAccount(dto: VerifyUnlockDto) {
     const { email, verificationCode } = dto;
     const cacheKey = `unlock-code:${email}`;
+
     const cachedCode = await this.cacheManager.get<string>(cacheKey);
 
     if (!cachedCode) {
