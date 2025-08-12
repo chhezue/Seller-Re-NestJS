@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -17,7 +18,11 @@ import { Repository } from 'typeorm';
 import { v4 as uuid } from 'uuid';
 import { TokenRotationFailedDto } from '../logs/dto/token-rotation-failed.dto';
 import { AuthErrorCode } from './const/auth-error-code.const';
-import { UnlockAccountDto } from './dto/unlock-account.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { MailService } from '../mail/mail.service';
+import { RequestUnlockDto } from './dto/request-unlock.dto';
+import { VerifyUnlockDto } from './dto/verify-unlock.dto';
 
 @Injectable()
 export class AuthService {
@@ -31,6 +36,9 @@ export class AuthService {
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
+    private readonly mailService: MailService,
   ) {
     this.jwtSecret =
       this.configService.get<string>('JWT_SECRET') +
@@ -286,27 +294,57 @@ export class AuthService {
     );
   }
 
-  async unlockAccount(dto: UnlockAccountDto) {
-    const { email, phoneNumber } = dto;
+  async requestAccountUnlock(dto: RequestUnlockDto) {
+    const { email } = dto;
+    const user = await this.userService.getUserByEmail(email);
 
-    if (!email && !phoneNumber) {
+    if (!user || user.status !== UserStatusEnum.LOCKED) {
       throw new BadRequestException({
-        message: 'Either email or phone number must be provided.',
+        message: 'No locked account found with the provided email.',
+        errorCode: AuthErrorCode.ACCOUNT_STATE_INVALID,
+      });
+    }
+
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
+    const cacheKey = `unlock-code:${email}`;
+
+    await this.cacheManager.set(cacheKey, verificationCode, 300);
+
+    await this.mailService.sendAccountUnlockVerification(
+      user,
+      verificationCode,
+    );
+
+    return {
+      message: 'A verification code has been sent to your email.',
+    };
+  }
+
+  async verifyAndUnlockAccount(dto: VerifyUnlockDto) {
+    const { email, verificationCode } = dto;
+    const cacheKey = `unlock-code:${email}`;
+    const cachedCode = await this.cacheManager.get<string>(cacheKey);
+
+    if (!cachedCode) {
+      throw new BadRequestException({
+        message: 'Verification code has expired or invalid.',
         errorCode: AuthErrorCode.VALIDATION_FAILED,
       });
     }
 
-    let user: UsersModel | null = null;
-
-    if (email) {
-      user = await this.userService.getUserByEmail(email);
-    } else if (phoneNumber) {
-      user = await this.userService.getUserByPhoneNumber(phoneNumber);
+    if (cachedCode !== verificationCode) {
+      throw new BadRequestException({
+        message: 'The provided verification code is incorrect.',
+        errorCode: AuthErrorCode.VALIDATION_FAILED,
+      });
     }
 
+    const user = await this.userService.getUserByEmail(email);
     if (!user || user.status !== UserStatusEnum.LOCKED) {
       throw new BadRequestException({
-        message: 'The account is not locked.',
+        message: 'Account is not in a locked state.',
         errorCode: AuthErrorCode.ACCOUNT_STATE_INVALID,
       });
     }
@@ -316,8 +354,11 @@ export class AuthService {
       passwordFailedCount: 0,
     });
 
+    await this.cacheManager.del(cacheKey);
+
     return {
-      message: 'Your account has been successfully unlocked. You can now log in.',
+      message:
+        'Your account has been successfully unlocked. You can now log in.',
     };
   }
 }

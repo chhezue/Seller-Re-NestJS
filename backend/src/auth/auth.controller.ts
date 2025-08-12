@@ -16,7 +16,8 @@ import { UsersModel } from '../users/entity/users.entity';
 import { BasicTokenGuard } from './guard/basic-token.guard';
 import { Token } from './decorator/token.decorator';
 import { Request } from 'express';
-import { UnlockAccountDto } from './dto/unlock-account.dto';
+import { RequestUnlockDto } from './dto/request-unlock.dto';
+import { VerifyUnlockDto } from './dto/verify-unlock.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -36,11 +37,18 @@ export class AuthController {
     return await this.authService.rotateRefreshToken(token, req.ip);
   }
 
-  @Post('unlock')
+  @Post('unlock/request')
   @IsPublic()
   @HttpCode(HttpStatus.OK)
-  async postUnlockAccount(@Body() body: UnlockAccountDto) {
-    return this.authService.unlockAccount(body);
+  async postRequestUnlock(@Body() body: RequestUnlockDto) {
+    return this.authService.requestAccountUnlock(body);
+  }
+
+  @Post('unlock/verify')
+  @IsPublic()
+  @HttpCode(HttpStatus.OK)
+  async postVerifyUnlock(@Body() body: VerifyUnlockDto) {
+    return this.authService.verifyAndUnlockAccount(body);
   }
 
   //TEST API
