@@ -11,7 +11,7 @@ import * as path from 'path';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const fromName = configService.get<string>('MAIL_FROM_NAME');
+        const fromName = configService.get<string>('MAIL_FROM');
         const fromEmail = configService.get<string>('MAIL_USER');
 
         const templateDir = path.join(__dirname, '..', '..', 'templates');
