@@ -11,6 +11,8 @@ import {
 import { TokenRotationFailedDto } from './dto/token-rotation-failed.dto';
 import { EmailLogModel } from './entity/email-log.entity';
 import { EmailSentDto } from './dto/email.sent.dto';
+import { PasswordChangeLogModel } from './entity/password-change-log.entity';
+import { PasswordChangedDto } from './dto/password-changed.dto';
 
 @Injectable()
 export class LogsService {
@@ -21,6 +23,8 @@ export class LogsService {
     private readonly tokenEventLogRepository: Repository<TokenEventLogModel>,
     @InjectRepository(EmailLogModel)
     private readonly emailLogRepository: Repository<EmailLogModel>,
+    @InjectRepository(PasswordChangeLogModel)
+    private readonly passwordChangeLogRepository: Repository<PasswordChangeLogModel>,
   ) {}
 
   private readonly logger = new Logger(LogsService.name);
@@ -92,5 +96,20 @@ export class LogsService {
     });
 
     await this.emailLogRepository.save(newLog);
+  }
+
+  @OnEvent('user.password.changed')
+  async handlePasswordChangedEvent(payload: PasswordChangedDto) {
+    this.logger.log(
+      `[Password Changed] UserId : ${payload.user.id} | IP : ${payload.ip} | Method : ${payload.method}`,
+    );
+
+    const newLog = this.passwordChangeLogRepository.create({
+      user: { id: payload.user.id },
+      ip: payload.ip,
+      changeMethod: payload.method,
+    });
+
+    await this.passwordChangeLogRepository.save(newLog);
   }
 }

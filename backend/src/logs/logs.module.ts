@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { LoginAttemptLogAtFailedModel } from './entity/login-attempt-log.entity';
 import { TokenEventLogModel } from './entity/token-event-log.entity';
 import { EmailLogModel } from './entity/email-log.entity';
+import { PasswordChangeLogModel } from './entity/password-change-log.entity';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { EmailLogModel } from './entity/email-log.entity';
       LoginAttemptLogAtFailedModel,
       TokenEventLogModel,
       EmailLogModel,
+      PasswordChangeLogModel,
     ]),
   ],
   providers: [LogsService],

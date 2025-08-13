@@ -23,6 +23,7 @@ import { Cache } from 'cache-manager';
 import { MailService } from '../mail/mail.service';
 import { RequestUnlockDto } from './dto/request-unlock.dto';
 import { VerifyUnlockDto } from './dto/verify-unlock.dto';
+import { PasswordChangeMethod } from '../logs/const/password-change-method.const';
 
 @Injectable()
 export class AuthService {
@@ -39,7 +40,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     @Inject(CACHE_MANAGER)
     private cacheManager: Cache,
-    private readonly mailService: MailService,
   ) {
     this.jwtSecret =
       this.configService.get<string>('JWT_SECRET') +
@@ -328,7 +328,7 @@ export class AuthService {
     };
   }
 
-  async verifyAndUnlockAccount(dto: VerifyUnlockDto) {
+  async verifyAndUnlockAccount(dto: VerifyUnlockDto, ip: string) {
     const { email, verificationCode } = dto;
     const cacheKey = `unlock-code:${email}`;
 
@@ -367,6 +367,12 @@ export class AuthService {
       status: UserStatusEnum.ACTIVE,
       passwordFailedCount: 0,
       password: hashedPassword,
+    });
+
+    this.eventEmitter.emit('user.password.changed', {
+      user,
+      ip,
+      method: PasswordChangeMethod.UNLOCK_RESET,
     });
 
     this.eventEmitter.emit('user.password.reset', {

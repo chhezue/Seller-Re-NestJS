@@ -1,0 +1,5 @@
+export enum PasswordChangeMethod {
+  USER_INITIATED = 'USER_INITIATED',
+  UNLOCK_RESET = 'UNLOCK_RESET',
+  ADMIN_RESET = 'ADMIN_RESET',
+}
