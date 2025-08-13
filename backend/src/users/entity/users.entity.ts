@@ -13,6 +13,7 @@ import { UserRolesEnum } from '../const/roles.const';
 import { UserStatusEnum } from '../const/status.const';
 import { ProductModel } from '../../product/entity/product.entity';
 import { LoginAttemptLogAtFailedModel } from '../../logs/entity/login-attempt-log.entity';
+import { EmailLogModel } from '../../logs/entity/email-log.entity';
 
 @Entity()
 export class UsersModel extends BaseModel {
@@ -70,4 +71,7 @@ export class UsersModel extends BaseModel {
 
   @OneToMany(() => ProductModel, (product) => product.author)
   products: ProductModel[];
+
+  @OneToMany(() => EmailLogModel, (log) => log.user)
+  emailLogs: EmailLogModel[];
 }

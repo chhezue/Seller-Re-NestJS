@@ -9,6 +9,8 @@ import {
   TokenEventType,
 } from './entity/token-event-log.entity';
 import { TokenRotationFailedDto } from './dto/token-rotation-failed.dto';
+import { EmailLogModel } from './entity/email-log.entity';
+import { EmailSentDto } from './dto/email.sent.dto';
 
 @Injectable()
 export class LogsService {
@@ -17,6 +19,8 @@ export class LogsService {
     private readonly loginAttemptLogRepository: Repository<LoginAttemptLogAtFailedModel>,
     @InjectRepository(TokenEventLogModel)
     private readonly tokenEventLogRepository: Repository<TokenEventLogModel>,
+    @InjectRepository(EmailLogModel)
+    private readonly emailLogRepository: Repository<EmailLogModel>,
   ) {}
 
   private readonly logger = new Logger(LogsService.name);
@@ -71,5 +75,22 @@ export class LogsService {
     });
 
     await this.tokenEventLogRepository.save(newLog);
+  }
+
+  @OnEvent('email.sent')
+  async handleEmailSentEvent(payload: EmailSentDto) {
+    this.logger.log(
+      `[Email Sent] Recipient: ${payload.recipient} | Subject: ${payload.subject} | Status : ${payload.status}`,
+    );
+
+    const newLog = this.emailLogRepository.create({
+      user: payload.user ? { id: payload.user.id } : null,
+      recipient: payload.recipient,
+      subject: payload.subject,
+      status: payload.status,
+      errorMessage: payload.errorMessage,
+    });
+
+    await this.emailLogRepository.save(newLog);
   }
 }
