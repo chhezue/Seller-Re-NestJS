@@ -41,9 +41,6 @@ export class AuthService {
     private cacheManager: Cache,
     private readonly mailService: MailService,
   ) {
-    console.log(
-      `[${new Date().toISOString()}] AuthService initialized. Cache Manager is ${this.cacheManager ? 'available' : 'NOT available'}.`,
-    );
     this.jwtSecret =
       this.configService.get<string>('JWT_SECRET') +
       this.configService.get<string>('CAT');
@@ -359,16 +356,29 @@ export class AuthService {
       });
     }
 
+    const temporaryPassword = Math.random().toString(36).slice(-8);
+
+    const hashedPassword = await bcrypt.hash(
+      temporaryPassword,
+      parseInt(this.configService.get<string>('HASH_ROUNDS', '10')),
+    );
+
     await this.userService.updateUser(user.id, {
       status: UserStatusEnum.ACTIVE,
       passwordFailedCount: 0,
+      password: hashedPassword,
     });
+
+    await this.mailService.sendPasswordResetNotification(
+      user,
+      temporaryPassword,
+    );
 
     await this.cacheManager.del(cacheKey);
 
     return {
       message:
-        'Your account has been successfully unlocked. You can now log in.',
+        'Your account has been successfully unlocked. You can now log in with new password.',
     };
   }
 }

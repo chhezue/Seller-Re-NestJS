@@ -21,7 +21,26 @@ export class MailService {
         },
       })
       .catch((err) => {
-        console.error(err);
+        console.error('fail to send unlock verification email', err);
+      });
+  }
+
+  async sendPasswordResetNotification(
+    user: Pick<UsersModel, 'email' | 'username'>,
+    temporaryPassword: string,
+  ) {
+    await this.mailerService
+      .sendMail({
+        to: user.email,
+        subject: '[SellerRe] 비밀번호가 초기화되었습니다.',
+        template: 'password-reset',
+        context: {
+          username: user.username,
+          password: temporaryPassword,
+        },
+      })
+      .catch((err) => {
+        console.error('fail to send password reset notification email', err);
       });
   }
 }
