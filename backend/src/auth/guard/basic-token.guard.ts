@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from '../auth.service';
+import { AuthErrorCode } from '../const/auth-error-code.const';
 
 @Injectable()
 export class BasicTokenGuard implements CanActivate {
@@ -16,7 +17,10 @@ export class BasicTokenGuard implements CanActivate {
     const rawToken = req.headers.authorization;
 
     if (!rawToken) {
-      throw new UnauthorizedException('No Token Provided');
+      throw new UnauthorizedException({
+        message: 'No token provided.',
+        errorCode: AuthErrorCode.INVALID_TOKEN,
+      });
     }
 
     const token = this.authService.extractTokenFromHeader(rawToken, false);

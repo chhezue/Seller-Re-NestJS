@@ -1,6 +1,14 @@
-import { Controller, Post, Body, UseGuards, Get, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UseGuards,
+  Get,
+  Req,
+  Body,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterUserDto } from './dto/register-user.dto';
 import { IsPublic } from '../common/decorator/is-public.decorator';
 import { RefreshTokenGuard } from './guard/bearer-token.guard';
 import { User } from '../users/decorator/user.decorator';
@@ -8,6 +16,7 @@ import { UsersModel } from '../users/entity/users.entity';
 import { BasicTokenGuard } from './guard/basic-token.guard';
 import { Token } from './decorator/token.decorator';
 import { Request } from 'express';
+import { UnlockAccountDto } from './dto/unlock-account.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -20,17 +29,18 @@ export class AuthController {
     return await this.authService.loginUser(user);
   }
 
-  @Post('users')
-  @IsPublic()
-  async postRegister(@Body() registerUserDto: RegisterUserDto) {
-    return await this.authService.registerWithEmail(registerUserDto);
-  }
-
   @Post('token/refresh')
   @IsPublic()
   @UseGuards(RefreshTokenGuard)
   async postTokenRefresh(@Token() token: string, @Req() req: Request) {
     return await this.authService.rotateRefreshToken(token, req.ip);
+  }
+
+  @Post('unlock')
+  @IsPublic()
+  @HttpCode(HttpStatus.OK)
+  async postUnlockAccount(@Body() body: UnlockAccountDto) {
+    return this.authService.unlockAccount(body);
   }
 
   //TEST API

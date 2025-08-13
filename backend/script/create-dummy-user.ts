@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
-import { AuthService } from '../src/auth/auth.service';
-import { RegisterUserDto } from '../src/auth/dto/register-user.dto';
+import { CreateUserDto } from '../src/users/dto/create-user.dto';
+import { UsersService } from '../src/users/users.service';
 
 /**
  * 50명의 더미 유저를 생성하는 스크립트
@@ -12,7 +12,7 @@ import { RegisterUserDto } from '../src/auth/dto/register-user.dto';
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
 
-  const authService = app.get(AuthService);
+  const usersService = app.get(UsersService);
 
   try {
     console.log('start. create dummy user...');
@@ -20,7 +20,7 @@ async function bootstrap() {
     const numberOfUsers = 50;
 
     for (let i = 1; i <= numberOfUsers; i++) {
-      const user: RegisterUserDto = {
+      const user: CreateUserDto = {
         username: `user${i}`,
         email: `user${i}@dummyUser.com`,
         password: `user${i}`,
@@ -30,7 +30,7 @@ async function bootstrap() {
         region_id: null,
       };
 
-      await authService.registerWithEmail(user);
+      await usersService.createUser(user);
       console.log(`CREATE USER: ${user.username} (${user.email})`);
     }
 
