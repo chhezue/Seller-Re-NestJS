@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EjsAdapter } from '@nestjs-modules/mailer/dist/adapters/ejs.adapter';
 import { MailService } from './mail.service';
 import * as path from 'path';
+import { MailListener } from './mail.listener';
 
 @Module({
   imports: [
@@ -39,7 +40,7 @@ import * as path from 'path';
       },
     }),
   ],
-  providers: [MailService],
+  providers: [MailService, MailListener],
   exports: [MailService],
 })
 export class MailModule {}

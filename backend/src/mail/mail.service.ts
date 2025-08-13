@@ -21,7 +21,7 @@ export class MailService {
         },
       })
       .catch((err) => {
-        console.error('fail to send unlock verification email', err);
+        console.error('failed to send unlock verification email', err);
       });
   }
 
@@ -40,7 +40,7 @@ export class MailService {
         },
       })
       .catch((err) => {
-        console.error('fail to send password reset notification email', err);
+        console.error('failed to send password reset notification email', err);
       });
   }
 }

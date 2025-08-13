@@ -318,10 +318,10 @@ export class AuthService {
 
     await this.cacheManager.set(cacheKey, verificationCode, this.unlockCodeTtl);
 
-    await this.mailService.sendAccountUnlockVerification(
+    this.eventEmitter.emit('user.unlock.request', {
       user,
       verificationCode,
-    );
+    });
 
     return {
       message: 'A verification code has been sent to your email.',
@@ -369,10 +369,10 @@ export class AuthService {
       password: hashedPassword,
     });
 
-    await this.mailService.sendPasswordResetNotification(
+    this.eventEmitter.emit('user.password.reset', {
       user,
       temporaryPassword,
-    );
+    });
 
     await this.cacheManager.del(cacheKey);
 
