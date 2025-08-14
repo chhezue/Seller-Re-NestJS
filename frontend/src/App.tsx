@@ -13,23 +13,15 @@ const App = () => {
       <Header /> {/* 항상 보이게! */}
 
       <main style={{
-          minHeight: 'calc(100vh - 180px)',
-          background: 'linear-gradient(135deg, #e8e8e8, #f4f4f4)'
+          minHeight: 'calc(100vh - 180px)'
+          //background: 'linear-gradient(135deg, #e8e8e8, #f4f4f4)'
         }}>
         <AppRoutes />
       </main>
 
       <Footer /> {/* 항상 보이게! */}
 
-      <ToastContainer
-        position="top-center"
-        autoClose={3000}
-        hideProgressBar={false}
-        closeOnClick
-        pauseOnHover
-        draggable
-        theme="colored"
-      />
+      <ToastContainer position="top-center" autoClose={2000} hideProgressBar />
     </Router>
   );
 };

@@ -1,0 +1,219 @@
+/* 컨테이너 */
+.profile-wrap {
+    display: grid;
+    place-items: center;
+    padding: 24px 12px 48px;
+}
+
+/* 카드 */
+.profile-card.v2 {
+    width: 100%;
+    max-width: 760px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+    border: 1px solid #e9edf3;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(18, 24, 40, 0.06);
+    padding: 20px;
+}
+
+/* 상단 영역 */
+.profile-wrap .profile-top {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 16px;
+    align-items: center;
+}
+
+.avatar-wrap {
+    position: relative;
+    width: 84px;
+    height: 84px;
+}
+.avatar {
+    width: 84px;
+    height: 84px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #eff2f7;
+    background: #fff;
+}
+.status-dot {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: #10b981; /* ACTIVE */
+}
+.status-dot[data-status="inactive"],
+.status-dot[data-status="blocked"],
+.status-dot[data-status="suspended"] { background: #ef4444; }
+
+.primary .name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.profile-wrap .username {
+    font-size: 20px;
+    font-weight: 800;
+    color: #111827;
+    margin: 0;
+}
+.profile-wrap .badge {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    line-height: 1;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #374151;
+}
+.badge.role { background: #eef2ff; border-color: #e0e7ff; color: #3730a3; }
+.badge.status.active { background: #ecfdf5; border-color: #d1fae5; color: #065f46; }
+.badge.status.inactive,
+.badge.status.blocked,
+.badge.status.suspended { background: #fff1f2; border-color: #ffe4e6; color: #9f1239; }
+
+.primary .sub-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    color: #4b5563;
+    font-size: 14px;
+}
+.sub-row .dot { opacity: .45; }
+.email, .phone, .region { white-space: nowrap; }
+
+/* 메타 그리드 */
+.meta-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+}
+.meta {
+    background: #ffffff;
+    border: 1px solid #eef1f6;
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 64px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.meta-label {
+    font-size: 12px;
+    color: #6b7280;
+}
+.meta-value {
+    margin-top: 4px;
+    font-size: 14px;
+    color: #111827;
+    font-weight: 700;
+}
+.mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+.id-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.chip {
+    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    cursor: pointer;
+}
+.chip:hover { background: #f3f4f6; }
+.id-cell .meta-value { font-weight: 600; }
+
+/* 액션 */
+.profile-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+.btn {
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.btn.ghost { background: #fff; }
+.btn.primary {
+    background: #6c5ce7;
+    border-color: #6c5ce7;
+    color: #fff;
+}
+.btn:hover { filter: brightness(0.98); }
+
+/* 스켈레톤/에러/빈 상태(기존 클래스 재사용 가능) */
+.profile-card.skeleton {
+    width: 100%;
+    max-width: 760px;
+    background: #fff;
+    border: 1px solid #eef1f6;
+    border-radius: 16px;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 16px;
+}
+.avatar-skel {
+    width: 84px; height: 84px; border-radius: 50%;
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.2s infinite;
+}
+.lines .line {
+    height: 12px; border-radius: 8px; margin: 8px 0;
+    background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.2s infinite;
+}
+.line.w-60 { width: 60%; } .line.w-40 { width: 40%; } .line.w-80 { width: 80%; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+.profile-error, .profile-empty {
+    max-width: 760px;
+    border: 1px solid #ffe4e6;
+    background: #fff1f2;
+    color: #9f1239;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+/* 반응형 */
+@media (max-width: 720px) {
+    .meta-grid { grid-template-columns: repeat(2, 1fr); }
+    .profile-top { grid-template-columns: 64px 1fr; }
+    .avatar, .avatar-wrap { width: 64px; height: 64px; }
+}
+@media (max-width: 420px) {
+    .meta-grid { grid-template-columns: 1fr; }
+}
+
+/* UserProfile.css */
+.avatar.fallback {
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: #f2f3f5; /* 살짝 회색 배경 */
+    overflow: hidden;
+}
+
+.profile-icon {
+    font-size: 28px;   /* 아이콘 크기 */
+    opacity: 0.7;
+}

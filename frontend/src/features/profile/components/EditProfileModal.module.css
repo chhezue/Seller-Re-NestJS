@@ -1,0 +1,260 @@
+.backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    display: grid;
+    place-items: center;
+    z-index: 60;
+}
+
+.dialog {
+    width: 100%;
+    max-width: 560px;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e9edf3;
+    box-shadow: 0 24px 60px rgba(18, 24, 40, 0.16);
+    padding: 16px;
+    animation: pop 0.16s ease-out;
+}
+
+@keyframes pop {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.title {
+    font-size: 18px;
+    font-weight: 800;
+    margin: 0;
+    color: #111827;
+}
+.close {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+}
+.close:hover { background: #f9fafb; }
+
+.error {
+    background: #fff1f2;
+    border: 1px solid #ffe4e6;
+    color: #9f1239;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin: 8px 0 0 0;
+}
+
+.form {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.label {
+    display: grid;
+    gap: 6px;
+    font-size: 14px;
+    color: #374151;
+}
+.label input,
+.label select {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+    background: #fff;
+    color: #111827;
+}
+.label input:focus,
+.label select:focus {
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}
+
+/* ✅ 읽기전용/비활성 강조 */
+.readonlyRow {
+    display: grid;
+    gap: 6px;
+}
+.readonlyBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #6b7280;
+}
+.lockPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #eef2f7;
+    border: 1px solid #e5e7eb;
+    color: #6b7280;
+}
+.label input[readonly],
+.label input:disabled {
+    background: #f3f4f6;
+    color: #6b7280;
+    border-color: #e5e7eb;
+    cursor: not-allowed;
+}
+
+/* 레이아웃 */
+.regionRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
+}
+.btn {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    background: #fff;
+}
+.btn.ghost { background: #fff; }
+.btn.primary {
+    background: #6c5ce7;
+    border-color: #6c5ce7;
+    color: #fff;
+}
+.btn:disabled { opacity: .6; cursor: default; }
+
+/* ✅ 변경내역 확인 팝업 */
+.confirmBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: grid;
+    place-items: center;
+    z-index: 70;
+}
+.confirmDialog {
+    width: 100%;
+    max-width: 520px;
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #e9edf3;
+    box-shadow: 0 24px 60px rgba(18, 24, 40, 0.2);
+    padding: 16px;
+    animation: pop 0.16s ease-out;
+}
+.confirmTitle {
+    margin: 0 0 8px 0;
+    font-weight: 800;
+    font-size: 18px;
+    color: #111827;
+}
+.confirmText {
+    font-size: 13px;
+    color: #4b5563;
+    margin: 0 0 10px 0;
+}
+.confirmList {
+    display: grid;
+    gap: 8px;
+    margin: 8px 0 12px;
+}
+.confirmRow {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px dashed #e5e7eb;
+    border-radius: 10px;
+    background: #fafafa;
+}
+.confirmKey {
+    font-size: 12px;
+    color: #6b7280;
+}
+.confirmVals {
+    display: grid;
+    gap: 4px;
+}
+.diffBefore {
+    font-size: 13px;
+    color: #6b7280;
+    text-decoration: line-through;
+}
+.diffAfter {
+    font-size: 13px;
+    color: #111827;
+    font-weight: 700;
+}
+.badgeInfo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eef2ff;
+    border: 1px solid #e0e7ff;
+    color: #3730a3;
+    font-size: 12px;
+}
+.confirmActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+@media (max-width: 420px) {
+    .dialog { margin: 0 10px; }
+    .regionRow { grid-template-columns: 1fr; }
+    .confirmDialog { margin: 0 10px; }
+}
+
+/* EditProfileModal.module.css 추가 */
+
+.errorText {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #e11d48; /* 붉은색 */
+    letter-spacing: -0.2px;
+}
+
+/* 인풋 에러 테두리 */
+.inputError {
+    border-color: #e11d48 !important;
+    box-shadow: 0 0 0 3px rgba(225, 29, 72, 0.08);
+}
+
+/* (선택) 살짝 흔들리는 에니메이션으로 피드백 */
+@keyframes shakeX {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-2px); }
+    40% { transform: translateX(2px); }
+    60% { transform: translateX(-1px); }
+    80% { transform: translateX(1px); }
+}
+.shakeOnError {
+    animation: shakeX 200ms ease-in-out;
+}

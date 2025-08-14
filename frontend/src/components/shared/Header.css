@@ -1,11 +1,55 @@
+:root {
+    /* 헤더 높이 동기화 (JS로 런타임 세팅, 기본값 64px) */
+    --header-h: 64px;
+
+    --violet-50:  #f5f3ff;
+    --violet-100: #ede9fe;
+    --violet-200: #ddd6fe;
+    --violet-300: #c4b5fd;
+    --violet-400: #a78bfa;
+    --violet-500: #8b5cf6;
+    --violet-600: #7c3aed;
+    --violet-700: #5b21b6;
+
+    /* neutrals */
+    --text-strong: #2a235a;
+    --text: #554f72;
+    --muted: #6b6786;
+
+    --header-bg: #ffffff;
+    --header-border: var(--violet-200);
+    --ring: rgba(139, 92, 246, 0.45);
+}
+
+/* 고정 래퍼 */
+.header-fixed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0; /* width: 100% */
+    z-index: 998;
+    background:
+        linear-gradient(180deg, var(--header-bg), var(--header-bg)),
+        radial-gradient(1200px 420px at 50% -50px, var(--violet-50), transparent 60%);
+    box-shadow:
+        0 1px 0 var(--header-border),
+        0 8px 24px rgba(139, 92, 246, 0.08);
+    backdrop-filter: saturate(140%) blur(2px);
+}
+
 .main-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 125px;
-    background-color: #ffffff;
-    border-bottom: 1px solid #ddd;
+    padding: 0 170px;
+    background-color: transparent;
+    border-bottom: 1px solid transparent; /* 시각적 라인은 header-fixed 에서 처리 */
     font-family: 'Segoe UI', sans-serif;
+    height: 60px;
+}
+
+.header-offset {
+    height: var(--header-h);
 }
 
 .header-left {
@@ -13,14 +57,44 @@
     align-items: center;
 }
 
-.main-logo a {
+/* 로고 링크 기본 스타일 */
+.logo-link {
     text-decoration: none;
-    color: #333;
-    font-size: 24px;
-    font-weight: bold;
-    margin-left: 10px;
+    color: var(--text-strong);
 }
 
+/* 로고: Seller- + Re 하이라이트 */
+.main-logo {
+    margin: 0 0 0 0;
+    line-height: 1;
+}
+
+.main-logo a {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    color: var(--text-strong);
+    transition: text-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.main-logo .accent-re, .accent-re {
+    /* 그라데이션 텍스트 */
+    background: linear-gradient(135deg, var(--violet-500), var(--violet-700));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 0 transparent; /* 크롬에서 잔상 방지 */
+}
+
+/* 호버 시 살짝 강조 */
+.main-logo a:hover {
+    text-shadow:
+        0 0 8px rgba(139, 92, 246, 0.45),
+        0 0 16px rgba(167, 139, 250, 0.35);
+}
+
+
+/* 내비게이션 */
 .nav-links {
     margin-left: 20px;
 }
@@ -28,101 +102,194 @@
 .nav-links a {
     margin-right: 15px;
     text-decoration: none;
-    color: #555;
-    font-weight: 500;
+    color: var(--text);
+    font-weight: 600;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
+.nav-links a:hover,
+.nav-links a:focus-visible {
+    color: var(--violet-700);
+    text-shadow: 0 0 8px rgba(139, 92, 246, 0.25);
+    outline: none;
+}
+
+/* 오른쪽 영역 */
 .header-right {
     display: flex;
     align-items: center;
+    gap: 8px;
 }
 
+/* 아이콘 공통 */
 .icon {
     font-size: 18px;
-    margin-left: 15px;
+    margin-left: 12px;
     cursor: pointer;
-    color: #333;
+    color: #5f5f7a;
+    transition: color 0.2s ease, transform 0.15s ease, text-shadow 0.2s ease;
 }
 
-
-.login-main-button{
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
+.icon:hover,
+.icon:focus-visible {
+    color: var(--violet-600);
+    transform: translateY(-1px);
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.25);
+    outline: none;
 }
 
+/* 로그인/회원가입 버튼 (보라 그라데이션 pill) */
+.login-main-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 800;
+    border: none;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--violet-400), var(--violet-600));
+    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.login-main-button:hover,
+.login-main-button:focus-visible {
+    box-shadow: 0 12px 26px rgba(139, 92, 246, 0.35);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.login-main-button:active {
+    transform: translateY(0);
+    filter: saturate(0.95);
+}
+
+/* 햄버거 버튼 */
 .hamburger-menu {
-    display: none;
+    display: none; /* 필요 시 미디어쿼리로 보이기 */
     background: none;
     border: none;
     font-size: 20px;
+    color: var(--text);
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.15s ease;
 }
 
+.hamburger-menu:hover,
+.hamburger-menu:focus-visible {
+    color: var(--violet-600);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+/* 사용자 정보 */
 .user-info {
-  display: inline-block;
-  margin-left: 15px;
-  font-size: 14px;
-  color: #333;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 10px;
+    font-size: 14px;
+    color: var(--text-strong);
 }
 
 .username {
-  font-weight: bold;
-  margin-right: 8px;
+    font-weight: 800;
+    margin-right: 4px;
 }
 
+/* 로그아웃(파괴적 동작은 레드 유지) */
 .logout-btn {
-  background-color: #f44336;
-  color: white;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 800;
+    box-shadow: 0 6px 14px rgba(239, 68, 68, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
-.logout-btn:hover {
-  background-color: #d32f2f;
+.logout-btn:hover,
+.logout-btn:focus-visible {
+    background-color: #dc2626;
+    box-shadow: 0 10px 22px rgba(239, 68, 68, 0.33);
+    transform: translateY(-1px);
+    outline: none;
 }
 
+.logout-btn:active {
+    transform: translateY(0);
+}
+
+/* 푸터 */
 .main-footer {
-  background-color: #f9f9f9;
-  border-top: 1px solid #ddd;
-  padding: 20px;
-  font-size: 14px;
-  color: #555;
+    padding: 20px;
+    font-size: 14px;
 }
 
 .footer-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  max-width: 1100px;
-  margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    max-width: 1100px;
+    margin: 0 auto;
 }
 
 .footer-logo h3 {
-  margin: 0;
-  font-size: 18px;
-  color: #333;
+    margin: 0;
+    font-size: 18px;
+    color: var(--text-strong);
+    font-weight: 800;
 }
 
 .footer-logo p {
-  margin: 5px 0 0;
-  font-size: 13px;
-  color: #777;
+    margin: 5px 0 0;
+    font-size: 13px;
+    color: var(--muted);
 }
 
 .footer-links a {
-  margin-left: 15px;
-  color: #555;
-  text-decoration: none;
+    margin-left: 15px;
+    text-decoration: none;
+    font-weight: 700;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
 }
 
-.footer-links a:hover {
-  text-decoration: underline;
+.footer-links a:hover,
+.footer-links a:focus-visible {
+    color: var(--violet-700);
+    text-shadow: 0 0 8px rgba(139, 92, 246, 0.25);
+    text-decoration: underline;
+    outline: none;
+}
+
+/* 포커스 접근성(키보드) */
+.logo-link:focus-visible,
+.nav-links a:focus-visible,
+.icon:focus-visible,
+.login-main-button:focus-visible,
+.logout-btn:focus-visible,
+.footer-links a:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 8px;
+}
+
+/* 반응형: 헤더 패딩 조정 & 햄버거 노출 예시 */
+@media (max-width: 980px) {
+    .main-header {
+        padding: 0 24px;
+    }
+    .nav-links {
+        display: none; /* 필요하면 드로어와 연동 */
+    }
+    .hamburger-menu {
+        display: inline-flex;
+    }
 }
