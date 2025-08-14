@@ -5,6 +5,8 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { RegionModel } from '../common/entity/region.entity';
 
 @Injectable()
 export class UsersService {
@@ -58,8 +60,20 @@ export class UsersService {
     return await this.usersRepository.save(newUserObject);
   }
 
-  async updateUser(userId: string, dto: Partial<UsersModel>) {
-    await this.usersRepository.update(userId, dto);
+  async updateUser(
+    userId: string,
+    dto: Partial<UsersModel> & { region_id?: string | null },
+  ) {
+    const { region_id, ...rest } = dto;
+    const updatePayload: Partial<UsersModel> = {
+      ...rest,
+    };
+
+    if (region_id !== undefined) {
+      updatePayload.region = region_id ? ({ id: region_id } as RegionModel) : null;
+    }
+
+    await this.usersRepository.update(userId, updatePayload);
   }
 
   async getUserByPhoneNumber(phoneNumber: string): Promise<UsersModel | null> {
