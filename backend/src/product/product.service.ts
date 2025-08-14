@@ -29,7 +29,13 @@ export class ProductService {
       cursor,
       limit,
     } = getProductDto;
-    const queryBuilder = this.productRepository.createQueryBuilder('product');
+
+    // queryBuilder 방식은 relation: [...] 옵션 사용 불가: 명시적으로 관계 조인
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.author', 'author')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.region', 'region');
 
     if (categoryId) {
       queryBuilder.andWhere('product.category = :categoryId', { categoryId });

@@ -15,8 +15,14 @@ export class CommonController {
   }
 
   @ApiOperation({ description: '지역 목록 트리 구조로 조회' })
-  @Get('/region')
-  async getRegions() {
+  @Get('/region/tree')
+  async getTreeRegions() {
     return await this.commonService.getTreeRegions();
+  }
+
+  @ApiOperation({ description: '지역 목록 플랫 구조로 조회' })
+  @Get('/region/flat')
+  async getFlatRegions() {
+    return await this.commonService.getFlatRegions();
   }
 }
