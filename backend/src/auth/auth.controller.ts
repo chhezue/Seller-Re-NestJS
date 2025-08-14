@@ -3,10 +3,10 @@ import {
   Post,
   UseGuards,
   Get,
-  Req,
   Body,
   HttpCode,
   HttpStatus,
+  Ip,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { IsPublic } from '../common/decorator/is-public.decorator';
@@ -15,8 +15,8 @@ import { User } from '../users/decorator/user.decorator';
 import { UsersModel } from '../users/entity/users.entity';
 import { BasicTokenGuard } from './guard/basic-token.guard';
 import { Token } from './decorator/token.decorator';
-import { Request } from 'express';
-import { UnlockAccountDto } from './dto/unlock-account.dto';
+import { RequestUnlockDto } from './dto/request-unlock.dto';
+import { VerifyUnlockDto } from './dto/verify-unlock.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -32,15 +32,22 @@ export class AuthController {
   @Post('token/refresh')
   @IsPublic()
   @UseGuards(RefreshTokenGuard)
-  async postTokenRefresh(@Token() token: string, @Req() req: Request) {
-    return await this.authService.rotateRefreshToken(token, req.ip);
+  async postTokenRefresh(@Token() token: string, @Ip() ip: string) {
+    return await this.authService.rotateRefreshToken(token, ip);
   }
 
-  @Post('unlock')
+  @Post('unlock/request')
   @IsPublic()
   @HttpCode(HttpStatus.OK)
-  async postUnlockAccount(@Body() body: UnlockAccountDto) {
-    return this.authService.unlockAccount(body);
+  async postRequestUnlock(@Body() body: RequestUnlockDto) {
+    return this.authService.requestAccountUnlock(body);
+  }
+
+  @Post('unlock/verify')
+  @IsPublic()
+  @HttpCode(HttpStatus.OK)
+  async postVerifyUnlock(@Body() body: VerifyUnlockDto, @Ip() ip: string) {
+    return this.authService.verifyAndUnlockAccount(body, ip);
   }
 
   //TEST API

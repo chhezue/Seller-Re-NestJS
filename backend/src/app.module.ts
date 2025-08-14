@@ -11,10 +11,8 @@ import { AuthModule } from './auth/auth.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LogsModule } from './logs/logs.module';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import {
-  AccessTokenGuard,
-  RefreshTokenGuard,
-} from './auth/guard/bearer-token.guard';
+import { AccessTokenGuard } from './auth/guard/bearer-token.guard';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -22,6 +20,7 @@ import {
       isGlobal: true,
       envFilePath: '.env.development',
     }),
+    CacheModule.register({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule, EventEmitterModule.forRoot(), LogsModule],
       inject: [ConfigService],

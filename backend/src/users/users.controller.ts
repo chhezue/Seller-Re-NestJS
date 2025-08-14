@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Ip,
   Patch,
   Post,
 } from '@nestjs/common';
@@ -32,8 +33,13 @@ export class UsersController {
   async patchMyProfile(
     @User('id') userId: string,
     @Body() body: UpdateUserDto,
-  ): Promise<{ message: string }> {
-    await this.usersService.updateUser(userId, body);
+    @Ip() ip: string,
+  ) {
+    console.log('patch.');
+    console.log('userId : ', userId);
+    console.log('body : ', body);
+    console.log('ip : ', ip);
+    await this.usersService.updateUser(userId, body, ip);
     return { message: 'Your profile has been updated successfully.' };
   }
 
