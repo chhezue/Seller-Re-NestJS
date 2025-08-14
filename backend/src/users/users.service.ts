@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
+import { RegionModel } from '../common/entity/region.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PasswordChangeMethod } from '../logs/const/password-change-method.const';
 import { UsersErrorCode } from './const/users-error-code.const';
@@ -62,16 +63,21 @@ export class UsersService {
     return await this.usersRepository.save(newUserObject);
   }
 
-  async updateUser(userId: string, dto: Partial<UsersModel>, ip?: string) {
-    const { password, ...rest } = dto;
+  async updateUser(
+    userId: string,
+    dto: Partial<UsersModel> & { region_id?: string | null },
+    ip?: string,
+  ) {
+    const { password, region_id, ...rest } = dto;
+
+    const updatePayload: Partial<UsersModel> = {
+      ...rest,
+    };
+
     if (password) {
-      console.log('password : ', password);
       const isAlreadyHashed = password.startsWith('$2b$');
       if (isAlreadyHashed) {
-        await this.usersRepository.update(userId, {
-          ...rest,
-          password,
-        });
+        updatePayload.password = password;
       } else {
         if (!ip) {
           throw new BadRequestException({
@@ -79,23 +85,28 @@ export class UsersService {
             errorCode: UsersErrorCode.IP_ADDRESS_REQUIRED_FOR_PASSWORD_CHANGE,
           });
         }
-        console.log('ip: ', ip);
         const hashedPassword = await bcrypt.hash(
           password,
           parseInt(this.configService.get<string>('HASH_ROUNDS', '10')),
         );
-        await this.usersRepository.update(userId, {
-          ...rest,
-          password: hashedPassword,
-        });
+        updatePayload.password = hashedPassword;
+
         this.eventEmitter.emit('user.password.changed', {
           user: { id: userId },
           ip,
           method: PasswordChangeMethod.USER_INITIATED,
         });
       }
-    } else {
-      await this.usersRepository.update(userId, rest);
+    }
+
+    if (region_id !== undefined) {
+      updatePayload.region = region_id
+        ? ({ id: region_id } as RegionModel)
+        : null;
+    }
+
+    if (Object.keys(updatePayload).length > 0) {
+      await this.usersRepository.update(userId, updatePayload);
     }
   }
 
