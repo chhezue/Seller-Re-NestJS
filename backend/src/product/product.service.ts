@@ -113,7 +113,7 @@ export class ProductService {
     };
   }
 
-  async getProduct(productId: string): Promise<ProductModel> {
+  async getProduct(productId: string, userId?: string): Promise<any> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
       relations: ['author', 'category', 'region'],
@@ -123,7 +123,17 @@ export class ProductService {
       throw new NotFoundException('해당 상품을 찾을 수 없습니다.');
     }
 
-    return product;
+    if (product.author.id === userId) {
+      return {
+        ...product,
+        isOwner: true,
+      };
+    }
+
+    return {
+      ...product,
+      isOwner: false,
+    };
   }
 
   async getMySales(user: UsersModel): Promise<ProductModel[]> {

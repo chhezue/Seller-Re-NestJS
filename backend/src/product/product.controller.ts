@@ -59,9 +59,15 @@ export class ProductController {
   }
 
   @ApiOperation({ description: '상품 상세 조회' })
+  @IsPublic()
   @Get('/:productId')
-  async getProduct(@Param('productId') productId: string) {
-    return await this.productService.getProduct(productId);
+  async getProduct(
+    @Param('productId') productId: string,
+    @User('id') userId?: string,
+  ) {
+    const product = await this.productService.getProduct(productId, userId);
+    console.log(product);
+    return product;
   }
 
   @ApiOperation({ description: '상품 등록' })
