@@ -11,11 +11,8 @@ import { AuthModule } from './auth/auth.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { LogsModule } from './logs/logs.module';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
-import {
-  AccessTokenGuard,
-  RefreshTokenGuard,
-} from './auth/guard/bearer-token.guard';
-import { UploadsModule } from './uploads/uploads.module';
+import { AccessTokenGuard } from './auth/guard/bearer-token.guard';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -23,6 +20,7 @@ import { UploadsModule } from './uploads/uploads.module';
       isGlobal: true,
       envFilePath: '.env.development',
     }),
+    CacheModule.register({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule, EventEmitterModule.forRoot(), LogsModule],
       inject: [ConfigService],
@@ -46,7 +44,6 @@ import { UploadsModule } from './uploads/uploads.module';
     CommonModule,
     UsersModule,
     AuthModule,
-    UploadsModule,
   ],
   controllers: [AppController],
   providers: [

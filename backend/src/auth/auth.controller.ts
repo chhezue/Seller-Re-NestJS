@@ -1,12 +1,22 @@
-import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UseGuards,
+  Get,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Ip,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterUserDto } from './dto/register-user.dto';
 import { IsPublic } from '../common/decorator/is-public.decorator';
 import { RefreshTokenGuard } from './guard/bearer-token.guard';
 import { User } from '../users/decorator/user.decorator';
 import { UsersModel } from '../users/entity/users.entity';
 import { BasicTokenGuard } from './guard/basic-token.guard';
 import { Token } from './decorator/token.decorator';
+import { RequestUnlockDto } from './dto/request-unlock.dto';
+import { VerifyUnlockDto } from './dto/verify-unlock.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -16,27 +26,28 @@ export class AuthController {
   @IsPublic()
   @UseGuards(BasicTokenGuard)
   async postLoginEmail(@User() user: UsersModel) {
-    return this.authService.loginUser(user);
-  }
-
-  @Post('users')
-  @IsPublic()
-  async postRegister(@Body() registerUserDto: RegisterUserDto) {
-    return await this.authService.registerWithEmail(registerUserDto);
-  }
-
-  @Post('token/access')
-  @IsPublic()
-  @UseGuards(RefreshTokenGuard)
-  async postTokenAccess(@Token() token: string) {
-    return await this.authService.reissueToken(token, false);
+    return await this.authService.loginUser(user);
   }
 
   @Post('token/refresh')
   @IsPublic()
   @UseGuards(RefreshTokenGuard)
-  async postTokenRefresh(@Token() token: string) {
-    return await this.authService.reissueToken(token, true);
+  async postTokenRefresh(@Token() token: string, @Ip() ip: string) {
+    return await this.authService.rotateRefreshToken(token, ip);
+  }
+
+  @Post('unlock/request')
+  @IsPublic()
+  @HttpCode(HttpStatus.OK)
+  async postRequestUnlock(@Body() body: RequestUnlockDto) {
+    return this.authService.requestAccountUnlock(body);
+  }
+
+  @Post('unlock/verify')
+  @IsPublic()
+  @HttpCode(HttpStatus.OK)
+  async postVerifyUnlock(@Body() body: VerifyUnlockDto, @Ip() ip: string) {
+    return this.authService.verifyAndUnlockAccount(body, ip);
   }
 
   //TEST API

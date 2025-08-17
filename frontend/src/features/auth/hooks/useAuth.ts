@@ -1,45 +1,80 @@
 import { useState, useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
 
-// 로컬스토리지 키 상수화
 const TOKEN_KEY = 'accessToken';
-const REFRESH_KEY = 'refreshToken'; // 선택적 확장용
+const REFRESH_KEY = 'refreshToken';
+
+interface DecodedToken {
+    sub?: string;         // ✅ 사용자 ID
+    username?: string;    // ✅ 닉네임
+    exp?: number;
+    iat?: number;
+    [key: string]: unknown;
+}
 
 const useAuth = () => {
     const [accessToken, setAccessToken] = useState<string | null>(null);
-    const [initialized, setInitialized] = useState(false); // 로딩 완료 상태
+    const [username, setUsername] = useState<string | null>(null);
+    const [userId, setUserId] = useState<string | null>(null);  // ✅ 추가
+    const [initialized, setInitialized] = useState(false);
 
-    // 앱 최초 실행 시 토큰 읽기
     useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) {
-        setAccessToken(token);
-    }
-    setInitialized(true); // 토큰 읽기 완료
+        const token = localStorage.getItem(TOKEN_KEY);
+        if (token) {
+            setAccessToken(token);
+            decodeToken(token);
+        }
+        setInitialized(true);
     }, []);
 
-    // 로그인 시 토큰 저장 및 상태 업데이트
-    const login = (token: string) => {
-    localStorage.setItem(TOKEN_KEY, token);
-    setAccessToken(token);
+    const decodeToken = (token: string): void => {
+        try {
+            const decoded = jwtDecode<DecodedToken>(token);
+            console.log('디코딩된 토큰:', decoded.sub);
+
+            if (decoded.username && typeof decoded.username === 'string') {
+                setUsername(decoded.username);
+            } else {
+                setUsername(null);
+            }
+
+            if (decoded.sub && typeof decoded.sub === 'string') {
+                setUserId(decoded.sub);
+            } else {
+                setUserId(null);
+            }
+        } catch (err) {
+            console.error('토큰 디코딩 실패:', err);
+            setUsername(null);
+            setUserId(null);
+        }
     };
 
-    // 로그아웃 시 토큰 제거 및 상태 초기화
-    const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(REFRESH_KEY); // 선택: refreshToken도 삭제
-    setAccessToken(null);
+    const login = (token: string): void => {
+        localStorage.setItem(TOKEN_KEY, token);
+        setAccessToken(token);
+        decodeToken(token);
     };
 
-    // 인증 상태 확인
-    const isAuthenticated = !!accessToken;
+    const logout = (): void => {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(REFRESH_KEY);
+        setAccessToken(null);
+        setUsername(null);
+        setUserId(null);
+    };
+
+    const isAuthenticated = Boolean(accessToken);
 
     return {
-    accessToken,
-    isAuthenticated,
-    login,
-    logout,
-    initialized, // App에서 로딩 완료 체크용
+        accessToken,
+        username,
+        userId,            // ✅ 반환 추가
+        isAuthenticated,
+        login,
+        logout,
+        initialized,
     };
-    };
+};
 
 export default useAuth;

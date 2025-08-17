@@ -1,15 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LoginAttemptLogAtFailedModel } from '../common/entity/login-attempt-log.entity';
+import { LoginAttemptLogAtFailedModel } from './entity/login-attempt-log.entity';
 import { Repository } from 'typeorm';
-import { LoginFailedDto } from '../auth/dto/login-failed.dto';
+import { LoginFailedDto } from './dto/login-failed.dto';
+import {
+  TokenEventLogModel,
+  TokenEventType,
+} from './entity/token-event-log.entity';
+import { TokenRotationFailedDto } from './dto/token-rotation-failed.dto';
+import { EmailLogModel } from './entity/email-log.entity';
+import { EmailSentDto } from './dto/email.sent.dto';
+import { PasswordChangeLogModel } from './entity/password-change-log.entity';
+import { PasswordChangedDto } from './dto/password-changed.dto';
 
 @Injectable()
 export class LogsService {
   constructor(
     @InjectRepository(LoginAttemptLogAtFailedModel)
     private readonly loginAttemptLogRepository: Repository<LoginAttemptLogAtFailedModel>,
+    @InjectRepository(TokenEventLogModel)
+    private readonly tokenEventLogRepository: Repository<TokenEventLogModel>,
+    @InjectRepository(EmailLogModel)
+    private readonly emailLogRepository: Repository<EmailLogModel>,
+    @InjectRepository(PasswordChangeLogModel)
+    private readonly passwordChangeLogRepository: Repository<PasswordChangeLogModel>,
   ) {}
 
   private readonly logger = new Logger(LogsService.name);
@@ -17,7 +32,7 @@ export class LogsService {
   @OnEvent('login.failed')
   async handleLoginFailedEvent(payload: LoginFailedDto) {
     this.logger.warn(
-      `[Login Failed] ID: ${payload.user.id} | Email: ${payload.user.email} | IP: ${payload.ip} | Failed Count : ${payload.user.passwordFailedCount + 1} | Time: ${new Date().toISOString()}`,
+      `[Login Failed] Event: PasswordFailed. ID: ${payload.user.id} | Email: ${payload.user.email} | IP: ${payload.ip} | Failed Count : ${payload.user.passwordFailedCount + 1} | Time: ${new Date().toISOString()}`,
     );
 
     const newLog = this.loginAttemptLogRepository.create({
@@ -26,5 +41,75 @@ export class LogsService {
     });
 
     await this.loginAttemptLogRepository.save(newLog);
+  }
+
+  @OnEvent('token.rotation.failed.NoRefreshToken')
+  async handleTokenRotationFailedNoRefreshTokenEvent(
+    payload: TokenRotationFailedDto,
+  ) {
+    const description = `An attempt was made to rotate a token that does not exist in the database.`;
+    this.logger.warn(
+      `[Token Rotation Failed] Event: NoRefreshToken. UserId: ${payload.userId} | Email: ${payload.email} | IP: ${payload.ip} | Time: ${new Date().toISOString()} | Description: ${description}`,
+    );
+
+    const newLog = this.tokenEventLogRepository.create({
+      user: { id: payload.userId },
+      ip: payload.ip,
+      eventType: TokenEventType.ROTATION_FAILED_NO_TOKEN,
+      description: description,
+    });
+
+    await this.tokenEventLogRepository.save(newLog);
+  }
+
+  @OnEvent('token.rotation.failed.RevokedRefreshToken')
+  async handleTokenRotationFailedRevokedRefreshTokenEvent(
+    payload: TokenRotationFailedDto,
+  ) {
+    const description = `An attempt was made with a revoked refresh token. All user sessions have been terminated.`;
+    this.logger.error(
+      `[CRITICAL - Token Rotation Failed] Event: RevokedRefreshToken. UserId: ${payload.userId} | Email: ${payload.email} | IP: ${payload.ip} | Time: ${new Date().toISOString()} | Description: ${description}`,
+    );
+
+    const newLog = this.tokenEventLogRepository.create({
+      user: { id: payload.userId },
+      ip: payload.ip,
+      eventType: TokenEventType.ROTATION_FAILED_REVOKED_TOKEN,
+      description,
+    });
+
+    await this.tokenEventLogRepository.save(newLog);
+  }
+
+  @OnEvent('email.sent')
+  async handleEmailSentEvent(payload: EmailSentDto) {
+    this.logger.log(
+      `[Email Sent] Recipient: ${payload.recipient} | Subject: ${payload.subject} | Status : ${payload.status}`,
+    );
+
+    const newLog = this.emailLogRepository.create({
+      user: payload.user ? { id: payload.user.id } : null,
+      recipient: payload.recipient,
+      subject: payload.subject,
+      status: payload.status,
+      errorMessage: payload.errorMessage,
+    });
+
+    await this.emailLogRepository.save(newLog);
+  }
+
+  @OnEvent('user.password.changed')
+  async handlePasswordChangedEvent(payload: PasswordChangedDto) {
+    this.logger.log(
+      `[Password Changed] UserId : ${payload.user.id} | IP : ${payload.ip} | Method : ${payload.method}`,
+    );
+
+    const newLog = this.passwordChangeLogRepository.create({
+      user: { id: payload.user.id },
+      ip: payload.ip,
+      changeMethod: payload.method,
+    });
+
+    await this.passwordChangeLogRepository.save(newLog);
   }
 }

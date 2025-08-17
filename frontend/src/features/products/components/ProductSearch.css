@@ -1,0 +1,36 @@
+.search-form {
+  position: relative;
+  width: 100%;
+  max-width: 50%; /* 검색바 최대 너비 */
+  margin: 0 auto 20px auto; /* 중앙 정렬 + 아래 여백 */
+}
+
+.search-form input {
+  width: 100%;
+  padding: 10px 40px 10px 16px; /* 오른쪽 버튼 공간 확보 */
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 999px; /* 완전한 원형 */
+  outline: none;
+  box-sizing: border-box;
+  background-color: white;
+  transition: border-color 0.2s;
+}
+
+.search-form input:focus {
+  border-color: #40526a;
+}
+
+.search-button {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #40526a;
+}
+
+

@@ -1,9 +1,16 @@
-import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 /**
- * Validates the data received from the client for user registration.
+ * DTO for creating a new user.
+ * This is the base DTO for user-related data.
  */
-export class RegisterUserDto {
+export class CreateUserDto {
   /**
    * The user's name.
    * @example "user1"
@@ -25,29 +32,18 @@ export class RegisterUserDto {
    * @example "user1"
    */
   @IsString({ message: 'Password must be a string.' })
+  @MinLength(8, { message: 'Password must be at least 8 characters long.' })
   @IsNotEmpty({ message: 'Password is required.' })
   password: string;
 
-  /**
-   * The URL of the user's profile image (optional).
-   * @example "/images/profile.jpg"
-   */
   @IsString({ message: 'Profile image URL must be a string.' })
   @IsOptional()
   profileImage?: string;
 
-  /**
-   * The user's phone number (optional).
-   * @example "010-1234-5678"
-   */
   @IsString({ message: 'Phone number must be a string.' })
   @IsOptional()
   phoneNumber?: string;
 
-  /**
-   * The ID of the user's region (optional).
-   * @example "-"
-   */
   @IsString({ message: 'Region ID must be a string.' })
   @IsOptional()
   region_id?: string;

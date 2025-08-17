@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import './LoginPage.css';
 
@@ -6,14 +6,17 @@ interface Props {
   onLogin: (email: string, password: string) => void;
   errorMessage: React.ReactNode;
   isLocked: boolean;
+  email: string;
+  password: string;
+  setEmail: (val: string) => void;
+  setPassword: (val: string) => void;
 }
 
-const LoginForm: React.FC<Props> = ({ onLogin, errorMessage, isLocked }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
+const LoginForm: React.FC<Props> = ({
+  onLogin, errorMessage, isLocked,
+  email, password, setEmail, setPassword
+}) => {
   const handleSubmit = () => {
-    if (!email.trim() || !password.trim()) return;
     onLogin(email, password);
   };
 
@@ -22,17 +25,15 @@ const LoginForm: React.FC<Props> = ({ onLogin, errorMessage, isLocked }) => {
   };
 
   const handleAutoLogin = () => {
-    const randomNumber = Math.floor(Math.random() * 50) + 1; // 1~50
+    const randomNumber = Math.floor(Math.random() * 50) + 1;
     const randomEmail = `user${randomNumber}@dummyUser.com`;
     const randomPassword = `user${randomNumber}`;
-    
+
     setEmail(randomEmail);
     setPassword(randomPassword);
-    
-    // 입력값 설정 후 바로 로그인
+
     onLogin(randomEmail, randomPassword);
   };
-
 
   return (
     <div className="login-container">
