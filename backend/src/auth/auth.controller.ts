@@ -50,6 +50,14 @@ export class AuthController {
     return this.authService.verifyAndUnlockAccount(body, ip);
   }
 
+  @Post('logout')
+  @IsPublic()
+  @UseGuards(RefreshTokenGuard)
+  @HttpCode(HttpStatus.OK)
+  async postLogout(@Token() token: string) {
+    return this.authService.logout(token);
+  }
+
   //TEST API
 
   @Get('test/here')
