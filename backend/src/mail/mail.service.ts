@@ -12,50 +12,45 @@ export class MailService {
   ) {}
 
   async sendAccountUnlockVerification(
-    user: Pick<UsersModel, 'email' | 'username'>,
+    user: Pick<UsersModel, 'id' | 'email' | 'username'>,
     code: string,
   ) {
     const recipient = user.email;
     const subject = '[SellerRe] 계정 잠금 해제 인증 코드';
 
-    await this.mailerService
-      .sendMail({
+    try {
+      await this.mailerService.sendMail({
         to: recipient,
         subject,
         template: 'unlock-verification',
-        context: {
-          username: user.username,
-          code,
-        },
-      })
-      .then(() => {
-        this.eventEmitter.emit('email.sent', {
-          user,
-          recipient,
-          subject,
-          status: EmailSendStatus.SENT,
-        });
-      })
-      .catch((err) => {
-        console.error('failed to send unlock verification email', err);
-        this.eventEmitter.emit('email.sent', {
-          user,
-          recipient,
-          subject,
-          status: EmailSendStatus.FAILED,
-          errorMessage: err.message,
-        });
+        context: { username: user.username, code },
       });
+      this.eventEmitter.emit('email.sent', {
+        user,
+        recipient,
+        subject,
+        status: EmailSendStatus.SENT,
+      });
+    } catch (err) {
+      console.error('failed to send unlock verification email', err);
+      this.eventEmitter.emit('email.sent', {
+        user,
+        recipient,
+        subject,
+        status: EmailSendStatus.FAILED,
+        errorMessage: err.message,
+      });
+    }
   }
 
   async sendPasswordResetNotification(
-    user: Pick<UsersModel, 'email' | 'username'>,
+    user: Pick<UsersModel, 'id' | 'email' | 'username'>,
     temporaryPassword: string,
   ) {
     const recipient = user.email;
     const subject = '[SellerRe] 비밀번호가 초기화되었습니다.';
-    await this.mailerService
-      .sendMail({
+    try {
+      await this.mailerService.sendMail({
         to: recipient,
         subject,
         template: 'password-reset',
@@ -63,24 +58,22 @@ export class MailService {
           username: user.username,
           password: temporaryPassword,
         },
-      })
-      .then(() => {
-        this.eventEmitter.emit('email.sent', {
-          user,
-          recipient,
-          subject,
-          status: EmailSendStatus.SENT,
-        });
-      })
-      .catch((err) => {
-        console.error('failed to send password reset notification email', err);
-        this.eventEmitter.emit('email.sent', {
-          user,
-          recipient,
-          subject,
-          status: EmailSendStatus.FAILED,
-          errorMessage: err.message,
-        });
       });
+      this.eventEmitter.emit('email.sent', {
+        user,
+        recipient,
+        subject,
+        status: EmailSendStatus.SENT,
+      });
+    } catch (err) {
+      console.error('failed to send password reset notification email', err);
+      this.eventEmitter.emit('email.sent', {
+        user,
+        recipient,
+        subject,
+        status: EmailSendStatus.FAILED,
+        errorMessage: err.message,
+      });
+    }
   }
 }
