@@ -16,12 +16,16 @@ import {
 } from '../const/product.const';
 import { Type } from 'class-transformer';
 
-// TODO 지역 검색 추가
 export class GetProductDto extends PageDto {
   @ApiProperty({ description: '카테고리 ID' })
   @IsOptional()
   @IsUUID()
   readonly categoryId?: string;
+
+  @ApiProperty({ description: '지역 ID' })
+  @IsOptional()
+  @IsUUID()
+  readonly regionId?: string;
 
   @ApiProperty({ description: '제품 상태' })
   @IsOptional()

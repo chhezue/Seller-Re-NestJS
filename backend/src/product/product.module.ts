@@ -5,11 +5,12 @@ import { ProductController } from './product.controller';
 import { ProductService } from './product.service';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
+import { RegionModel } from '../common/entity/region.entity';
 import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ProductModel]),
+    TypeOrmModule.forFeature([ProductModel, RegionModel]),
     UsersModule,
     AuthModule,
     UploadsModule,

@@ -46,5 +46,5 @@ export class CreateUserDto {
 
   @IsString({ message: 'Region ID must be a string.' })
   @IsOptional()
-  region_id?: string;
+  region_id?: string | null;
 }
