@@ -39,12 +39,13 @@ export interface Profile {
     regionFullName?: string;       // "시/도 구/군/시"
 }
 
-/** 이메일(옵션, 보낼 때만) + 비밀번호(선택) 포함 */
+/** 이메일(옵션, 보낼 때만) + 비밀번호(선택) 포함
+ *  ※ currentPassword는 더 이상 사용하지 않음
+ */
 export type UpdateProfilePayload = {
     username?: string;
     email?: string;
-    password?: string;            // 새 비밀번호
-    currentPassword?: string;     // 현재 비밀번호(비번 변경 시 필수)
+    password?: string;            // 새 비밀번호 (선택)
     phoneNumber?: string;
     region_id?: string;           // 서버에서 region_id 받도록 유지
     profileImage?: string;
@@ -57,7 +58,6 @@ const useProfile = () => {
         getValidAccessToken,
         logout,
         authFetch,
-        // ✅ 지역 목록 가져오기 (tree/flat 상관없이 동일 타입이면 OK)
         getRegions,
     } = useAuth() as {
         initialized: boolean;
@@ -83,7 +83,6 @@ const useProfile = () => {
 
     const flattenRegionsTree = (list: RegionItem[]): RegionItem[] => {
         if (!Array.isArray(list)) return [];
-        // children 가 없으면 이미 flat
         if (!list.some(n => Array.isArray(n.children) && n.children.length)) {
             return list;
         }
@@ -110,10 +109,8 @@ const useProfile = () => {
             }
 
             try {
-                // 캐시 활용하여 지역 목록 1회만 로드
                 const raw = regionListCacheRef.current || (await getRegionsRef.current?.());
                 if (!raw || !raw.length) {
-                    // 지역 API가 없다면 서버에서 준 이름만 사용
                     const district = fallbackName || '';
                     return { city: '', district, full: district };
                 }
@@ -179,7 +176,6 @@ const useProfile = () => {
             }
 
             const raw = (await res.json()) as Profile;
-            console.log('[useProfile] GET /api/users/me =>', raw);
 
             // ✅ 지역 풀네임 계산
             const regionId = raw?.region?.id ?? raw?.region_id ?? null;
@@ -209,19 +205,15 @@ const useProfile = () => {
         nextPayload: UpdateProfilePayload
     ): UpdateProfilePayload => {
         const delta: UpdateProfilePayload = {};
-        if (!base) return nextPayload; // 안전장치: 로컬 상태 없으면 받은 값 그대로
+        if (!base) return nextPayload;
 
-        // 현재 값 준비
         const curRegionId = base.region?.id ?? base.region_id ?? '';
 
         // username
         if (typeof nextPayload.username !== 'undefined' && nextPayload.username !== base.username) {
             delta.username = nextPayload.username;
         }
-        // email
-        if (typeof nextPayload.email !== 'undefined' && nextPayload.email !== base.email) {
-            delta.email = nextPayload.email;
-        }
+        
         // phone
         if (typeof nextPayload.phoneNumber !== 'undefined' && nextPayload.phoneNumber !== (base.phoneNumber ?? '')) {
             delta.phoneNumber = nextPayload.phoneNumber;
@@ -234,12 +226,9 @@ const useProfile = () => {
         if (typeof nextPayload.profileImage !== 'undefined' && (nextPayload.profileImage ?? '') !== (base.profileImage ?? '')) {
             delta.profileImage = nextPayload.profileImage;
         }
-        // password / currentPassword
+        // password (새 비밀번호가 입력되었을 때만)
         if (typeof nextPayload.password === 'string' && nextPayload.password.length > 0) {
             delta.password = nextPayload.password;
-        }
-        if (typeof nextPayload.currentPassword === 'string' && nextPayload.currentPassword.length > 0) {
-            delta.currentPassword = nextPayload.currentPassword;
         }
 
         return delta;
@@ -255,21 +244,16 @@ const useProfile = () => {
             const redactedInput = {
                 ...payload,
                 password: payload.password ? '***' : undefined,
-                currentPassword: payload.currentPassword ? '***' : undefined,
             };
-            console.log('[useProfile] updateProfile called with:', redactedInput);
 
             const delta = computeDelta(profile, payload);
 
             const redactedDelta = {
                 ...delta,
                 password: delta.password ? '***' : undefined,
-                currentPassword: delta.currentPassword ? '***' : undefined,
             };
-            console.log('[useProfile] PATCH /api/users/me payload (delta):', redactedDelta);
 
             if (!delta || Object.keys(delta).length === 0) {
-                console.log('[useProfile] no changes; skip PATCH');
                 return profile as Profile;
             }
 
@@ -301,8 +285,6 @@ const useProfile = () => {
             }
 
             const raw = (await res.json()) as Profile;
-            console.log('[useProfile] PATCH /api/users/me =>', raw);
-
             // ✅ 응답에도 지역 풀네임 재계산
             const regionId = raw?.region?.id ?? raw?.region_id ?? null;
             const fallbackName = raw?.region?.name ?? '';

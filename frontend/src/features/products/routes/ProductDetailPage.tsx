@@ -1,12 +1,15 @@
 // features/products/routes/ProductDetailPage.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import useAuth from '../../auth/hooks/useAuth';
 import './ProductDetailPage.css';
-import { useProductActions, useProductDetail } from '../hooks/useProducts';
+import { useProductActions, useProductDetail, usePopularProducts } from '../hooks/useProducts';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faUser, faStar, faStarHalfStroke } from '@fortawesome/free-solid-svg-icons';
+import ProductCard from '../components/ProductCard';
 
-/** 확인 모달 */
+/** 확인 모달 (훅 없음) */
 const ConfirmModal: React.FC<{
     open: boolean;
     title?: string;
@@ -47,19 +50,65 @@ const ConfirmModal: React.FC<{
     );
 };
 
+/** ⭐ 별점 (레귤러 아이콘 없이 구현) */
+const StarRating: React.FC<{ value?: number; count?: number }> = ({ value = 0, count }) => {
+    const rounded = Math.round((value || 0) * 2) / 2;
+    const full = Math.floor(rounded);
+    const half = rounded - full === 0.5 ? 1 : 0;
+    const empty = 5 - full - half;
+
+    return (
+        <span className="seller-rating" aria-label={`평점 ${rounded} / 5`}>
+            {Array.from({ length: full }).map((_, i) => (
+                <FontAwesomeIcon key={`f${i}`} icon={faStar} className="star full" />
+            ))}
+            {half === 1 && <FontAwesomeIcon icon={faStarHalfStroke} className="star half" />}
+            {Array.from({ length: empty }).map((_, i) => (
+                <FontAwesomeIcon key={`e${i}`} icon={faStar} className="star empty" />
+            ))}
+            <span className="rating-count"> ({typeof count === 'number' ? count : 0})</span>
+        </span>
+    );
+};
+
+const formatRelativeTime = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    const diff = Date.now() - kst.getTime();
+    const m = Math.floor(diff / 60000);
+    const h = Math.floor(m / 60);
+    const day = Math.floor(h / 24);
+    if (m < 1) return '방금 전';
+    if (m < 60) return `${m}분 전`;
+    if (h < 24) return `${h}시간 전`;
+    return `${day}일 전`;
+};
+
 const ProductDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { userId, initialized } = useAuth();
 
     const { product, loading, error, errorStatus } = useProductDetail(id);
-
-    // 훅에 toggleFavorite 이 있으면 사용(없어도 안전)
     const { deleteProduct, toggleFavorite } = useProductActions() as any;
 
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    // ✅ 인기 상품 훅 (뷰카운트 없으면 최신순, 있으면 조회수 내림차순)
+    const {
+        popular,
+        popularLoading,
+        popularError,
+    } = usePopularProducts({
+        limit: 20,                      // 서버 요청도 20개
+        status: 'ON_SALE',
+        excludeId: id,
+        categoryId: product?.category?.id,
+    });
 
-    // 🔖 찜 상태/카운트 로컬 관리
+    // ✅ 렌더는 안전하게 20개로 슬라이스
+    const limitedPopular = useMemo(() => popular.slice(0, 20), [popular]);
+
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isFavorited, setIsFavorited] = useState<boolean>(false);
     const [favoriteCount, setFavoriteCount] = useState<number>(0);
 
@@ -89,25 +138,16 @@ const ProductDetailPage: React.FC = () => {
         setFavoriteCount(product?.favoriteCount ?? 0);
     }, [product?.id, (product as any)?.isFavorited, product?.favoriteCount]);
 
-    const formatRelativeTime = (isoDate?: string) => {
-        if (!isoDate) return '';
-        const date = new Date(isoDate);
-        const kstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    if (loading || !initialized) return <p>로딩 중...</p>;
+    if (!product) return <p>상품을 불러오지 못했습니다.</p>;
 
-        const now = new Date();
-        const diffMs = now.getTime() - kstDate.getTime();
+    const getDisplayTime = (u?: string, c?: string) => formatRelativeTime(u || c);
 
-        const diffMin = Math.floor(diffMs / 60000);
-        const diffHour = Math.floor(diffMin / 60);
-        const diffDay = Math.floor(diffHour / 24);
+    const isAuthor = product.author?.id === userId;
 
-        if (diffMin < 1) return '방금 전';
-        if (diffMin < 60) return `${diffMin}분 전`;
-        if (diffHour < 24) return `${diffHour}시간 전`;
-        return `${diffDay}일 전`;
-    };
+    const handleEdit = () => navigate(`/UpDateProductPage/${id}`);
+    const handleDelete = () => setShowDeleteConfirm(true);
 
-    /** 실제 삭제 요청 */
     const doDelete = async () => {
         if (!id) return;
         try {
@@ -130,39 +170,20 @@ const ProductDetailPage: React.FC = () => {
         }
     };
 
-    const getDisplayTime = (updatedAt?: string, createdAt?: string) => {
-        const baseTime = updatedAt || createdAt;
-        return formatRelativeTime(baseTime);
-    };
-
-    if (loading || !initialized) return <p>로딩 중...</p>;
-    if (!product) return <p>상품을 불러오지 못했습니다.</p>;
-
-    const isAuthor = product.author?.id === userId;
-
-    const handleEdit = () => {
-        navigate(`/UpDateProductPage/${id}`);
-    };
-
-    const handleDelete = () => {
-        setShowDeleteConfirm(true);
-    };
-
     // ❤️ 찜하기
     const handleToggleFavorite = async () => {
         if (!id) return;
         try {
+            let next: boolean;
             if (typeof toggleFavorite === 'function') {
                 const res = await toggleFavorite(id);
-                const nextFav = res?.isFavorited ?? !isFavorited;
-                setIsFavorited(nextFav);
-                setFavoriteCount((prev) => Math.max(0, prev + (nextFav ? 1 : -1)));
+                next = res?.isFavorited ?? !isFavorited;
             } else {
-                const nextFav = !isFavorited;
-                setIsFavorited(nextFav);
-                setFavoriteCount((prev) => Math.max(0, prev + (nextFav ? 1 : -1)));
+                next = !isFavorited;
             }
-            toast.success(isFavorited ? '찜을 해제했어요.' : '찜했어요!');
+            setIsFavorited(next);
+            setFavoriteCount((p) => Math.max(0, p + (next ? 1 : -1)));
+            toast.success(next ? '찜했어요!' : '찜을 해제했어요.');
         } catch (e: any) {
             toast.error(e?.message ?? '찜하기에 실패했습니다.');
         }
@@ -188,20 +209,15 @@ const ProductDetailPage: React.FC = () => {
         }
     };
 
-    // 🚩 신고하기
-    const handleReport = () => {
-        navigate(`/report?productId=${id}`);
-    };
-
-    // 💬 채팅하기
+    const handleReport = () => navigate(`/report?productId=${id}`);
     const handleChat = () => {
         if (product.status === 'SOLD') return;
         toast.success('채팅을 시작합니다!');
-        // navigate(`/chat/${product.author?.id}?product=${id}`);
     };
 
-    const getStatusLabel = (status: string) => {
-        switch (status) {
+    // 상태 라벨 (Hook 아님)
+    const statusInfo = (() => {
+        switch (product.status) {
             case 'ON_SALE':
                 return { text: '판매중', className: 'on-sale' };
             case 'RESERVED':
@@ -211,9 +227,15 @@ const ProductDetailPage: React.FC = () => {
             default:
                 return { text: '상태 알 수 없음', className: '' };
         }
-    };
+    })();
 
-    const { text: statusText, className: statusClass } = getStatusLabel(product.status);
+    // 판매자 정보
+    const author = product.author;
+    const sellerName = (author as any)?.username || (author as any)?.name || '판매자';
+    const sellerRegion = author?.region?.name || '';
+    const sellerImg = author?.profileImage;
+    const ratingAvg = (author as any)?.ratingAvg as number | undefined;
+    const ratingCount = (author as any)?.ratingCount as number | undefined;
 
     return (
         <div className="product-detail-container">
@@ -224,18 +246,42 @@ const ProductDetailPage: React.FC = () => {
                         alt={product.name}
                         className="product-image"
                     />
+
+                    {/* 이미지 아래: 판매자 정보 */}
+                    <div className="seller-strip">
+                        {sellerImg ? (
+                            <img className="seller-avatar" src={sellerImg} alt={`${sellerName} 프로필`} />
+                        ) : (
+                            <div className="seller-avatar-default" aria-label="기본 아바타">
+                                <FontAwesomeIcon icon={faUser} />
+                            </div>
+                        )}
+                        <div className="seller-meta">
+                            <div className="seller-name-row">
+                                <span className="seller-name">{sellerName}</span>
+                            </div>
+                            <div className="seller-sub">
+                                {sellerRegion && <span className="seller-region">{sellerRegion}</span>}
+                                <div className="seller-rating-right">
+                                    <StarRating
+                                        value={typeof ratingAvg === 'number' ? ratingAvg : 0}
+                                        count={typeof ratingCount === 'number' ? ratingCount : 0}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="product-info-section">
                     <div className="product-title-row">
                         {product.status !== 'ON_SALE' && (
-                            <span className={`status-label ${statusClass}`}>{statusText}</span>
+                            <span className={`status-label ${statusInfo.className}`}>{statusInfo.text}</span>
                         )}
                         <h2 className="product_name">{product.name}</h2>
                     </div>
 
                     <p className="category-time">
-                        {product?.region?.name && <>{product.region.name} | </>}
                         {product?.category?.name || '기타'} | {getDisplayTime(product.updatedAt, product.createdAt)}
                     </p>
 
@@ -251,19 +297,14 @@ const ProductDetailPage: React.FC = () => {
                         </p>
                     )}
 
-
                     <p className="detail-stats">
                         💬 채팅 0 | ❤️ 관심 {favoriteCount} | 👁 조회 {product.viewCount ?? 0}
                     </p>
 
                     {isAuthor ? (
                         <div className="author-buttons">
-                            <button className="edit-post-button" onClick={handleEdit}>
-                                ✏️ 수정하기
-                            </button>
-                            <button className="delete-post-button" onClick={handleDelete}>
-                                🗑️ 삭제하기
-                            </button>
+                            <button className="edit-post-button" onClick={handleEdit}>✏️ 수정하기</button>
+                            <button className="delete-post-button" onClick={handleDelete}>🗑️ 삭제하기</button>
                         </div>
                     ) : product.status === 'SOLD' ? (
                         <button
@@ -274,7 +315,6 @@ const ProductDetailPage: React.FC = () => {
                             거래 완료됨
                         </button>
                     ) : (
-                        // 🔽 버튼 4개 일렬 (3개 컴팩트 + 채팅 넓게)
                         <div className="buyer-actions four-inline">
                             <button
                                 className={`favorite-button xs-action ${isFavorited ? 'on' : ''}`}
@@ -302,6 +342,34 @@ const ProductDetailPage: React.FC = () => {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* ✅ 인기 상품: 최대 20개, 5열 고정 그리드 */}
+            <div className="popular-section">
+                <h3 className="popular-title">인기 상품</h3>
+                {popularLoading ? (
+                    <p className="hint-text">로딩 중…</p>
+                ) : popularError ? (
+                    <p className="error-text">{popularError}</p>
+                ) : limitedPopular.length === 0 ? (
+                    <p className="hint-text">표시할 상품이 없어요.</p>
+                ) : (
+                    <div className="popular-grid">
+                        {limitedPopular.map((p, i) => (
+                            <div key={p.id} className="popular-card-wrap">
+                                <ProductCard
+                                    product={p}
+                                    to={`/item/${p.id}`}
+                                    index={i}
+                                    className="popular-mini"
+                                    showRegion={true}     /* 지역만 표시 */
+                                    showTime={false}
+                                    showCounts={false}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <ConfirmModal

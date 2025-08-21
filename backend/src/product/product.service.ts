@@ -6,12 +6,15 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { GetProductDto } from './dto/get-product.dto';
 import { UsersModel } from '../users/entity/users.entity';
+import { RegionModel } from '../common/entity/region.entity';
 
 @Injectable()
 export class ProductService {
   constructor(
     @InjectRepository(ProductModel)
     private readonly productRepository: Repository<ProductModel>,
+    @InjectRepository(RegionModel)
+    private readonly regionRepository: Repository<RegionModel>,
   ) {}
 
   async getAllProducts(
@@ -28,9 +31,38 @@ export class ProductService {
       keyword,
       cursor,
       limit,
+      regionId,
     } = getProductDto;
-    const queryBuilder = this.productRepository.createQueryBuilder('product');
 
+    // queryBuilder 방식은 relation: [...] 옵션 사용 불가: 명시적으로 관계 조인
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.author', 'author')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.region', 'region');
+
+    if (regionId) {
+      const selectedRegion = await this.regionRepository.findOne({
+        where: { id: regionId },
+      });
+
+      if (selectedRegion) {
+        const regionFilter = [selectedRegion.id];
+
+        // 검색할 지역이 상위 지역이라면 하위 지역 id도 모두 포함하여 필터링
+        if (selectedRegion.parentId === null) {
+          const childRegions = await this.regionRepository.find({
+            where: { parentId: selectedRegion.id },
+          });
+          const childRegionIds = childRegions.map((child) => child.id);
+          regionFilter.push(...childRegionIds);
+        }
+
+        queryBuilder.andWhere('product.region IN (:...regionFilter)', {
+          regionFilter,
+        });
+      }
+    }
     if (categoryId) {
       queryBuilder.andWhere('product.category = :categoryId', { categoryId });
     }
@@ -81,7 +113,7 @@ export class ProductService {
     };
   }
 
-  async getProduct(productId: string): Promise<ProductModel> {
+  async getProduct(productId: string, userId?: string): Promise<any> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
       relations: ['author', 'category', 'region'],
@@ -91,7 +123,17 @@ export class ProductService {
       throw new NotFoundException('해당 상품을 찾을 수 없습니다.');
     }
 
-    return product;
+    if (product.author.id === userId) {
+      return {
+        ...product,
+        isOwner: true,
+      };
+    }
+
+    return {
+      ...product,
+      isOwner: false,
+    };
   }
 
   async getMySales(user: UsersModel): Promise<ProductModel[]> {

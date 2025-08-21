@@ -1,14 +1,15 @@
-// features/products/routes/HomePage.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import '../components/HomePage.css';
 import ProductFilters from '../components/ProductFilters';
 import ProductSearch from '../components/ProductSearch';
 import useProducts, { Product, Filters } from '../hooks/useProducts';
+import ProductCard from '../components/ProductCard';
 
 const HomePage: React.FC = () => {
     const [animate, setAnimate] = useState(false);
     const hasAnimated = useRef(false);
+    const [regionText, setRegionText] = useState<string>('');
 
     const {
         products,
@@ -33,45 +34,28 @@ const HomePage: React.FC = () => {
 
     const handleSearch = (keyword: string) => setSearchKeyword(keyword);
 
-    const titleText = (() => {
-        if (filters.myOnly) {
-            if (categoryLabel) return `내 판매 상품 · ${categoryLabel}`;
-            return `내 판매 상품`;
-        }
-        if (categoryLabel) return `${categoryLabel}`;
-        return `전체 상품`;
-    })();
+    const titleText = React.useMemo(() => {
+        const base = (() => {
+            if (filters.myOnly) {
+                return categoryLabel ? `내 판매 상품 · ${categoryLabel}` : '내 판매 상품';
+            }
+            return categoryLabel || '전체 상품';
+        })();
 
-    const formatRelativeTime = (isoDate?: string) => {
-        if (!isoDate) return '';
-        const date = new Date(isoDate);
-        const kstDate = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-        const now = new Date();
-        const diffMs = now.getTime() - kstDate.getTime();
-        const diffMin = Math.floor(diffMs / 60000);
-        const diffHour = Math.floor(diffMin / 60);
-        const diffDay = Math.floor(diffHour / 24);
-        if (diffMin < 1) return '방금 전';
-        if (diffMin < 60) return `${diffMin}분 전`;
-        if (diffHour < 24) return `${diffHour}시간 전`;
-        return `${diffDay}일 전`;
-    };
+        // myOnly일 때는 지역(prefix) 제거
+        if (filters.myOnly) return base;
 
-    const getDisplayTime = (updatedAt?: string, createdAt?: string) => {
-        const baseTime = updatedAt || createdAt;
-        return formatRelativeTime(baseTime);
-    };
+        const prefix = regionText.trim();
+        return prefix ? `${prefix} · ${base}` : base;
+    }, [filters.myOnly, categoryLabel, regionText]);
 
-    const renderStatusBadge = (status: string) => {
-        if (status === 'RESERVED') return <div className="status-badge reserved">예약중</div>;
-        if (status === 'SOLD') return <div className="status-badge sold">판매완료</div>;
-        return null;
-    };
-
-    const PAGE_SIZE = 30;
+    const PAGE_SIZE = 20;
     const showLoadMore = hasMore && products.length >= PAGE_SIZE;
 
-    // 👇 스크롤 위치에 따라 카드에 미세한 translateY 적용 (부드러운 플로팅)
+    // 각 카드의 '직전 top' 값을 저장할 WeakMap (요소별 방향 판별용)
+    const lastTopMapRef = useRef<WeakMap<HTMLElement, number>>(new WeakMap());
+
+    // 스크롤에 따른 부드러운 플로팅(shift) + 요소별 prevTop 기록
     useEffect(() => {
         let ticking = false;
 
@@ -81,15 +65,12 @@ const HomePage: React.FC = () => {
             cards.forEach((card) => {
                 const rect = card.getBoundingClientRect();
                 const mid = rect.top + rect.height / 2;
-                const distance = mid - center; // 화면 중앙으로부터의 거리(+아래, -위)
-                // 거리 비례로 shift 적용(최대 24px 제한)
+                const distance = mid - center;
                 const shift = Math.max(-24, Math.min(24, -distance * 0.08));
                 card.style.setProperty('--scroll-shift', `${shift.toFixed(1)}px`);
 
-                // 화면에 들어오면 in-view 클래스(투명도/페이드 제어)
-                const inView = rect.top < window.innerHeight - 40 && rect.bottom > 40;
-                if (inView) card.classList.add('in-view');
-                else card.classList.remove('in-view');
+                // 이 프레임에서의 top을 저장 (교차 시점에 nowTop과 비교)
+                lastTopMapRef.current.set(card, rect.top);
             });
         };
 
@@ -104,14 +85,54 @@ const HomePage: React.FC = () => {
 
         window.addEventListener('scroll', onScroll, { passive: true });
         window.addEventListener('resize', onScroll);
-        // 최초 1회 계산
         updateCardTransforms();
 
         return () => {
             window.removeEventListener('scroll', onScroll);
             window.removeEventListener('resize', onScroll);
         };
-        // 목록 변경 시 다시 계산
+    }, [products.length]);
+
+    // 교차 시 요소별 방향 판별
+    useEffect(() => {
+        const cards = document.querySelectorAll<HTMLElement>('.item-card.fade-in-up');
+
+        const io = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    const el = entry.target as HTMLElement;
+                    if (!entry.isIntersecting) return;
+
+                    // 이미 1회 처리된 요소는 건너뜀
+                    if (el.dataset.seen === '1') return;
+
+                    const nowTop = entry.boundingClientRect.top;
+                    const prevTop = lastTopMapRef.current.get(el);
+
+                    // prevTop이 아직 없으면 '아래 스크롤'로 간주해 자연스럽게 애니메이션
+                    const isScrollingDown = prevTop == null ? true : nowTop < prevTop;
+
+                    if (isScrollingDown) {
+                        el.classList.remove('seen-no-anim');
+                        el.classList.add('in-view');
+                    } else {
+                        el.classList.remove('in-view');
+                        el.classList.add('seen-no-anim');
+                    }
+
+                    el.dataset.seen = '1';
+                });
+            },
+            { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+        );
+
+        // 새로 렌더된 카드들 관찰 시작 (기존 클래스는 정리)
+        cards.forEach((c) => {
+            c.classList.remove('in-view', 'seen-no-anim');
+            io.observe(c);
+        });
+
+        return () => io.disconnect();
     }, [products.length]);
 
     return (
@@ -133,6 +154,7 @@ const HomePage: React.FC = () => {
                                 setFilters(ff as Partial<Filters>);
                             }}
                             onCategoryLabelChange={(label) => setCategoryLabel(label)}
+                            onRegionTextChange={setRegionText}
                         />
                     </div>
 
@@ -147,28 +169,16 @@ const HomePage: React.FC = () => {
                         ) : (
                             <>
                                 <div className="main-items">
-                                    {products.map((item: Product) => (
-                                        <Link to={`/item/${item.id}`} key={item.id} className="item-card fade-in-up">
-                                            <div className="image-wrapper">
-                                                {renderStatusBadge(item.status)}
-                                                <img
-                                                    src={item.imageUrl || '/images/default.jpg'}
-                                                    alt={item.name}
-                                                    className="product-image"
-                                                />
-                                            </div>
-                                            <div className="item-info">
-                                                <h3 className="truncate-text">{item.name}</h3>
-                                                <p className="price-info">
-                                                    {item.tradeType === 'SHARE'
-                                                        ? '나눔'
-                                                        : `${item.price.toLocaleString()}원`}
-                                                </p>
-                                                <p className="extra-info">
-                                                    👁 {item.viewCount ?? 0}회 | {getDisplayTime(item.updatedAt, item.createdAt)}
-                                                </p>
-                                            </div>
-                                        </Link>
+                                    {products.map((item: Product, i: number) => (
+                                        <ProductCard
+                                            key={item.id}
+                                            product={item}
+                                            to={`/item/${item.id}`}
+                                            index={i}
+                                            showRegion
+                                            showTime
+                                            showCounts
+                                        />
                                     ))}
                                 </div>
 
@@ -184,7 +194,6 @@ const HomePage: React.FC = () => {
                                     </div>
                                 )}
 
-                                {/* ✅ 더 이상 불러올 데이터가 없으면 안내 문구 표시 */}
                                 {!hasMore && products.length > 0 && (
                                     <div
                                         className="end-of-list"

@@ -2,10 +2,9 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-    faUser, faEnvelope, faPhone, faMapMarkerAlt, faIdBadge, faXmark, faLock
+    faUser, faPhone, faMapMarkerAlt, faIdBadge, faXmark, faLock
 } from '@fortawesome/free-solid-svg-icons';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { toast } from 'react-toastify'; // 에러만 사용
 
 import '../../auth/components/RegisterPage.css';
 import useAuth, { RegionItem } from '../../auth/hooks/useAuth';
@@ -22,7 +21,7 @@ type Props = {
     closeOnBackdrop?: boolean;
 };
 
-// 백엔드 요구사항: region_id(구/군 id) + (비밀번호 변경 시) currentPassword 도 함께 전달
+// region_id(구/군 id)만 백엔드로 전달 + (비번 변경 시) password만
 type UpdateProfilePayloadWithRegion = UpdateProfilePayload & { region_id?: string };
 
 const EditProfileModal: React.FC<Props> = ({
@@ -47,8 +46,7 @@ const EditProfileModal: React.FC<Props> = ({
     const [selectedRegionNode, setSelectedRegionNode] = useState<RegionItem | null>(null);
     const [regionLoading, setRegionLoading] = useState(false);
 
-    // 비밀번호(선택)
-    const [currentPw, setCurrentPw] = useState('');
+    // 비밀번호(선택) — 현재 비번 제거
     const [newPw, setNewPw] = useState('');
     const [confirmPw, setConfirmPw] = useState('');
     const [pwError, setPwError] = useState<string>('');
@@ -78,7 +76,6 @@ const EditProfileModal: React.FC<Props> = ({
 
         setErrors({});
         setPwError('');
-        setCurrentPw('');
         setNewPw('');
         setConfirmPw('');
         setShowConfirm(false);
@@ -204,22 +201,11 @@ const EditProfileModal: React.FC<Props> = ({
         return `${only.slice(0, 3)}-${only.slice(3, 7)}-${only.slice(7, 11)}`;
     };
 
-    const handleRegionSelect = (path: { city: RegionItem; district: RegionItem }) => {
-        setRegion({ city: path.city?.name ?? '', district: path.district?.name ?? '', dong: '' });
-        setSelectedRegionNode(path.district ?? null);
-        setErrors(prev => ({ ...prev, region: false }));
-        setRegionLoading(false);
-    };
-
-    // 비밀번호 검증: 변경하려면 currentPw + (newPw/confirmPw 일치, 8자 이상)
+    // 비밀번호 검증: 새 비밀번호가 있으면 8자 이상 & 확인 일치만
     const validatePasswordBlock = () => {
-        const anyTyped = currentPw || newPw || confirmPw;
+        const anyTyped = newPw || confirmPw;
         if (!anyTyped) { setPwError(''); return true; }
 
-        if (!currentPw.trim()) {
-            setPwError('현재 비밀번호를 입력해주세요.');
-            return false;
-        }
         if (!newPw.trim()) {
             setPwError('새 비밀번호를 입력해주세요.');
             return false;
@@ -250,7 +236,7 @@ const EditProfileModal: React.FC<Props> = ({
 
         const nextErrors: { [k: string]: boolean } = {
             nickname: !username.trim(),
-            phone: !phone.trim() || !validatePhone(phone), // ✅ 11자리 체크
+            phone: !phone.trim() || !validatePhone(phone),
             region: !regionId,
         };
         setErrors(nextErrors);
@@ -264,15 +250,13 @@ const EditProfileModal: React.FC<Props> = ({
         }
         if (!validatePasswordBlock()) return;
 
-        // region_id(=구/군 id) + (비번변경시) currentPassword 포함
+        // region_id(=구/군 id) + (비번변경시) password만
         const payload: UpdateProfilePayloadWithRegion = {
             username,
-            email: profile?.email ?? '',
             phoneNumber: phone,
             profileImage: previewImage ?? '',
             region_id: regionId,
             ...(newPw ? { password: newPw } : {}),
-            ...(newPw ? { currentPassword: currentPw } : {}),
         };
 
         // 변경내역 산출
@@ -286,70 +270,39 @@ const EditProfileModal: React.FC<Props> = ({
         if (newPw) diff.push({ key: '비밀번호', info: '새 비밀번호로 변경' });
         if ((profile?.profileImage || '') !== (previewImage || '')) diff.push({ key: '프로필 이미지', info: '이미지 변경' });
 
-        console.log('[EditProfileModal] pending payload (before confirm):', payload);
-
         setPendingPayload(payload);
         setChanges(diff);
         setShowConfirm(true);
     };
 
-    // 백엔드 에러 메시지 → 사용자 친화적 문구로 매핑
+    // 백엔드 에러 메시지 → 사용자 친화적 문구
     const toFriendlyError = (err: any): string => {
         const raw = err?.message ?? err;
-        // JSON 문자열일 수 있음
         try {
             const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            const msgs: string[] = Array.isArray(parsed?.message) ? parsed.message : [];
-            if (
-                msgs.some((m) =>
-                    /property\s+password\s+should\s+not\s+exist/i.test(m) ||
-                    /property\s+currentPassword\s+should\s+not\s+exist/i.test(m)
-                )
-            ) {
-                return '현재 비밀번호가 틀렸습니다.';
-            }
-            if (typeof parsed?.message === 'string' && /invalid current password/i.test(parsed.message)) {
-                return '현재 비밀번호가 틀렸습니다.';
-            }
-        } catch {
-            // noop
-        }
-        // 문자열 안에 직접 포함된 경우
-        if (typeof raw === 'string') {
-            if (/currentPassword/i.test(raw) && /should not exist/i.test(raw)) return '현재 비밀번호가 틀렸습니다.';
-            if (/invalid current password/i.test(raw)) return '현재 비밀번호가 틀렸습니다.';
-        }
-        return err?.message ?? '수정에 실패했습니다.';
+            if (typeof parsed?.message === 'string') return parsed.message;
+            if (Array.isArray(parsed?.message) && parsed.message.length) return parsed.message[0];
+        } catch { /* ignore */ }
+        if (typeof raw === 'string') return raw;
+        return '수정에 실패했습니다.';
     };
 
     // 2단계: 최종 저장
     const handleConfirmSave = async () => {
         if (!pendingPayload) return;
         try {
-            console.log('[EditProfileModal] submit payload to onSave:', pendingPayload);
-
             const saved = await onSave(pendingPayload);
-
             onSaved?.(saved);
             setShowConfirm(false);
-            // ✅ 먼저 토스트 보여주고
-            toast.success('회원 정보가 수정되었습니다.');
-            // ✅ 모달 닫기 (ToastContainer는 계속 렌더되므로 사라지지 않음)
-            onClose();
+            onClose(); // ✅ 성공 토스트는 상위(UserProfile)에서 띄웁니다.
         } catch (err: any) {
             const friendly = toFriendlyError(err);
-            if (/현재 비밀번호/.test(friendly)) {
-                setPwError(friendly); // 입력 박스 아래에도 노출
-            }
             toast.error(friendly);
         }
     };
 
     return (
         <>
-            {/* ✅ 항상 렌더: 모달이 닫혀도 토스트 유지 */}
-            <ToastContainer position="top-center" autoClose={1800} hideProgressBar />
-
             {open && (
                 <div
                     className="region-backdrop"
@@ -418,7 +371,7 @@ const EditProfileModal: React.FC<Props> = ({
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
                                             onBlur={(e) => onBlur('nickname', e.target.value)}
-                                            className={errors.nickname ? s.inputError : ''} 
+                                            className={errors.nickname ? s.inputError : ''}
                                         />
                                     </div>
                                     {errors.nickname && <p className={s.errorText}>닉네임은 필수 입력입니다.</p>}
@@ -454,22 +407,10 @@ const EditProfileModal: React.FC<Props> = ({
                                             </button>
                                         </div>
                                     </div>
-                                    {errors.region && <p className={s.errorText}>주소(시/도, 구/군)를 선택해 주세요.</p>} 
+                                    {errors.region && <p className={s.errorText}>주소(시/도, 구/군)를 선택해 주세요.</p>}
 
-                                    {/* 비밀번호 변경(선택) */}
+                                    {/* 비밀번호 변경(선택) — 현재 비번 입력칸 제거 */}
                                     <h4 className="pw-title" style={{ marginTop: 12, marginBottom: 6 }}>비밀번호 변경 (선택)</h4>
-
-                                    {/* 현재 비밀번호 */}
-                                    <div className="form-item">
-                                        <FontAwesomeIcon icon={faLock} className="input-icon" />
-                                        <input
-                                            type="password"
-                                            name="currentPassword"
-                                            placeholder="현재 비밀번호"
-                                            value={currentPw}
-                                            onChange={(e) => setCurrentPw(e.target.value)}
-                                        />
-                                    </div>
 
                                     {/* 새 비밀번호 */}
                                     <div className="form-item">
@@ -494,7 +435,7 @@ const EditProfileModal: React.FC<Props> = ({
                                             onChange={(e) => setConfirmPw(e.target.value)}
                                         />
                                     </div>
-                                    {pwError && <p className={s.errorText}>{pwError}</p>} 
+                                    {pwError && <p className={s.errorText}>{pwError}</p>}
 
                                     {/* hidden (호환) */}
                                     <input type="hidden" name="region_city" value={region.city} />

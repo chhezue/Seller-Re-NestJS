@@ -21,7 +21,7 @@ export type Product = {
     status: string;
     condition?: string;
     category?: { id: string; name?: string };
-    author?: { id: string; name?: string; profileImage?: string; region?: RegionRef | null; ratingAvg?: number; ratingCount?: number };
+    author?: { id: string; username?: string; profileImage?: string; region?: RegionRef | null; ratingAvg?: number; ratingCount?: number };
     updatedAt?: string;
     createdAt: string;
     region?: RegionRef | null;
@@ -69,8 +69,8 @@ const normalize = (data: ApiCursorResponse) => {
 const buildQuery = (filters: Filters, keyword: string, cursor?: string, limit?: number) => {
     const params = new URLSearchParams();
 
-    // ✅ 지역: region(=id)만 보냄
-    if (filters.region) params.set('region', filters.region);
+    // region → regionId 로 전송
+    if (filters.region) params.set('regionId', filters.region);
 
     if (filters.categoryId) params.set('categoryId', filters.categoryId);
     if (filters.shareOnly) params.set('tradeType', 'SHARE');
@@ -85,7 +85,7 @@ const buildQuery = (filters: Filters, keyword: string, cursor?: string, limit?: 
 
     if (keyword.trim()) params.set('keyword', keyword.trim());
     if (cursor) params.set('cursor', cursor);
-    if (limit) params.set('limit', String(limit));
+    if (limit) params.set('limit', String(limit));          // ⬅️ limit=20 송부
 
     return params.toString();
 };
@@ -185,10 +185,8 @@ export const useProductActions = () => {
         return true;
     };
 
-    // (선택) 찜 토글을 이 훅에서 제공한다면 여기에 추가
     return { createProduct, updateProduct, deleteProduct };
 };
-
 
 /* =========================
  *  단건 조회 훅
@@ -239,7 +237,6 @@ export const useProductDetail = (id?: string) => {
 
     return { product, loading, error, errorStatus, refresh: fetchOne };
 };
-
 
 /* =========================
  *  옵션(enums) 훅
@@ -295,11 +292,39 @@ export const useProductEnums = () => {
     };
 };
 
-
 /* =========================
  *  목록/검색 훅 (기본 내보내기)
  * ========================= */
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 20;                             // ✅ 페이지 크기 20으로 고정
+
+// ✅ 중복 제거 & 업서트 유틸
+const dedupById = (arr: Product[]) => {
+    const seen = new Set<string>();
+    const out: Product[] = [];
+    for (const p of arr) {
+        if (!seen.has(p.id)) {
+            seen.add(p.id);
+            out.push(p);
+        }
+    }
+    return out;
+};
+
+const mergeUniqueById = (prev: Product[], next: Product[]) => {
+    if (prev.length === 0) return dedupById(next);
+    const indexById = new Map(prev.map((p, i) => [p.id, i]));
+    const out = prev.slice();
+    for (const n of next) {
+        const i = indexById.get(n.id);
+        if (i == null) {
+            indexById.set(n.id, out.length);
+            out.push(n);              // 새 항목 추가
+        } else {
+            out[i] = n;               // 기존 항목 최신값으로 교체(업서트)
+        }
+    }
+    return out;
+};
 
 const useProducts = () => {
     const [products, setProducts] = useState<Product[]>([]);
@@ -344,10 +369,6 @@ const useProducts = () => {
                 const qs = buildQuery(filters, searchKeyword, cursor, PAGE_SIZE);
                 const url = `${API_BASE}${basePath}${qs ? `?${qs}` : ''}`;
 
-                // (디버그) 호출 URL/필터 확인
-                console.log('[useProducts] fetch URL:', url);
-                console.log('[useProducts] filters:', filters, 'keyword:', searchKeyword, 'cursor:', cursor);
-
                 const res = await fetch(url, { headers });
                 if (!res.ok) {
                     const text = await res.text().catch(() => '');
@@ -356,6 +377,9 @@ const useProducts = () => {
 
                 const data = (await res.json()) as ApiCursorResponse;
                 let { list, nextCursor: serverNext } = normalize(data);
+
+                // ✅ 단일 응답 내에서도 혹시 모를 중복 제거
+                list = dedupById(list);
 
                 if (filters.myOnly) {
                     // 판매중 → 예약중 → 판매완료
@@ -369,13 +393,8 @@ const useProducts = () => {
                     });
                 }
 
-                // 서버가 nextCursor를 안 줄 때 대비
-                if (!serverNext && list.length > 0) {
-                    const last = list[list.length - 1];
-                    serverNext = last.createdAt ?? last.updatedAt;
-                }
-
-                setProducts((prev) => (append ? [...prev, ...list] : list));
+                // ✅ 이전 페이지와 합칠 때 id 기준 업서트 → key 중복 제거
+                setProducts((prev) => (append ? mergeUniqueById(prev, list) : dedupById(list)));
                 setNextCursor(serverNext ?? null);
                 setHasMore(Boolean(serverNext));
             } catch (e: any) {
@@ -426,6 +445,18 @@ const useProducts = () => {
         fetchPage({ append: false, cursor: undefined });
     }, [fetchPage]);
 
+    // ✅ 무한 스크롤: 화면 하단 근처 도달 시 자동으로 다음 페이지 로드
+    useEffect(() => {
+        const onScroll = () => {
+            if (loading || loadingMore) return;
+            if (!hasMore || !nextCursor) return;
+            const nearBottom = window.innerHeight + window.scrollY >= document.body.offsetHeight - 200;
+            if (nearBottom) loadMore();
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        return () => window.removeEventListener('scroll', onScroll);
+    }, [loading, loadingMore, hasMore, nextCursor, loadMore]);
+
     return {
         products: visibleProducts,
         loading,
@@ -445,8 +476,107 @@ const useProducts = () => {
 
 export default useProducts;
 
+export const useMySalesCount = () => {
+    const [count, setCount] = useState<number | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string>('');
 
-// === 카테고리 훅 ===
+    useEffect(() => {
+        let cancelled = false;
+
+        const run = async () => {
+            setLoading(true);
+            setError('');
+            setCount(null);
+
+            try {
+                const token = localStorage.getItem('accessToken');
+                if (!token) {
+                    // 비로그인 상태면 0으로 처리
+                    if (!cancelled) setCount(0);
+                    return;
+                }
+
+                const headers: HeadersInit = {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                };
+
+                let cursor: string | undefined = undefined;
+                let total = 0;
+
+                // 한 번에 너무 많이 받지 않도록 페이지당 200개 정도로 페이징
+                const PAGE = 200;
+
+                do {
+                    const params = new URLSearchParams();
+                    params.set('limit', String(PAGE));
+                    if (cursor) params.set('cursor', cursor);
+
+                    const url = `${API_BASE}/api/product/my-sales?${params.toString()}`;
+                    const res = await fetch(url, { headers });
+
+                    if (!res.ok) {
+                        const text = await res.text().catch(() => '');
+                        throw new Error(text || `내 판매 목록 조회 실패 (${res.status})`);
+                    }
+
+                    const data = (await res.json()) as ApiCursorResponse;
+                    const { list, nextCursor } = normalize(data);
+
+                    total += Array.isArray(list) ? list.length : 0;
+                    cursor = nextCursor;
+
+                    if (cancelled) return;
+                } while (cursor);
+
+                if (!cancelled) setCount(total);
+            } catch (e: any) {
+                if (!cancelled) {
+                    setError(e?.message ?? '내 판매 목록을 불러오지 못했습니다.');
+                    setCount(null);
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+
+        run();
+        return () => { cancelled = true; };
+    }, []);
+
+    return { count, loading, error };
+};
+
+export function useRevealOnScroll(once: boolean = true) {
+    const ref = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+
+        const io = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        el.classList.add('is-visible');
+                        if (once) io.unobserve(entry.target);
+                    } else if (!once) {
+                        el.classList.remove('is-visible');
+                    }
+                });
+            },
+            { threshold: 0.12 }
+        );
+
+        io.observe(el);
+        return () => io.disconnect();
+    }, [once]);
+
+    return ref;
+}
+
+/* === 카테고리 훅 === */
 export type Category = { id: string; name: string };
 type CategoryApiResponse =
     | Category[]
@@ -497,5 +627,97 @@ export const useCategories = () => {
         loadingCategories,
         categoriesError,
         refreshCategories: fetchCategories,
+    };
+};
+
+/* =========================
+ *  🔥 인기 상품 훅 (조회수 기준/없으면 최신순)
+ * ========================= */
+export type PopularOptions = {
+    limit?: number;          // 기본 12개
+    status?: string;         // 기본 'ON_SALE'
+    excludeId?: string;      // 제외할 상품 (상세 페이지의 현재 상품 등)
+    region?: string;         // 지역 필터 (선택)
+    categoryId?: string;     // 카테고리 필터 (선택)
+};
+
+export const usePopularProducts = (opts: PopularOptions = {}) => {
+    const {
+        limit = 12,
+        status = 'ON_SALE',
+        excludeId,
+        region,
+    } = opts;
+
+    const [popular, setPopular] = useState<Product[]>([]);
+    const [popularLoading, setPopularLoading] = useState<boolean>(false);
+    const [popularError, setPopularError] = useState<string>('');
+
+    const fetchPopular = useCallback(async () => {
+        setPopularLoading(true);
+        setPopularError('');
+
+        try {
+            const token = localStorage.getItem('accessToken');
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            };
+
+            // 서버 기본 정렬은 최신순 → 이후 viewCount 존재 여부에 따라 재정렬
+            const filters: Filters = {
+                ...(region ? { region } : {}),
+                ...(status ? { status } : {}),
+            };
+
+            const qs = buildQuery(filters, '', undefined, limit);
+            const url = `${API_BASE}/api/product${qs ? `?${qs}` : ''}`;
+
+            const res = await fetch(url, { headers });
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(text || `인기 상품 조회 실패 (${res.status})`);
+            }
+
+            const data = (await res.json()) as ApiCursorResponse;
+            let { list } = normalize(data);
+
+            // 현재 상품 제외
+            if (excludeId) {
+                list = list.filter((p) => p.id !== excludeId);
+            }
+
+            // 정렬 규칙: viewCount 가 "정의된" 항목이 하나라도 있으면 조회수 내림차순, 아니면 최신순
+            const hasAnyViewCount = list.some((p) => typeof p.viewCount === 'number' && !Number.isNaN(p.viewCount as number));
+
+            list.sort((a, b) => {
+                if (hasAnyViewCount) {
+                    const av = (typeof a.viewCount === 'number' ? a.viewCount : -1);
+                    const bv = (typeof b.viewCount === 'number' ? b.viewCount : -1);
+                    if (bv !== av) return bv - av; // 조회수 내림차순
+                }
+                const ad = new Date(a.updatedAt || a.createdAt || 0).getTime();
+                const bd = new Date(b.updatedAt || b.createdAt || 0).getTime();
+                return bd - ad; // 최신순
+            });
+
+            setPopular(list.slice(0, limit));
+        } catch (e: any) {
+            setPopularError(e?.message ?? '인기 상품을 불러오지 못했습니다.');
+            setPopular([]);
+        } finally {
+            setPopularLoading(false);
+        }
+    }, [limit, status, excludeId, region]);
+
+    useEffect(() => {
+        fetchPopular();
+    }, [fetchPopular]);
+
+    return {
+        popular,
+        popularLoading,
+        popularError,
+        refreshPopular: fetchPopular,
     };
 };

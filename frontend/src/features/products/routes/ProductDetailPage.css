@@ -37,12 +37,16 @@
     gap: 32px;
 }
 
+/* ✅ 이미지 칼럼을 고정 폭으로 (본문이 길어도 크기 유지) */
 .product-image-section {
-    flex: 1;
+    flex: 0 0 520px;          /* ← 고정 폭 */
+    width: 520px;
 }
 
+/* ✅ 이미지 고정 높이 + 커버 */
 .product-image {
     width: 100%;
+    height: 360px;            /* ← 고정 높이 */
     max-width: 520px;
     border-radius: 12px;
     object-fit: cover;
@@ -50,7 +54,7 @@
 }
 
 .product-info-section {
-    flex: 1;
+    flex: 1 1 auto;           /* 남은 공간을 차지 */
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -103,7 +107,6 @@
     font-size: 15px;
     line-height: 1.65;
     margin: 6px 0;
-    color: #2b1a66;
 }
 
 .detail-stats {
@@ -302,7 +305,18 @@
 /* 반응형 */
 @media (max-width: 768px) {
     .product-detail-content { flex-direction: column; gap: 20px; }
-    .product-image { max-width: 100%; }
+
+    /* 모바일에서는 이미지 칼럼 100% */
+    .product-image-section {
+        flex: 0 0 auto;
+        width: 100%;
+    }
+
+    .product-image {
+        max-width: 100%;
+        height: 300px; /* 모바일에서 약간 낮춤 */
+    }
+
     .buyer-actions.four-inline { flex-wrap: wrap; }
     .chat-button { flex-basis: 100%; } /* 모바일에선 채팅 버튼이 한 줄 차지 */
 }
@@ -333,5 +347,149 @@
     vertical-align: -1px;
 }
 
+/* ─────────────────────────────────── */
+/* 판매자 정보 (테마 적용)           */
+/* ─────────────────────────────────── */
 
+/* ✅ 판매자 정보 스트립: 고정 높이 + 넘침 숨김(본문이 길어도 안정) */
+.seller-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    height: 76px;             /* ← 고정 높이 */
+    overflow: hidden;         /* 텍스트 길어도 높이 유지 */
+    background: var(--surface);
+}
+
+/* 판매자 프로필 이미지 */
+.seller-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    flex: 0 0 60px;
+    border: 2px solid var(--surface);
+}
+
+/* 프로필 이미지가 없을 때 기본 아이콘 */
+.seller-avatar-default {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    flex: 0 0 60px;
+    background-color: #ede9fe; /* Violet-100 */
+    color: var(--primary);
+    font-size: 27px;
+    border: 1px solid var(--border);
+}
+
+.seller-meta {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 2px; /* 이름과 하단 정보 사이 간격 */
+    min-width: 0;            /* 말줄임 처리를 위해 필요 */
+}
+
+.seller-name {
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--text); /* 기본 텍스트 색상 */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 지역, 평점 등 하단 정보 */
+.seller-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;              /* 필요 시 간격 조절 */
+    width: 100%;
+    min-width: 0;
+}
+
+.seller-region {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.seller-rating-right {
+    margin-left: auto;     /* ⭐ 오른쪽 끝으로 밀기 */
+    display: flex;
+    align-items: center;
+}
+
+/* 별 아이콘 스타일 */
+.seller-rating .star {
+    margin-right: 2px;
+    vertical-align: -1px;
+}
+.seller-rating .star.full { opacity: 1; }
+.seller-rating .star.half { opacity: 0.75; }
+.seller-rating .star.empty { opacity: 0.28; }
+.seller-rating .rating-count {
+    margin-left: 2px;
+    font-size: 0.95em;
+    color: #666;
+}
+
+
+/* 인기 섹션 구분선(그라데이션 라인 + 중앙 다이아) */
+.popular-section{
+    position: relative;
+    margin-top: 50px;
+    padding-top: 5px;
+    border-top: 0; 
+}
+
+/* 얇은 그라데이션 라인 */
+.popular-section::before{
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--border) 15%,
+        var(--ring) 50%,
+        var(--border) 85%,
+        transparent 100%
+    );
+    pointer-events: none;
+}
+
+/* 중앙 다이아 장식 */
+.popular-section::after{
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 12px; height: 12px;
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.25);
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.popular-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+.popular-card-wrap { width: 100%; height: 100%; }
 

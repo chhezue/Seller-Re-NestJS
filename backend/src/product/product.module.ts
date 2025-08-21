@@ -5,9 +5,14 @@ import { ProductController } from './product.controller';
 import { ProductService } from './product.service';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
+import { RegionModel } from '../common/entity/region.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ProductModel]), UsersModule, AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([ProductModel, RegionModel]),
+    UsersModule,
+    AuthModule,
+  ],
   controllers: [ProductController],
   providers: [ProductService],
   exports: [ProductService],

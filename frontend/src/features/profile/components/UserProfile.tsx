@@ -4,16 +4,22 @@ import { useNavigate } from 'react-router-dom';
 import type { Profile } from '../hooks/useProfile';
 import './UserProfile.css';
 
-// ✅ 추가: 기본 아이콘 보여주기용
+// 아이콘
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser } from '@fortawesome/free-solid-svg-icons';
+
+// 모달 & 업데이트 훅
+import EditProfileModal from './EditProfileModal';
+import useProfile from '../hooks/useProfile';
+import { useMySalesCount } from '../../products/hooks/useProducts';
+import { toast } from 'react-toastify';
 
 export interface UserProfileProps {
     profile: Profile | null;
     loading?: boolean;
     error?: string | null;
-    onEdit?: () => void;
-    onRefresh?: () => void;
+    onEdit?: () => void;      // (호환용) 이제는 사용하지 않음 — 모달을 바로 띄움
+    onRefresh?: () => void;   // 저장 후 목록 갱신용
 }
 
 const formatKST = (iso?: string) => {
@@ -46,17 +52,38 @@ const UserProfile: React.FC<UserProfileProps> = ({
     profile,
     loading = false,
     error = null,
-    onEdit,
+    onEdit,          // eslint-disable-line @typescript-eslint/no-unused-vars
     onRefresh,
 }) => {
     const navigate = useNavigate();
     const [avatarFallback, setAvatarFallback] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    const regionName = profile?.region?.name || profile?.region_id || '';
+    // 모달 열기 상태
+    const [editOpen, setEditOpen] = useState(false);
+
+    // 프로필 업데이트 훅 (onSave에 전달)
+    const { updateProfile } = useProfile();
+
+    // 내 판매 목록 수
+    const { count: mySalesCount, loading: countLoading, error: countError } = useMySalesCount();
+
+    const regionName = profile?.region?.name || profile?.regionFullName || profile?.region_id || '';
     const created = useMemo(() => formatKST(profile?.createdAt), [profile?.createdAt]);
     const updated = useMemo(() => formatKST(profile?.updatedAt), [profile?.updatedAt]);
     const phone = useMemo(() => normalizePhone(profile?.phoneNumber), [profile?.phoneNumber]);
+
+    // 서버가 주는 값 있으면 사용, 없으면 0/placeholder
+    const listings = (mySalesCount ?? profile?.listingsCount ?? 0);
+    const favorites = profile?.favoritesCount ?? 0;
+    const purchases = (profile as any)?.purchasesCount ?? 0;
+
+    const ratingAvg = (profile as any)?.ratingAvg as number | undefined;
+    const ratingCount = (profile as any)?.ratingCount as number | undefined;
+    const ratingText =
+        typeof ratingAvg === 'number' && typeof ratingCount === 'number'
+            ? `${ratingAvg.toFixed(1)}점 (${ratingCount}명)`
+            : '—';
 
     if (loading) {
         return (
@@ -96,7 +123,6 @@ const UserProfile: React.FC<UserProfileProps> = ({
 
     const role = profile.role;
     const status = profile.status;
-    const pwFail = profile.passwordFailedCount;
 
     const copyId = async () => {
         try {
@@ -108,90 +134,177 @@ const UserProfile: React.FC<UserProfileProps> = ({
         }
     };
 
-    const handleEditClick = () => {
-        if (onEdit) {
-            onEdit();
-            return;
-        }
-        navigate('/profile/edit', { state: { from: '/profile' } });
+    // 라우팅 없이 바로 모달 오픈
+    const openEdit = () => setEditOpen(true);
+
+    // 내 판매 목록 보기
+    const goMySales = () => {
+        navigate('/homepage?myOnly=1');
     };
 
-    // ✅ 이미지가 있고 로드 실패하지 않았을 때만 <img> 사용
+    // 아직 준비중 버튼 공통 핸들러
+    const comingSoon = (label: string) => {
+        toast.info(`${label}은(는) 준비 중입니다.`);
+    };
+
+    // 이미지가 있고 로드 실패하지 않았을 때만 <img> 사용
     const hasImage = Boolean(profile.profileImage) && !avatarFallback;
 
     return (
-        <div className="profile-wrap">
-            <div className="profile-card v2">
-                {/* 헤더 */}
-                <div className="profile-top">
-                    <div className="avatar-wrap">
-                        {hasImage ? (
-                            <img
-                                className="avatar"
-                                src={profile.profileImage!}
-                                alt={`${profile.username}의 아바타`}
-                                onError={() => { if (!avatarFallback) setAvatarFallback(true); }}
-                            />
-                        ) : (
-                            // ✅ 기본 아이콘 렌더
-                            <div className="avatar fallback" aria-label="기본 아바타">
-                                <FontAwesomeIcon icon={faUser} className="profile-icon" />
+        <>
+            <div className="profile-wrap">
+                <div className="profile-card v2">
+                    {/* 헤더 */}
+                    <div className="profile-top">
+                        <div className="avatar-wrap">
+                            {hasImage ? (
+                                <img
+                                    className="avatar"
+                                    src={profile.profileImage!}
+                                    alt={`${profile.username}의 아바타`}
+                                    onError={() => { if (!avatarFallback) setAvatarFallback(true); }}
+                                />
+                            ) : (
+                                <div className="avatar fallback" aria-label="기본 아바타">
+                                    <FontAwesomeIcon icon={faUser} className="profile-icon" />
+                                </div>
+                            )}
+                            <div className="status-dot" data-status={(status || 'ACTIVE')!.toLowerCase()} />
+                        </div>
+
+                        <div className="primary">
+                            <div className="name-row">
+                                <h2 className="username">{profile.username}</h2>
+                                {role && <span className="badge role">{role}</span>}
+                                {status && <span className={`badge status ${status.toLowerCase()}`}>{status}</span>}
                             </div>
+                            <div className="sub-row">
+                                <span className="email">{profile.email}</span>
+                                {phone && <span className="dot">•</span>}
+                                {phone && <span className="phone">{phone}</span>}
+                                {regionName && <><span className="dot">•</span><span className="region">{regionName}</span></>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 메타 그리드 */}
+                    <div className="meta-grid">
+                        <div className="meta">
+                            <span className="meta-label">가입일</span>
+                            <span className="meta-value">{created || '-'}</span>
+                        </div>
+
+                        <div className="meta">
+                            <span className="meta-label">최근 수정일</span>
+                            <span className="meta-value">{updated || '-'}</span>
+                        </div>
+
+                        {/* 내 별점 */}
+                        <div className="meta">
+                            <span className="meta-label">내 별점</span>
+                            <div className="meta-value">{ratingText}</div>
+                        </div>
+
+                         {/* 사용자 ID */}
+                        <div className="meta id-cell">
+                            <span className="meta-label">사용자 ID</span>
+                            <div className="id-row">
+                                <span className="meta-value mono">{shortId(profile.id)}</span>
+                                <button type="button" className="chip" onClick={copyId}>
+                                    {copied ? '복사됨' : '복사'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 내 판매 목록 */}
+                        <div className="meta">
+                            <span className="meta-label">내 판매 목록</span>
+                            <div className="meta-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span>{countLoading ? '집계 중…' : `${listings}개`}</span>
+                                <button type="button" className="chip" onClick={goMySales}>
+                                    보기
+                                </button>
+                            </div>
+                            {countError && (
+                                <div className="hint" style={{ color: '#b00020', fontSize: 12, marginTop: 4 }}>
+                                    {countError}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 찜한 상품 */}
+                        <div className="meta">
+                            <span className="meta-label">찜한 상품</span>
+                            <div className="meta-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span>{favorites}개</span>
+                                <button
+                                    type="button"
+                                    className="chip"
+                                    onClick={() => comingSoon('찜한 상품')}
+                                >
+                                    보기
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* 구매내역 */}
+                        <div className="meta">
+                            <span className="meta-label">구매내역</span>
+                            <div className="meta-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span>{purchases}개</span>
+                                <button
+                                    type="button"
+                                    className="chip"
+                                    onClick={() => comingSoon('구매내역')}
+                                >
+                                    보기
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="meta">
+                            <span className="meta-label">리뷰내역</span>
+                            <div className="meta-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span>{purchases}개</span>
+                                <button
+                                    type="button"
+                                    className="chip"
+                                    onClick={() => comingSoon('리뷰내역')}
+                                >
+                                    보기
+                                </button>
+                            </div>
+                        </div>        
+                    </div>
+
+                    {/* 액션 */}
+                    <div className="profile-actions">
+                        {onRefresh && (
+                            <button type="button" className="btn ghost" onClick={onRefresh}>새로고침</button>
                         )}
-                        <div className="status-dot" data-status={(status || 'ACTIVE')!.toLowerCase()} />
+                        <button type="button" className="btn primary" onClick={openEdit}>
+                            프로필 수정
+                        </button>
                     </div>
-
-                    <div className="primary">
-                        <div className="name-row">
-                            <h2 className="username">{profile.username}</h2>
-                            {role && <span className="badge role">{role}</span>}
-                            {status && <span className={`badge status ${status.toLowerCase()}`}>{status}</span>}
-                        </div>
-                        <div className="sub-row">
-                            <span className="email">{profile.email}</span>
-                            {phone && <span className="dot">•</span>}
-                            {phone && <span className="phone">{phone}</span>}
-                            {regionName && <><span className="dot">•</span><span className="region">{regionName}</span></>}
-                        </div>
-                    </div>
-                </div>
-
-                {/* 메타 그리드 */}
-                <div className="meta-grid">
-                    <div className="meta">
-                        <span className="meta-label">가입일</span>
-                        <span className="meta-value">{created || '-'}</span>
-                    </div>
-                    <div className="meta">
-                        <span className="meta-label">최근 업데이트</span>
-                        <span className="meta-value">{updated || '-'}</span>
-                    </div>
-                    <div className="meta">
-                        <span className="meta-label">로그인 실패</span>
-                        <span className="meta-value">{pwFail ?? 0}회</span>
-                    </div>
-                    <div className="meta id-cell">
-                        <span className="meta-label">사용자 ID</span>
-                        <div className="id-row">
-                            <span className="meta-value mono">{shortId(profile.id)}</span>
-                            <button type="button" className="chip" onClick={copyId}>
-                                {copied ? '복사됨' : '복사'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 액션 */}
-                <div className="profile-actions">
-                    {onRefresh && (
-                        <button type="button" className="btn ghost" onClick={onRefresh}>새로고침</button>
-                    )}
-                    <button type="button" className="btn primary" onClick={handleEditClick}>
-                        프로필 수정
-                    </button>
                 </div>
             </div>
-        </div>
+
+            {/* 수정 모달: 라우팅 없이 그 자리에서 열림 */}
+            {editOpen && (
+                <EditProfileModal
+                    open={editOpen}
+                    profile={profile}
+                    onClose={() => setEditOpen(false)}
+                    onSave={updateProfile}
+                    onSaved={() => {
+                        setEditOpen(false);
+                        onRefresh?.();
+                        toast.success('프로필이 수정되었습니다. 🎉');
+                    }}
+                    closeOnBackdrop={false}
+                />
+            )}
+        </>
     );
 };
 

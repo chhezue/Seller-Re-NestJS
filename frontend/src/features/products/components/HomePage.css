@@ -141,7 +141,7 @@ a {
 }
 
 /* 보조 정보(조회수/시간) */
-.extra-info {
+.extra-info, .region-chip {
     font-size: 13px;
     color: var(--muted);
     display: flex;
@@ -256,4 +256,39 @@ a:focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
     border-radius: 10px;
+}
+
+/* 위로 살짝 떠오르며 페이드인 */
+@keyframes rise-in {
+    from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 카드 기본 */
+.card {
+    will-change: transform, opacity;
+}
+
+/* 관찰 대상 기본 상태(숨김) */
+.card.reveal {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+}
+
+/* 뷰포트에 들어오면 실행 */
+.card.reveal.is-visible {
+    animation: rise-in 0.5s cubic-bezier(.21, .6, .35, 1) both;
+    animation-delay: var(--delay, 0ms); /* 지연 제어용 커스텀 속성 */
+}
+
+.item-card.fade-in-up.seen-no-anim {
+    opacity: 1;
+    transform: translateY(var(--scroll-shift, 0px)) scale(1);
+    animation: none !important; /* 위로 스크롤 시 처음 보이는 카드: 애니메이션 없음 */
 }

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -17,12 +18,18 @@ import { Repository } from 'typeorm';
 import { v4 as uuid } from 'uuid';
 import { TokenRotationFailedDto } from '../logs/dto/token-rotation-failed.dto';
 import { AuthErrorCode } from './const/auth-error-code.const';
-import { UnlockAccountDto } from './dto/unlock-account.dto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { MailService } from '../mail/mail.service';
+import { RequestUnlockDto } from './dto/request-unlock.dto';
+import { VerifyUnlockDto } from './dto/verify-unlock.dto';
+import { PasswordChangeMethod } from '../logs/const/password-change-method.const';
 
 @Injectable()
 export class AuthService {
   private readonly jwtSecret: string;
   private readonly maxLoginAttempts: number;
+  private readonly unlockCodeTtl: number;
 
   constructor(
     @InjectRepository(RefreshTokenModel)
@@ -31,6 +38,8 @@ export class AuthService {
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
   ) {
     this.jwtSecret =
       this.configService.get<string>('JWT_SECRET') +
@@ -40,6 +49,11 @@ export class AuthService {
       this.configService.get<string>('AUTH_MAX_LOGIN_ATTEMPTS', '5'),
       10,
     );
+
+    this.unlockCodeTtl =
+      parseInt(
+        this.configService.get<string>('AUTH_UNLOCK_CODE_TTL_SECONDS', '300'),
+      ) * 1000;
   }
 
   extractTokenFromHeader(headerRawToken: string, isBearer: boolean) {
@@ -286,38 +300,91 @@ export class AuthService {
     );
   }
 
-  async unlockAccount(dto: UnlockAccountDto) {
-    const { email, phoneNumber } = dto;
-
-    if (!email && !phoneNumber) {
-      throw new BadRequestException({
-        message: 'Either email or phone number must be provided.',
-        errorCode: AuthErrorCode.VALIDATION_FAILED,
-      });
-    }
-
-    let user: UsersModel | null = null;
-
-    if (email) {
-      user = await this.userService.getUserByEmail(email);
-    } else if (phoneNumber) {
-      user = await this.userService.getUserByPhoneNumber(phoneNumber);
-    }
+  async requestAccountUnlock(dto: RequestUnlockDto) {
+    const { email } = dto;
+    const user = await this.userService.getUserByEmail(email);
 
     if (!user || user.status !== UserStatusEnum.LOCKED) {
       throw new BadRequestException({
-        message: 'The account is not locked.',
+        message: 'No locked account found with the provided email.',
         errorCode: AuthErrorCode.ACCOUNT_STATE_INVALID,
       });
     }
 
-    await this.userService.updateUser(user.id, {
-      status: UserStatusEnum.ACTIVE,
-      passwordFailedCount: 0,
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000,
+    ).toString();
+    const cacheKey = `unlock-code:${email}`;
+
+    await this.cacheManager.set(cacheKey, verificationCode, this.unlockCodeTtl);
+
+    this.eventEmitter.emit('user.unlock.request', {
+      user,
+      verificationCode,
     });
 
     return {
-      message: 'Your account has been successfully unlocked. You can now log in.',
+      message: 'A verification code has been sent to your email.',
+    };
+  }
+
+  async verifyAndUnlockAccount(dto: VerifyUnlockDto, ip: string) {
+    const { email, verificationCode } = dto;
+    const cacheKey = `unlock-code:${email}`;
+
+    const cachedCode = await this.cacheManager.get<string>(cacheKey);
+
+    if (!cachedCode) {
+      throw new BadRequestException({
+        message: 'Verification code has expired or invalid.',
+        errorCode: AuthErrorCode.VALIDATION_FAILED,
+      });
+    }
+
+    if (cachedCode !== verificationCode) {
+      throw new BadRequestException({
+        message: 'The provided verification code is incorrect.',
+        errorCode: AuthErrorCode.VALIDATION_FAILED,
+      });
+    }
+
+    const user = await this.userService.getUserByEmail(email);
+    if (!user || user.status !== UserStatusEnum.LOCKED) {
+      throw new BadRequestException({
+        message: 'Account is not in a locked state.',
+        errorCode: AuthErrorCode.ACCOUNT_STATE_INVALID,
+      });
+    }
+
+    const temporaryPassword = Math.random().toString(36).slice(-8);
+
+    const hashedPassword = await bcrypt.hash(
+      temporaryPassword,
+      parseInt(this.configService.get<string>('HASH_ROUNDS', '10')),
+    );
+
+    await this.userService.updateUser(user.id, {
+      status: UserStatusEnum.ACTIVE,
+      passwordFailedCount: 0,
+      password: hashedPassword,
+    });
+
+    this.eventEmitter.emit('user.password.changed', {
+      user,
+      ip,
+      method: PasswordChangeMethod.UNLOCK_RESET,
+    });
+
+    this.eventEmitter.emit('user.password.reset', {
+      user,
+      temporaryPassword,
+    });
+
+    await this.cacheManager.del(cacheKey);
+
+    return {
+      message:
+        'Your account has been successfully unlocked. You can now log in with new password.',
     };
   }
 }

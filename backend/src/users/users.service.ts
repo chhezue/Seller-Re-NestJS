@@ -5,6 +5,10 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { CreateUserDto } from './dto/create-user.dto';
 import * as bcrypt from 'bcrypt';
+import { RegionModel } from '../common/entity/region.entity';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PasswordChangeMethod } from '../logs/const/password-change-method.const';
+import { UsersErrorCode } from './const/users-error-code.const';
 
 @Injectable()
 export class UsersService {
@@ -12,6 +16,7 @@ export class UsersService {
     @InjectRepository(UsersModel)
     private readonly usersRepository: Repository<UsersModel>,
     private readonly configService: ConfigService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async getUserByEmail(email: string) {
@@ -31,13 +36,13 @@ export class UsersService {
       if (existingUser.username === username) {
         throw new BadRequestException({
           field: 'username',
-          message: 'This username is already taken.',
+          message: UsersErrorCode.USERNAME_ALREADY_EXISTS,
         });
       }
       if (existingUser.email === email) {
         throw new BadRequestException({
           field: 'email',
-          message: 'This email is already registered.',
+          message: UsersErrorCode.EMAIL_ALREADY_EXISTS,
         });
       }
     }
@@ -58,8 +63,51 @@ export class UsersService {
     return await this.usersRepository.save(newUserObject);
   }
 
-  async updateUser(userId: string, dto: Partial<UsersModel>) {
-    await this.usersRepository.update(userId, dto);
+  async updateUser(
+    userId: string,
+    dto: Partial<UsersModel> & { region_id?: string | null },
+    ip?: string,
+  ) {
+    const { password, region_id, ...rest } = dto;
+
+    const updatePayload: Partial<UsersModel> = {
+      ...rest,
+    };
+
+    if (password) {
+      const isAlreadyHashed = password.startsWith('$2b$');
+      if (isAlreadyHashed) {
+        updatePayload.password = password;
+      } else {
+        if (!ip) {
+          throw new BadRequestException({
+            message: 'IP address is required when changing a password.',
+            errorCode: UsersErrorCode.IP_ADDRESS_REQUIRED_FOR_PASSWORD_CHANGE,
+          });
+        }
+        const hashedPassword = await bcrypt.hash(
+          password,
+          parseInt(this.configService.get<string>('HASH_ROUNDS', '10')),
+        );
+        updatePayload.password = hashedPassword;
+
+        this.eventEmitter.emit('user.password.changed', {
+          user: { id: userId },
+          ip,
+          method: PasswordChangeMethod.USER_INITIATED,
+        });
+      }
+    }
+
+    if (region_id !== undefined) {
+      updatePayload.region = region_id
+        ? ({ id: region_id } as RegionModel)
+        : null;
+    }
+
+    if (Object.keys(updatePayload).length > 0) {
+      await this.usersRepository.update(userId, updatePayload);
+    }
   }
 
   async getUserByPhoneNumber(phoneNumber: string): Promise<UsersModel | null> {

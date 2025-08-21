@@ -43,4 +43,27 @@ export class CommonService {
 
     return result;
   }
+
+  // 상위 지역 정보를 포함한 플랫 구조로 반환
+  async getFlatRegions(): Promise<any[]> {
+    const allRegions = await this.regionRepository.find();
+    const parentRegionsMap = new Map();
+
+    // 상위 지역들을 맵으로 저장
+    allRegions
+      .filter((region) => region.parentId === null)
+      .forEach((parent) => {
+        parentRegionsMap.set(parent.id, parent);
+      });
+
+    return allRegions.map((region) => ({
+      id: region.id,
+      name: region.name,
+      parentId: region.parentId,
+      parentName: region.parentId
+        ? parentRegionsMap.get(region.parentId)?.name
+        : null,
+      isParent: region.parentId === null,
+    }));
+  }
 }
