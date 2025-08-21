@@ -24,7 +24,7 @@
     "makedummy:users": "ts-node -r tsconfig-paths/register ./script/create-dummy-user.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.864.0",
+    "@aws-sdk/client-s3": "^3.872.0",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/cache-manager": "^3.0.1",
     "@nestjs/common": "^10.0.0",

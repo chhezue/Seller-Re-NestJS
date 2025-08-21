@@ -13,6 +13,7 @@ import { LogsModule } from './logs/logs.module';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AccessTokenGuard } from './auth/guard/bearer-token.guard';
 import { CacheModule } from '@nestjs/cache-manager';
+import { S3Module } from './s3/s3.module';
 
 @Module({
   imports: [
@@ -44,6 +45,8 @@ import { CacheModule } from '@nestjs/cache-manager';
     CommonModule,
     UsersModule,
     AuthModule,
+    ConfigModule,
+    S3Module,
   ],
   controllers: [AppController],
   providers: [
