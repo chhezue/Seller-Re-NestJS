@@ -29,6 +29,14 @@ export class AuthController {
     return await this.authService.loginUser(user);
   }
 
+  @Post('logout')
+  @IsPublic()
+  @UseGuards(RefreshTokenGuard)
+  @HttpCode(HttpStatus.OK)
+  async postLogout(@Token() token: string) {
+    return this.authService.logout(token);
+  }
+
   @Post('token/refresh')
   @IsPublic()
   @UseGuards(RefreshTokenGuard)
@@ -48,14 +56,6 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async postVerifyUnlock(@Body() body: VerifyUnlockDto, @Ip() ip: string) {
     return this.authService.verifyAndUnlockAccount(body, ip);
-  }
-
-  @Post('logout')
-  @IsPublic()
-  @UseGuards(RefreshTokenGuard)
-  @HttpCode(HttpStatus.OK)
-  async postLogout(@Token() token: string) {
-    return this.authService.logout(token);
   }
 
   //TEST API
