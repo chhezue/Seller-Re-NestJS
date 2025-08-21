@@ -8,7 +8,7 @@ import { FileModel } from './entity/file.entity';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
 import { ProductImageModel } from './entity/product-image.entity';
-import { AwsS3Service } from './service/aws-s3.service';
+import { S3Service } from '../s3/s3.service';
 import { ImageProcessingService } from './service/image-processing.service';
 import { CleanupSchedule } from './schedule/cleanup.schedule';
 
@@ -41,10 +41,10 @@ export const TEMP_FOLDER_PATH = path.join(process.cwd(), 'uploads_temp');
   controllers: [UploadsController],
   providers: [
     UploadsService,
-    AwsS3Service,
+    S3Service,
     ImageProcessingService,
     CleanupSchedule,
   ],
-  exports: [UploadsService, AwsS3Service, ImageProcessingService],
+  exports: [UploadsService, S3Service, ImageProcessingService],
 })
 export class UploadsModule {}

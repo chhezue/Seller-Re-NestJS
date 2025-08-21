@@ -22,7 +22,7 @@ export class FileModel extends BaseModel {
   key: string; // 클라우드 스토리지(예: AWS S3)에 저장된 파일의 고유 식별 키
 
   @Column()
-  url: string; // 클라우드 스토리지에 저장된 파일에 접근할 수 있는 공개 URL
+  url: string; // AWS에 영구 저장된 파일이 반환하는 URL
 
   @Column({ default: FileStatus.TEMPORARY })
   status: FileStatus;
