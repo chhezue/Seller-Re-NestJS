@@ -13,6 +13,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { FileModel, FileStatus } from '../src/uploads/entity/file.entity';
 import { ImageCommitDto } from '../src/uploads/dto/image-commit.dto';
+import { ProductImageModel } from '../src/uploads/entity/product-image.entity';
+import { ProductModel } from '../src/product/entity/product.entity';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -24,6 +26,12 @@ async function bootstrap() {
   );
   const fileRepository = app.get<Repository<FileModel>>(
     getRepositoryToken(FileModel),
+  );
+  const productImageRepository = app.get<Repository<ProductImageModel>>(
+    getRepositoryToken(ProductImageModel),
+  );
+  const productRepository = app.get<Repository<ProductModel>>(
+    getRepositoryToken(ProductModel),
   );
 
   try {
@@ -57,9 +65,7 @@ async function bootstrap() {
       `카테고리 ${categoryIds.length}개, 사용자 ${users.length}명을 찾았습니다.`,
     );
 
-    // 더미 이미지 파일들 생성
-    console.log('더미 이미지 파일들을 생성합니다...');
-    const dummyImages = [];
+    // 기본 이미지 URL 템플릿
     const imageUrls = [
       'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
       'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500',
@@ -67,20 +73,6 @@ async function bootstrap() {
       'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=500',
       'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500',
     ];
-
-    for (let i = 0; i < imageUrls.length; i++) {
-      const dummyFile = fileRepository.create({
-        originalName: `dummy-image-${i + 1}.jpg`,
-        mimeType: 'image/jpeg',
-        size: 150000 + Math.floor(Math.random() * 50000), // 150KB ~ 200KB 랜덤 크기
-        key: `dummy-${Date.now()}-${i}`,
-        url: imageUrls[i],
-        status: FileStatus.PERMANENT,
-      });
-      const savedFile = await fileRepository.save(dummyFile);
-      dummyImages.push(savedFile);
-    }
-    console.log(`${dummyImages.length}개의 더미 이미지 파일이 생성되었습니다.`);
 
     const statuses = [
       PRODUCT_STATUS.ON_SALE,
@@ -104,17 +96,35 @@ async function bootstrap() {
       const tradeType =
         Math.random() > 0.5 ? TRADE_TYPE.SELL : TRADE_TYPE.SHARE;
 
-      // 랜덤하게 1~3개의 이미지 선택
+      // 각 상품마다 고유한 이미지 파일 생성 (OneToOne 제약 해결)
       const numberOfImages = Math.floor(Math.random() * 3) + 1; // 1~3개
-      const selectedImages = dummyImages
-        .sort(() => 0.5 - Math.random())
-        .slice(0, numberOfImages);
+      const productImages = [];
+
+      for (let imgIndex = 0; imgIndex < numberOfImages; imgIndex++) {
+        const selectedImageUrl =
+          imageUrls[Math.floor(Math.random() * imageUrls.length)];
+
+        // 각 이미지마다 고유한 키와 타임스탬프로 구분
+        const uniqueKey = `product-${i}-img-${imgIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        const dummyFile = fileRepository.create({
+          originalName: `product-${i}-image-${imgIndex + 1}.jpg`,
+          mimeType: 'image/jpeg',
+          size: 150000 + Math.floor(Math.random() * 50000), // 150KB ~ 200KB 랜덤 크기
+          key: uniqueKey,
+          url: selectedImageUrl,
+          status: FileStatus.PERMANENT,
+        });
+        const savedFile = await fileRepository.save(dummyFile);
+        productImages.push(savedFile);
+      }
 
       // 이미지 DTO 생성
-      const images: ImageCommitDto[] = selectedImages.map((image, index) => ({
+      const images: ImageCommitDto[] = productImages.map((image, index) => ({
         fileId: image.id,
         isRepresentative: index === 0, // 첫 번째 이미지를 대표 이미지로 설정
         order: index,
+        isNew: false, // 이미 PERMANENT 상태인 파일이므로 false
       }));
 
       // 기본 제품 정보
@@ -139,7 +149,30 @@ async function bootstrap() {
           : baseProductData; // SHARE의 경우 price, isNegotiable 없음
 
       try {
-        await productService.createProduct(dummyProduct, randomUser);
+        // ProductService를 사용하지 않고 직접 상품 생성 (이미지는 이미 PERMANENT 상태)
+        const { categoryId, images, ...productData } = dummyProduct;
+
+        // 1. 상품 정보 먼저 생성
+        const newProduct = await productRepository.save({
+          ...productData,
+          category: { id: categoryId },
+          author: { id: randomUser.id },
+          region: randomUser.region ?? null,
+        });
+
+        // 2. 이미지가 있는 경우 ProductImage 관계 직접 생성
+        if (images && images.length > 0) {
+          const productImages = images.map((imageInfo) =>
+            productImageRepository.create({
+              product: { id: newProduct.id },
+              file: { id: imageInfo.fileId },
+              order: imageInfo.order,
+              isRepresentative: imageInfo.isRepresentative,
+            }),
+          );
+          await productImageRepository.save(productImages);
+        }
+
         console.log(
           `생성 완료: ${dummyProduct.name} (${dummyProduct.tradeType}) - 작성자: ${randomUser.username}`,
         );
