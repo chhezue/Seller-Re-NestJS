@@ -14,9 +14,9 @@ export class ProductImageModel extends BaseModel {
   @JoinColumn({ name: 'file_id' })
   file: FileModel;
 
-  @Column({ default: false, name: 'is_representative' })
-  isRepresentative: boolean; // 대표 이미지(썸네일)
+  @Column({ default: false })
+  isRepresentative: boolean; // 대표 이미지(썸네일) 여부
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ default: 0 })
   order: number; // 이미지의 노출 순서
 }
