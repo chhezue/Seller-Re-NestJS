@@ -43,7 +43,7 @@ export class UploadsService {
     );
   }
 
-  async commitFiles(imageDtos: ImageCommitDto[]) {
+  async commitFiles(imageDtos: ImageCommitDto[]): Promise<FileModel[]> {
     if (!imageDtos.length) {
       throw new BadRequestException('파일이 제공되지 않았습니다.');
     }

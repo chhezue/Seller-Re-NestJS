@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsNotEmpty,
@@ -8,12 +9,15 @@ import {
   IsString,
   IsUUID,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import {
   PRODUCT_CONDITION,
   PRODUCT_STATUS,
   TRADE_TYPE,
 } from '../const/product.const';
+import { Type } from 'class-transformer';
+import { ImageCommitDto } from '../../uploads/dto/image-commit.dto';
 
 export class CreateProductDto {
   @ApiProperty({ description: '제품명' })
@@ -61,4 +65,10 @@ export class CreateProductDto {
   @IsNotEmpty()
   @IsOptional() // tradeType이 SHARE일 경우
   isNegotiable?: boolean;
+
+  @ApiProperty({ description: '최종 저장될 이미지 파일들' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ImageCommitDto)
+  images: ImageCommitDto[];
 }

@@ -11,6 +11,8 @@ import { UsersModel } from '../src/users/entity/users.entity';
 import { CommonService } from '../src/common/common.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { FileModel, FileStatus } from '../src/uploads/entity/file.entity';
+import { ImageCommitDto } from '../src/uploads/dto/image-commit.dto';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -19,6 +21,9 @@ async function bootstrap() {
   const commonService = app.get(CommonService);
   const usersRepository = app.get<Repository<UsersModel>>(
     getRepositoryToken(UsersModel),
+  );
+  const fileRepository = app.get<Repository<FileModel>>(
+    getRepositoryToken(FileModel),
   );
 
   try {
@@ -52,6 +57,31 @@ async function bootstrap() {
       `카테고리 ${categoryIds.length}개, 사용자 ${users.length}명을 찾았습니다.`,
     );
 
+    // 더미 이미지 파일들 생성
+    console.log('더미 이미지 파일들을 생성합니다...');
+    const dummyImages = [];
+    const imageUrls = [
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
+      'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500',
+      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=500',
+      'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=500',
+      'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500',
+    ];
+
+    for (let i = 0; i < imageUrls.length; i++) {
+      const dummyFile = fileRepository.create({
+        originalName: `dummy-image-${i + 1}.jpg`,
+        mimeType: 'image/jpeg',
+        size: 150000 + Math.floor(Math.random() * 50000), // 150KB ~ 200KB 랜덤 크기
+        key: `dummy-${Date.now()}-${i}`,
+        url: imageUrls[i],
+        status: FileStatus.PERMANENT,
+      });
+      const savedFile = await fileRepository.save(dummyFile);
+      dummyImages.push(savedFile);
+    }
+    console.log(`${dummyImages.length}개의 더미 이미지 파일이 생성되었습니다.`);
+
     const statuses = [
       PRODUCT_STATUS.ON_SALE,
       PRODUCT_STATUS.RESERVED,
@@ -74,6 +104,19 @@ async function bootstrap() {
       const tradeType =
         Math.random() > 0.5 ? TRADE_TYPE.SELL : TRADE_TYPE.SHARE;
 
+      // 랜덤하게 1~3개의 이미지 선택
+      const numberOfImages = Math.floor(Math.random() * 3) + 1; // 1~3개
+      const selectedImages = dummyImages
+        .sort(() => 0.5 - Math.random())
+        .slice(0, numberOfImages);
+
+      // 이미지 DTO 생성
+      const images: ImageCommitDto[] = selectedImages.map((image, index) => ({
+        fileId: image.id,
+        isRepresentative: index === 0, // 첫 번째 이미지를 대표 이미지로 설정
+        order: index,
+      }));
+
       // 기본 제품 정보
       const baseProductData = {
         name: `더미 제품 ${i}`,
@@ -82,6 +125,7 @@ async function bootstrap() {
         status: statuses[Math.floor(Math.random() * statuses.length)],
         tradeType: tradeType,
         condition: conditions[Math.floor(Math.random() * conditions.length)],
+        images: images,
       };
 
       // 거래 타입에 따른 조건부 필드 설정

@@ -10,7 +10,7 @@ export class ProductImageModel extends BaseModel {
   @JoinColumn({ name: 'product_id' })
   product: ProductModel; // 속한 상품
 
-  @OneToOne(() => FileModel)
+  @OneToOne(() => FileModel, { eager: true })
   @JoinColumn({ name: 'file_id' })
   file: FileModel;
 

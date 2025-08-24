@@ -65,9 +65,7 @@ export class ProductController {
     @Param('productId') productId: string,
     @User('id') userId?: string,
   ) {
-    const product = await this.productService.getProduct(productId, userId);
-    console.log(product);
-    return product;
+    return await this.productService.getProduct(productId, userId);
   }
 
   @ApiOperation({ description: '상품 등록' })
