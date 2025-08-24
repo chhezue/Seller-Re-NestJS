@@ -7,8 +7,8 @@ const Footer: React.FC = () => {
     <footer className="main-footer">
         <div className="footer-content">
         <div className="footer-logo">
-            <h3>중고마켓</h3>
-            <p>&copy; {new Date().getFullYear()} 중고마켓. All rights reserved.</p>
+            <h2> Seller-<span className="accent-re">Re</span></h2>
+            <p>&copy; {new Date().getFullYear()}  Seller-Re. All rights reserved.</p>
         </div>
         <nav className="footer-links">
             <Link to="/about">회사 소개</Link>

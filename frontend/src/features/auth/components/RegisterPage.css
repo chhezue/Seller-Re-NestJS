@@ -1,215 +1,512 @@
-/* 전체 컨테이너 */
+/* =========================================================
+    💜 Register Page — Bright Violet Theme (전체 수정본)
+    4칸 들여쓰기 적용
+   ========================================================= */
+
+/* 색상 변수 */
+:root {
+    --violet-50:  #f5f3ff;
+    --violet-100: #ede9fe;
+    --violet-200: #ddd6fe;
+    --violet-300: #c4b5fd;
+    --violet-400: #a78bfa;
+    --violet-500: #8b5cf6;
+    --violet-600: #7c3aed;
+    --violet-700: #5b21b6;
+
+    --text-strong: #2a235a;
+    --text-muted: #5f5a7a;
+
+    --panel: #ffffff;
+    --panel-border: var(--violet-200);
+    --ring: rgba(139, 92, 246, 0.18);
+}
+
+/* =========================================================
+   전체 컨테이너
+   ========================================================= */
 .register-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    /* 은은한 보라 틴트 배경 */
+    background:
+        radial-gradient(900px 420px at 50% -20%, var(--violet-50), transparent 60%),
+        linear-gradient(180deg, #ffffff, #ffffff);
+    font-family: 'Segoe UI', sans-serif;
 }
 
-/* 박스 UI */
+/* =========================================================
+   박스 UI
+   ========================================================= */
 .register-box {
-  width: 420px;
-  background: white;
-  border-radius: 18px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-  padding: 40px 30px;
-  box-sizing: border-box;
+    width: 420px;
+    background: var(--panel);
+    border-radius: 18px;
+    border: 1px solid var(--panel-border);
+    box-shadow:
+        0 10px 28px rgba(139, 92, 246, 0.18),
+        0 2px 10px rgba(0, 0, 0, 0.06);
+    padding: 40px 30px;
+    box-sizing: border-box;
+    animation: fadeInUp 260ms ease-out;
 }
 
-/* 프로필 섹션 */
+/* =========================================================
+   프로필 섹션
+   ========================================================= */
 .profile-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
 }
 
 .profile-wrapper {
-  position: relative;
-  width: 100px;
-  height: 100px;
-  margin: 0 auto;
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto;
 }
 
 .profile-circle {
-  width: 100px;
-  height: 100px;
-  background: #eee;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2px solid #ccc;
-  cursor: pointer;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+    width: 100px;
+    height: 100px;
+    background: #faf7ff;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--violet-300);
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.profile-circle:hover {
+    border-color: var(--violet-500);
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.18);
+    transform: translateY(-1px);
 }
 
 .profile-icon {
-  font-size: 45px;
-  color: #888;
+    font-size: 45px;
+    color: var(--violet-400);
 }
 
 .profile-preview {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 /* 삭제 버튼 (X) */
 .delete-button-wrapper {
-  position: absolute;
-  top: -8px;
-  right: -8px;
+    position: absolute;
+    top: -8px;
+    right: -8px;
 }
 
 .delete-image-icon {
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  font-size: 14px;
-  cursor: pointer;
-  line-height: 24px;
-  text-align: center;
-  padding: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 24px;
+    text-align: center;
+    padding: 0;
 }
 
 .delete-image-icon:hover {
-  background: red;
+    background: #e03a3a; /* 위험 동작은 레드 유지 */
 }
 
 .profile-label {
-  margin-top: 10px;
-  color: #555;
-  font-size: 14px;
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 14px;
 }
 
-/* 입력 폼 전체 */
+/* =========================================================
+   입력 폼
+   ========================================================= */
 .form-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
-/* 개별 폼 항목 */
 .form-item {
-  position: relative;
+    position: relative;
 }
 
-/* 아이콘 */
 .input-icon {
-  position: absolute;
-  top: 50%;
-  left: 10px;
-  transform: translateY(-50%);
-  color: #aaa;
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    transform: translateY(-50%);
+    color: #aaa;
 }
 
 /* 기본 input 스타일 */
 .form-item input {
-  width: 85%;
-  padding: 12px 12px 12px 38px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 14px;
+    width: 85%;
+    padding: 12px 12px 12px 38px;
+    border: 1px solid var(--violet-300);
+    border-radius: 10px;
+    font-size: 14px;
+    background: #fafafa;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.form-item input:hover {
+    border-color: var(--violet-400);
+    background: #fdfdfd;
+}
+
+.form-item input:focus {
+    border-color: var(--violet-500);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--ring);
 }
 
 /* 에러 input 스타일 */
 .input-error {
-  border: 1px solid red;
+    border: 1px solid #e63946;
 }
 
 /* 에러 텍스트 */
-.error-text {
-  position: relative;
-  color: #ff0000db;
-  font-size: 0.8rem;
-  margin: -8px 0 0px 19px;
-  padding-left: 10px;
+.register-container .error-text {
+    position: relative;
+    color: #ff0000db;
+    font-size: 0.8rem;
+    margin: -8px 0 0px 19px;
+    padding-left: 10px;
 }
 
-.error-text::before {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #ff0000db;
-  content: '';
+.register-container .error-text::before {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #ff0000db;
+    content: '';
 }
 
-/* 가입 버튼 */
-.register-button {
-  margin-top: 20px;
-  padding: 12px;
-  width: 100%;
-  background: #2d2d2d;
-  color: white;
-  font-weight: bold;
-  font-size: 15px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.register-button:hover {
-  background: #1a1a1a;
-}
-
-/* 로그인 링크 */
-.login-link {
-  text-align: center;
-  margin-top: 18px;
-  font-size: 14px;
-  color: #555;
-}
-
-/* 주소 검색 wrapper */
+/* =========================================================
+   주소 입력/검색
+   ========================================================= */
 .address-search {
-  display: flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 
-/* 인풋 + 버튼 wrapper */
 .address-input-wrapper {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: 10px;
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 10px;
 }
 
-/* 주소 input field */
 .address-input {
-  flex: 1;
-  padding: 6px 12px;
-  font-size: 14px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background-color: #f9f9f9;
-  color: #333;
-  pointer-events: none;
-  cursor: default;
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 14px;
+    border: 1px solid var(--violet-300);
+    border-radius: 8px;
+    background-color: var(--violet-50);
+    color: var(--text-strong);
+    pointer-events: none;
+    cursor: default;
 }
 
-/* 주소 찾기 버튼 */
 .address-search-btn {
-  height: 36px;
-  padding: 0 16px;
-  background-color: #40526a;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color 0.2s;
+    height: 36px;
+    padding: 0 16px;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    background: linear-gradient(135deg, var(--violet-400), var(--violet-600));
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.20);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
 .address-search-btn:hover {
-  background-color: #2c3c52;
+    background: linear-gradient(135deg, var(--violet-500), var(--violet-700));
+    box-shadow: 0 10px 24px rgba(139, 92, 246, 0.28);
+    transform: translateY(-1px);
+}
+
+.address-search-btn:focus-visible {
+    outline: 2px solid rgba(139, 92, 246, 0.45);
+    outline-offset: 2px;
+}
+
+/* =========================================================
+   버튼 (공통/가입)
+   ========================================================= */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 88px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    transition: transform 0.06s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    user-select: none;
+    outline: none;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+.btn.primary {
+    background: linear-gradient(135deg, var(--violet-400), var(--violet-600));
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.20);
+}
+
+.btn.primary:hover {
+    background: linear-gradient(135deg, var(--violet-500), var(--violet-700));
+    box-shadow: 0 10px 24px rgba(139, 92, 246, 0.28);
+}
+
+.btn.ghost {
+    background: transparent;
+    color: var(--text-strong);
+    border: 1px solid var(--violet-200);
+}
+
+.btn.ghost:hover {
+    background: var(--violet-50);
+    border-color: var(--violet-300);
+}
+
+.btn:focus-visible,
+.list-item:focus-visible,
+.address-search-btn:focus-visible {
+    outline: 2px solid rgba(139, 92, 246, 0.45);
+    outline-offset: 2px;
+}
+
+/* 가입 버튼 (개별) */
+.register-button {
+    margin-top: 20px;
+    padding: 12px;
+    width: 100%;
+    background: linear-gradient(135deg, var(--violet-400), var(--violet-600));
+    color: white;
+    font-weight: 800;
+    font-size: 15px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(139, 92, 246, 0.26);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.register-button:hover {
+    background: linear-gradient(135deg, var(--violet-500), var(--violet-700));
+    box-shadow: 0 14px 28px rgba(139, 92, 246, 0.32);
+    transform: translateY(-1px);
+}
+
+/* =========================================================
+   로그인 링크
+   ========================================================= */
+.login-link {
+    text-align: center;
+    margin-top: 18px;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+.login-link a {
+    color: var(--violet-600);
+    font-weight: 800;
+    text-decoration: none;
+    transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.login-link a:hover {
+    color: var(--violet-700);
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.18);
+    text-decoration: underline;
+}
+
+/* =========================================================
+   페이드 인 애니메이션
+   ========================================================= */
+.fade-in {
+    animation: fadeInUp 260ms ease-out;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =========================================================
+   RegionSelectModal (ConfirmModal과 충돌 방지)
+   ========================================================= */
+.region-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 24, 39, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    padding: 20px;
+}
+
+.region-dialog {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid var(--violet-200);
+    box-shadow: 0 20px 44px rgba(139, 92, 246, 0.22);
+    padding: 18px 18px 16px;
+    box-sizing: border-box;
+    animation: regionScaleIn 160ms ease-out;
+    text-align: left;
+}
+
+@keyframes regionScaleIn {
+    from { opacity: 0; transform: scale(0.98); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.region-title {
+    margin: 0 0 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-strong);
+}
+
+.region-steps {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--violet-600);
+    font-weight: 700;
+    margin: 2px 0 6px;
+}
+
+.region-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 220px;
+    color: #444;
+    font-size: 14px;
+}
+
+/* 목록 */
+.region-list {
+    margin-top: 6px;
+    border: 1px solid var(--violet-200);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--violet-50);
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.region-item {
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    background: #fff;
+    border: none;
+    border-bottom: 1px solid #f1f1f1;
+    cursor: pointer;
+    font-size: 14px;
+    color: #222;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    display: block;
+}
+
+.region-item:last-child {
+    border-bottom: none;
+}
+
+.region-item:hover {
+    background: #f6f2ff;
+}
+
+.region-item.selected {
+    background: var(--violet-100);
+    color: var(--violet-700);
+    font-weight: 800;
+}
+
+.region-empty {
+    padding: 10px;
+    color: #666;
+    background: #fff;
+}
+
+/* 하단 버튼 */
+.region-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+@media (max-width: 480px) {
+    .region-dialog {
+        max-width: 96vw;
+        padding: 16px;
+        border-radius: 14px;
+    }
+    .region-item {
+        padding: 12px;
+    }
+}
+
+.region-close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: var(--violet-50);
+    color: var(--violet-700);
+    font-size: 18px;
+    line-height: 28px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.region-close:hover {
+    background: var(--violet-100);
+    color: var(--violet-700);
 }
