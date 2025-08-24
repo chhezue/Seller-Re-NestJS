@@ -4,12 +4,12 @@ import { MailService } from './mail.service';
 import { OnEvent } from '@nestjs/event-emitter';
 
 interface UserUnlockRequestPayload {
-  user: Pick<UsersModel, 'email' | 'username'>;
+  user: Pick<UsersModel, 'id' | 'email' | 'username'>;
   verificationCode: string;
 }
 
 interface UserPasswordResetPayload {
-  user: Pick<UsersModel, 'email' | 'username'>;
+  user: Pick<UsersModel, 'id' | 'email' | 'username'>;
   temporaryPassword: string;
 }
 

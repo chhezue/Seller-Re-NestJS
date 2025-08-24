@@ -29,6 +29,14 @@ export class AuthController {
     return await this.authService.loginUser(user);
   }
 
+  @Post('logout')
+  @IsPublic()
+  @UseGuards(RefreshTokenGuard)
+  @HttpCode(HttpStatus.OK)
+  async postLogout(@Token() token: string) {
+    return this.authService.logout(token);
+  }
+
   @Post('token/refresh')
   @IsPublic()
   @UseGuards(RefreshTokenGuard)

@@ -387,4 +387,28 @@ export class AuthService {
         'Your account has been successfully unlocked. You can now log in with new password.',
     };
   }
+
+  async logout(token: string) {
+    const decoded = this.verifyToken(token);
+
+    if (decoded.type !== 'refresh') {
+      throw new UnauthorizedException({
+        message: 'Invalid token type for logout.',
+        errorCode: AuthErrorCode.INVALID_TOKEN_TYPE,
+      });
+    }
+    const refreshToken = await this.refreshTokenRepository.findOne({
+      where: { jti: decoded.jti },
+    });
+
+    if (!refreshToken || refreshToken.isRevoked) {
+      // already logged out or invalid token,
+      return { message: 'You have been successfully logged out.' };
+    }
+
+    refreshToken.isRevoked = true;
+    await this.refreshTokenRepository.save(refreshToken);
+
+    return { message: 'You have been successfully logged out.' };
+  }
 }

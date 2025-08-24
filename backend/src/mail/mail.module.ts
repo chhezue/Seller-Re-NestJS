@@ -12,7 +12,7 @@ import { MailListener } from './mail.listener';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const fromName = configService.get<string>('MAIL_FROM');
+        const fromName = configService.get<string>('APP_NAME', 'SellerRe');
         const fromEmail = configService.get<string>('MAIL_USER');
 
         const templateDir = path.join(__dirname, '..', '..', 'templates');
