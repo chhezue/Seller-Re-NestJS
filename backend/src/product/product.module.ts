@@ -8,6 +8,7 @@ import { AuthModule } from '../auth/auth.module';
 import { RegionModel } from '../common/entity/region.entity';
 import { UploadsModule } from '../uploads/uploads.module';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
+import { LikesModule } from '../likes/likes.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ProductImageModel } from '../uploads/entity/product-image.entity';
     UsersModule,
     AuthModule,
     UploadsModule,
+    LikesModule,
   ],
   controllers: [ProductController],
   providers: [ProductService],

@@ -9,6 +9,7 @@ import { CategoryModel } from '../../common/entity/category.entity';
 import { UsersModel } from '../../users/entity/users.entity';
 import { RegionModel } from '../../common/entity/region.entity';
 import { ProductImageModel } from '../../uploads/entity/product-image.entity';
+import { LikeModel } from '../../likes/entity/like.entity';
 
 @Entity()
 export class ProductModel extends BaseModel {
@@ -58,6 +59,9 @@ export class ProductModel extends BaseModel {
     eager: true,
   })
   images: ProductImageModel[];
+
+  @OneToMany(() => LikeModel, (like) => like.product)
+  likes: LikeModel[];
 
   @Column({ default: false })
   isDeleted: boolean;
