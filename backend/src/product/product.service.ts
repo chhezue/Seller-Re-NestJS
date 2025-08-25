@@ -7,14 +7,19 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { GetProductDto } from './dto/get-product.dto';
 import { UsersModel } from '../users/entity/users.entity';
 import { RegionModel } from '../common/entity/region.entity';
+import { UploadsService } from '../uploads/uploads.service';
+import { ProductImageModel } from '../uploads/entity/product-image.entity';
 
 @Injectable()
 export class ProductService {
   constructor(
+    private readonly uploadsService: UploadsService,
     @InjectRepository(ProductModel)
     private readonly productRepository: Repository<ProductModel>,
     @InjectRepository(RegionModel)
     private readonly regionRepository: Repository<RegionModel>,
+    @InjectRepository(ProductImageModel)
+    private readonly productImageRepository: Repository<ProductImageModel>,
   ) {}
 
   async getAllProducts(
@@ -151,38 +156,90 @@ export class ProductService {
     createProductDto: CreateProductDto,
     user: UsersModel,
   ): Promise<ProductModel> {
-    const { categoryId, ...rest } = createProductDto;
+    const { categoryId, images, ...rest } = createProductDto;
     const { id, region } = user;
 
-    const newProduct = this.productRepository.create({
+    // 상품 정보 먼저 생성
+    const newProduct = await this.productRepository.save({
       ...rest,
       category: { id: categoryId },
       author: { id },
       region: region ?? null, // region이 존재할 때만 포함
     });
 
-    const savedProduct = await this.productRepository.save(newProduct);
-    return await this.getProduct(savedProduct.id); // author 정보 포함 반환
+    // 최종 이미지 저장 로직 처리
+    if (images && images.length > 0) {
+      // S3에 영구 저장
+      const committedFiles = await this.uploadsService.commitFiles(images);
+
+      // S3 저장 후 반환된 파일들을 바탕으로 ProductImage 생성
+      // commitFiles에는 order & isRepresentative 정보가 없으므로, 원래 DTO와 매칭시켜야 함
+      const productImages = committedFiles.map((file) => {
+        const originalImageInfo = images.find((img) => img.fileId === file.id);
+
+        // productImage Entity 생성: 상품과의 관계 설정
+        return this.productImageRepository.create({
+          product: newProduct, // 해당하는 상품 (id로 저장)
+          file: file, // 해당하는 File Entity (id로 저장)
+          order: originalImageInfo.order,
+          isRepresentative: originalImageInfo.isRepresentative,
+        });
+      });
+
+      // 한번에 모든 ProductImage를 저장 (더 효율적)
+      await this.productImageRepository.save(productImages);
+    }
+
+    // 최종 생성된 상품 반환(author, region, category, images 포함)
+    return await this.getProduct(newProduct.id);
   }
 
   async updateProduct(
     productId: string,
     updateProductDto: UpdateProductDto,
   ): Promise<ProductModel> {
-    await this.getProduct(productId); // 상품 존재 여부 확인
+    // 1. 상품 정보 확인 (없으면 에러 발생)
+    await this.productRepository.findOneOrFail({
+      where: { id: productId },
+    });
 
     // categoryId가 있으면 category 객체로 변환
-    const { categoryId, ...rest } = updateProductDto;
+    const { categoryId, images, ...rest } = updateProductDto;
     const updateData = categoryId
       ? {
           ...rest,
-          category: {
-            id: categoryId,
-          },
+          category: { id: categoryId },
         }
       : rest;
 
-    await this.productRepository.update(productId, updateData); // update()는 업데이트만 하고 엔티티를 반환하지는 않음.
+    // 상품 텍스트 정보 먼저 업데이트
+    await this.productRepository.update(productId, updateData);
+
+    // 이미지 업데이트가 있는 경우
+    if (images) {
+      const newTempImages = images.filter((img) => img.isNew === true);
+
+      if (newTempImages.length > 0) {
+        await this.uploadsService.commitFiles(newTempImages);
+      }
+
+      // 해당 상품에 연결된 기존 이미지 관계 모두 삭제
+      await this.productImageRepository.delete({
+        product: { id: productId },
+      });
+
+      // 최종 이미지 목록으로 새 이미지 관계 생성
+      const newImages = images.map((imageInfo) =>
+        this.productImageRepository.create({
+          product: { id: productId }, // 해당하는 상품 (id로 저장)
+          file: { id: imageInfo.fileId }, // 해당하는 File Entity (id로 저장)
+          order: imageInfo.order,
+          isRepresentative: imageInfo.isRepresentative,
+        }),
+      );
+      await this.productImageRepository.save(newImages);
+    }
+
     return this.getProduct(productId); // 변경된 최신 상태를 다시 가져와서 반환
   }
 

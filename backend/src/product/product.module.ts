@@ -6,12 +6,15 @@ import { ProductService } from './product.service';
 import { UsersModule } from '../users/users.module';
 import { AuthModule } from '../auth/auth.module';
 import { RegionModel } from '../common/entity/region.entity';
+import { UploadsModule } from '../uploads/uploads.module';
+import { ProductImageModel } from '../uploads/entity/product-image.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ProductModel, RegionModel]),
+    TypeOrmModule.forFeature([ProductModel, RegionModel, ProductImageModel]),
     UsersModule,
     AuthModule,
+    UploadsModule,
   ],
   controllers: [ProductController],
   providers: [ProductService],
