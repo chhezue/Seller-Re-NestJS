@@ -1,16 +1,60 @@
+// ProductCard.tsx
 import React from 'react';
 import { Link } from 'react-router-dom';
 import type { Product } from '../hooks/useProducts';
 
 type Props = {
     product: Product;
-    to?: string;                         // 넘겨주면 <Link>로 감쌈
-    index?: number;                      // 스태거 애니메이션 딜레이
+    to?: string;
+    index?: number;
     className?: string;
     showRegion?: boolean;
     showTime?: boolean;
-    showCounts?: boolean;                // 👁 조회수 / ♡ 찜수
+    showCounts?: boolean;
 };
+
+// 👁 Lucide eye
+const EyeIcon: React.FC<{ className?: string; title?: string }> = ({ className, title }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="1em"
+        height="1em"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        aria-hidden={title ? undefined : true}
+        role={title ? 'img' : 'presentation'}
+    >
+        {title ? <title>{title}</title> : null}
+        <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+        <circle cx="12" cy="12" r="3" />
+    </svg>
+);
+
+// ❤ Lucide heart (카운트용: 라인 아이콘)
+const HeartIcon: React.FC<{ className?: string; title?: string }> = ({ className, title }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="1em"
+        height="1em"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        aria-hidden={title ? undefined : true}
+        role={title ? 'img' : 'presentation'}
+    >
+        {title ? <title>{title}</title> : null}
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z" />
+    </svg>
+);
 
 const formatRelativeTime = (iso?: string) => {
     if (!iso) return '';
@@ -65,7 +109,6 @@ const ProductCard: React.FC<Props> = ({
                     {product.tradeType === 'SHARE' ? '나눔' : `${product.price.toLocaleString()}원`}
                 </p>
 
-                {/* 메타 영역: 좌측 지역(옵션) + 시간(옵션) / 우측 조회·찜(옵션) */}
                 <div
                     className="item-meta-row"
                     style={{
@@ -82,10 +125,14 @@ const ProductCard: React.FC<Props> = ({
                     </span>
 
                     {showCounts && (
-                        <p className="extra-info" style={{ margin: 0, textAlign: 'right' }}>
-                            👁 {product.viewCount ?? 0}회
+                        <p className="extra-info" style={{ margin: 0, textAlign: 'right', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span className="views" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <EyeIcon className="eye-icon" /> {product.viewCount ?? 0}회
+                            </span>
                             {typeof product.favoriteCount === 'number' && (
-                                <> · ♡ {product.favoriteCount}개</>
+                                <span className="favs" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                    <HeartIcon className="heart-icon" /> {product.favoriteCount}개
+                                </span>
                             )}
                         </p>
                     )}
@@ -94,13 +141,7 @@ const ProductCard: React.FC<Props> = ({
         </div>
     );
 
-    return to ? (
-        <Link to={to}>
-            {CardInner}
-        </Link>
-    ) : (
-        CardInner
-    );
+    return to ? <Link to={to}>{CardInner}</Link> : CardInner;
 };
 
 export default ProductCard;

@@ -108,20 +108,25 @@ export type CreateProductPayload = {
 export type UpdateProductPayload = CreateProductPayload;
 
 export const useProductActions = () => {
-    const createProduct = async (payload: CreateProductPayload) => {
+    const withAuthHeaders = () => {
         const token = localStorage.getItem('accessToken');
         if (!token) {
             const err = new Error('인증이 필요합니다. 로그인 후 다시 시도해주세요.');
             (err as any).code = 'NOT_AUTHENTICATED';
             throw err;
         }
+        return {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+        } as HeadersInit;
+    };
+
+    const createProduct = async (payload: CreateProductPayload) => {
+        const headers = withAuthHeaders();
 
         const res = await fetch(`${API_BASE}/api/product`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-            },
+            headers,
             body: JSON.stringify(payload),
         });
 
@@ -136,19 +141,11 @@ export const useProductActions = () => {
     };
 
     const updateProduct = async (id: string, payload: UpdateProductPayload) => {
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
-            const err = new Error('인증이 필요합니다. 로그인 후 다시 시도해주세요.');
-            (err as any).code = 'NOT_AUTHENTICATED';
-            throw err;
-        }
+        const headers = withAuthHeaders();
 
         const res = await fetch(`${API_BASE}/api/product/${id}`, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-            },
+            headers,
             body: JSON.stringify(payload),
         });
 
@@ -163,16 +160,11 @@ export const useProductActions = () => {
     };
 
     const deleteProduct = async (productId: string) => {
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
-            const err = new Error('인증이 필요합니다. 로그인 후 다시 시도해주세요.');
-            (err as any).code = 'NOT_AUTHENTICATED';
-            throw err;
-        }
+        const headers = withAuthHeaders();
 
         const res = await fetch(`${API_BASE}/api/product/${productId}`, {
             method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
+            headers,
         });
 
         if (!res.ok) {
@@ -185,7 +177,48 @@ export const useProductActions = () => {
         return true;
     };
 
-    return { createProduct, updateProduct, deleteProduct };
+    /** ❤️ 찜 토글 (여러 백엔드 패턴 지원) */
+    const toggleFavorite = async (productId: string) => {
+        const headers = withAuthHeaders();
+
+        const candidates = [
+            `${API_BASE}/api/product/${productId}/favorite/toggle`,
+            `${API_BASE}/api/product/${productId}/favorite`,
+        ] as const;
+
+        let lastErr: any = null;
+
+        for (const url of candidates) {
+            try {
+                const res = await fetch(url, { method: 'POST', headers });
+                if (res.ok) {
+                    // 응답이 { isFavorited, favoriteCount } 형태라고 가정
+                    const data = await res.json().catch(() => ({}));
+                    return {
+                        isFavorited: Boolean((data as any)?.isFavorited),
+                        favoriteCount:
+                            typeof (data as any)?.favoriteCount === 'number'
+                                ? (data as any).favoriteCount
+                                : undefined,
+                    };
+                }
+                // 404면 다음 후보 시도
+                if (res.status === 404) {
+                    continue;
+                }
+                const text = await res.text().catch(() => '');
+                throw new Error(text || `찜 처리 실패 (${res.status})`);
+            } catch (e) {
+                lastErr = e;
+            }
+        }
+
+        // 모든 후보 실패
+        if (lastErr) throw lastErr;
+        throw new Error('찜 API 엔드포인트를 찾을 수 없습니다.');
+    };
+
+    return { createProduct, updateProduct, deleteProduct, toggleFavorite };
 };
 
 /* =========================
@@ -633,12 +666,17 @@ export const useCategories = () => {
 /* =========================
  *  🔥 인기 상품 훅 (조회수 기준/없으면 최신순)
  * ========================= */
+/* =========================
+ *  🔥 인기 상품 훅 (조회수 우선, 동률이면 최신순)
+ * ========================= */
 export type PopularOptions = {
-    limit?: number;          // 기본 12개
-    status?: string;         // 기본 'ON_SALE'
-    excludeId?: string;      // 제외할 상품 (상세 페이지의 현재 상품 등)
-    region?: string;         // 지역 필터 (선택)
-    categoryId?: string;     // 카테고리 필터 (선택)
+    limit?: number;           // 기본 12개
+    status?: string;          // 기본 'ON_SALE'
+    excludeId?: string;       // 제외할 상품 (상세 페이지의 현재 상품 등)
+
+    // ✅ 호환용: 외부에서 넘겨도 여기서는 사용하지 않음 (무시)
+    region?: string;          // (ignored)
+    categoryId?: string;      // (ignored)
 };
 
 export const usePopularProducts = (opts: PopularOptions = {}) => {
@@ -646,7 +684,7 @@ export const usePopularProducts = (opts: PopularOptions = {}) => {
         limit = 12,
         status = 'ON_SALE',
         excludeId,
-        region,
+        // region, categoryId 는 의도적으로 받기만 하고 사용하지 않음(호환)
     } = opts;
 
     const [popular, setPopular] = useState<Product[]>([]);
@@ -664,9 +702,8 @@ export const usePopularProducts = (opts: PopularOptions = {}) => {
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             };
 
-            // 서버 기본 정렬은 최신순 → 이후 viewCount 존재 여부에 따라 재정렬
+            // ✅ 지역/카테고리 필터 완전 제거: 전체 목록 + (선택) 상태만 적용
             const filters: Filters = {
-                ...(region ? { region } : {}),
                 ...(status ? { status } : {}),
             };
 
@@ -687,18 +724,14 @@ export const usePopularProducts = (opts: PopularOptions = {}) => {
                 list = list.filter((p) => p.id !== excludeId);
             }
 
-            // 정렬 규칙: viewCount 가 "정의된" 항목이 하나라도 있으면 조회수 내림차순, 아니면 최신순
-            const hasAnyViewCount = list.some((p) => typeof p.viewCount === 'number' && !Number.isNaN(p.viewCount as number));
-
+            // ✅ 정렬: viewCount 내림차순 → 동률이면 최신순
             list.sort((a, b) => {
-                if (hasAnyViewCount) {
-                    const av = (typeof a.viewCount === 'number' ? a.viewCount : -1);
-                    const bv = (typeof b.viewCount === 'number' ? b.viewCount : -1);
-                    if (bv !== av) return bv - av; // 조회수 내림차순
-                }
+                const av = typeof a.viewCount === 'number' ? a.viewCount : -1;
+                const bv = typeof b.viewCount === 'number' ? b.viewCount : -1;
+                if (bv !== av) return bv - av; // 조회수 우선
                 const ad = new Date(a.updatedAt || a.createdAt || 0).getTime();
                 const bd = new Date(b.updatedAt || b.createdAt || 0).getTime();
-                return bd - ad; // 최신순
+                return bd - ad; // 동률이면 최신순
             });
 
             setPopular(list.slice(0, limit));
@@ -708,7 +741,7 @@ export const usePopularProducts = (opts: PopularOptions = {}) => {
         } finally {
             setPopularLoading(false);
         }
-    }, [limit, status, excludeId, region]);
+    }, [limit, status, excludeId]);
 
     useEffect(() => {
         fetchPopular();
@@ -721,3 +754,4 @@ export const usePopularProducts = (opts: PopularOptions = {}) => {
         refreshPopular: fetchPopular,
     };
 };
+

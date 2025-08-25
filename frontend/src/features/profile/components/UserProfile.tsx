@@ -14,6 +14,9 @@ import useProfile from '../hooks/useProfile';
 import { useMySalesCount } from '../../products/hooks/useProducts';
 import { toast } from 'react-toastify';
 
+// ✅ 매너온도 컴포넌트 추가
+import MannerTemp from '../../../components/ui/MannerTemp';
+
 export interface UserProfileProps {
     profile: Profile | null;
     loading?: boolean;
@@ -78,12 +81,9 @@ const UserProfile: React.FC<UserProfileProps> = ({
     const favorites = profile?.favoritesCount ?? 0;
     const purchases = (profile as any)?.purchasesCount ?? 0;
 
+    // ⭐ 별점 → 매너온도 컴포넌트에 전달
     const ratingAvg = (profile as any)?.ratingAvg as number | undefined;
     const ratingCount = (profile as any)?.ratingCount as number | undefined;
-    const ratingText =
-        typeof ratingAvg === 'number' && typeof ratingCount === 'number'
-            ? `${ratingAvg.toFixed(1)}점 (${ratingCount}명)`
-            : '—';
 
     if (loading) {
         return (
@@ -199,13 +199,19 @@ const UserProfile: React.FC<UserProfileProps> = ({
                             <span className="meta-value">{updated || '-'}</span>
                         </div>
 
-                        {/* 내 별점 */}
+                        {/* ✅ 매너온도 (별점 대신) */}
                         <div className="meta">
-                            <span className="meta-label">내 별점</span>
-                            <div className="meta-value">{ratingText}</div>
+                            <span className="meta-label">매너온도</span>
+                            <div className="meta-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <MannerTemp
+                                    score5={typeof ratingAvg === 'number' ? ratingAvg : undefined}
+                                    count={typeof ratingCount === 'number' ? ratingCount : undefined}
+                                    className="size-sm manner-row--profile"   // ← 추가!
+                                />
+                            </div>
                         </div>
 
-                         {/* 사용자 ID */}
+                        {/* 사용자 ID */}
                         <div className="meta id-cell">
                             <span className="meta-label">사용자 ID</span>
                             <div className="id-row">
@@ -274,14 +280,11 @@ const UserProfile: React.FC<UserProfileProps> = ({
                                     보기
                                 </button>
                             </div>
-                        </div>        
+                        </div>
                     </div>
 
                     {/* 액션 */}
                     <div className="profile-actions">
-                        {onRefresh && (
-                            <button type="button" className="btn ghost" onClick={onRefresh}>새로고침</button>
-                        )}
                         <button type="button" className="btn primary" onClick={openEdit}>
                             프로필 수정
                         </button>

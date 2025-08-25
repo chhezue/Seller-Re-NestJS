@@ -4,7 +4,7 @@ import RegisterForm from '../components/RegisterForm';
 import { useNavigate } from 'react-router-dom';
 import '../components/RegisterPage.css';
 import { toast } from 'react-toastify';
-import useAuth from '../hooks/useAuth';  // ✅ 추가
+import useAuth, { RegisterPayload } from '../hooks/useAuth';  // ✅ 타입도 함께
 
 const RegisterPage = () => {
     const [region, setRegion] = useState({ city: '', district: '', dong: '' });
@@ -14,11 +14,19 @@ const RegisterPage = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [phone, setPhone] = useState('');
     const [profileImage, setProfileImage] = useState('');
+    const [submitting, setSubmitting] = useState(false);           // ✅ 중복 제출 방지
     const navigate = useNavigate();
 
-    const { registerUser } = useAuth();  // ✅ 훅에서 주입받기
+    const { registerUser } = useAuth();                            // ✅ 훅에서 주입받기
+
+    // ✅ 지역 관련 필드는 선택 사항이므로 에러로 취급하지 않음
+    const OPTIONAL_FIELDS = new Set(['city', 'district', 'dong', 'region', 'region_id']);
 
     const handleBlur = (field: string, value: string) => {
+        if (OPTIONAL_FIELDS.has(field)) {
+            setErrors((prev) => ({ ...prev, [field]: false }));
+            return;
+        }
         setErrors((prev) => ({
             ...prev,
             [field]: value.trim() === '',
@@ -27,6 +35,7 @@ const RegisterPage = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (submitting) return;
 
         const emailInput = document.querySelector<HTMLInputElement>('input[name="email"]');
         const emailValue = emailInput?.value || '';
@@ -47,6 +56,7 @@ const RegisterPage = () => {
 
         if (password !== confirmPassword) {
             toast.error('비밀번호가 일치하지 않습니다.');
+            setShowMismatch(true);
             return;
         }
 
@@ -59,30 +69,29 @@ const RegisterPage = () => {
             return;
         }
 
-        // ✅ RegisterForm에서 제공하는 hidden input (구의 id)
+        // ✅ 지역은 "선택" 사항: 있으면 보내고, 없으면 생략
         const regionIdInput = document.querySelector<HTMLInputElement>('input[name="region_id"]');
         const regionId = regionIdInput?.value || '';
-        if (!regionId) {
-            toast.error('주소를 검색하고 구/군까지 선택해주세요.');
-            return;
-        }
 
-        const userData = {
+        const userData: RegisterPayload = {
             username: nicknameValue,
             email: emailValue,
             password,
-            profileImage,
             phoneNumber: phoneValue,
-            region_id: regionId,  // ✅ 구 id 그대로
+            ...(regionId ? { region_id: regionId } : {}),
+            ...(profileImage ? { profileImage } : {}),
         };
 
         try {
-            await registerUser(userData);  // ✅ 훅으로 위임
+            setSubmitting(true);
+            await registerUser(userData); // 필요 시 { autoLogin: true } 옵션 사용 가능
             toast.success('회원가입 성공! 로그인 페이지로 이동합니다.');
             navigate('/login');
         } catch (err: any) {
             console.error('회원가입 요청 오류:', err);
             toast.error(`회원가입 실패: ${err?.message || '서버 오류'}`);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -103,6 +112,7 @@ const RegisterPage = () => {
             setPhone={setPhone}
             profileImage={profileImage}
             setProfileImage={setProfileImage}
+            // 필요하면 RegisterForm 내부에서 제출 버튼 disabled={submitting} 처리
         />
     );
 };
