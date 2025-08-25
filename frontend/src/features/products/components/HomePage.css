@@ -1,294 +1,150 @@
-/* =========================================================
-    💜 Home Page — Bright Violet + Thin Divider Lines
-    (카드는 얇은 선으로만 구분, 그림자 없음)
-   ========================================================= */
-
-:root {
-    --violet-50:  #f5f3ff;
-    --violet-100: #ede9fe;
-    --violet-200: #ddd6fe;
-    --violet-300: #c4b5fd;
-    --violet-400: #a78bfa;
-    --violet-500: #8b5cf6;
-    --violet-600: #7c3aed;
-    --violet-700: #5b21b6;
-
-    --text-strong: #2a235a;
-    --text: #554f72;
-    --muted: #6b6786;
-    --line: #e5e7eb;               /* ✅ 기본 라인 컬러(얇고 은은한 회색) */
-    --line-strong: #cbd5e1;        /* 호버 시 라인 살짝 강조 */
-    --ring: rgba(139, 92, 246, 0.25);
-}
-
 .main-container {
-    font-family: 'Pretendard', sans-serif;
-    min-height: 100vh;
-    color: var(--text);
+  font-family: 'Pretendard', sans-serif;
+  background: #f5f5f5;
+  min-height: 100vh;
 }
 
 .main-homepage {
-    padding: 20px 165px;
+  padding: 20px 165px;
 }
 
-/* 링크 기본 */
 a {
-    text-decoration: none;
-    color: inherit;
+  text-decoration: none;
+  color: inherit;
 }
 
-/* 로고 텍스트(페이지내에서 사용될 경우) */
 .main-logo {
-    font-size: 24px;
-    font-weight: bold;
-    color: var(--text-strong);
+  font-size: 24px;
+  font-weight: bold;
+  color: #333;
 }
 
-/* 리스트 그리드 */
 .main-items {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, 250px);
-    gap: 20px;
-    justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 250px); /* ✅ 고정 너비로 유동 배치 */
+  gap: 20px;
+  justify-content: space-between; /* ✅ 중앙 정렬 */
 }
 
-/* ============================
-   카드 — 선만 구분 (그림자 제거)
-   ============================ */
 .item-card {
-    background: #ffffff;
-    border: 1px solid var(--line);     /* ✅ 얇은 선으로만 구분 */
-    border-radius: 12px;
-    overflow: hidden;
-    position: relative;
-    width: 100%;
-    cursor: pointer;
-    transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
-    box-shadow: none;                  /* ✅ 그림자 제거 */
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  position: relative;
+  width: 255px; /* ✅ 카드 고정 너비 */
 }
 
 .item-card:hover {
-    transform: translateY(-2px);
-    border-color: var(--line-strong);  /* 호버 시 라인만 살짝 강조 */
-    background-color: #fff;
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* 이미지 영역 (기존 높이 유지) */
 .image-wrapper {
-    position: relative;
-    width: 100%;
-    height: 200px;
-    overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
 }
 
 .product-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transform: scale(1.01);
-    transition: transform .24s ease, filter .24s ease;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
-.item-card:hover .product-image {
-    transform: scale(1.04);
-}
-
-/* 상태 배지(작게, 라운드) */
+/* 상태 배지 스타일 */
 .status-badge {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    padding: 5px 9px;
-    font-size: 11px;
-    font-weight: 800;
-    color: #fff;
-    border-radius: 999px;
-    z-index: 1;
-    border: 1px solid rgba(255,255,255,0.75);
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: bold;
+  color: white;
+  border-radius: 4px;
+  z-index: 1;
 }
 
 .status-badge.reserved {
-    background: linear-gradient(135deg, #22c55e, #16a34a);
+  background-color: #27ae60;
 }
 
 .status-badge.sold {
-    background: linear-gradient(135deg, #9ca3af, #6b7280);
+  background-color: #666;
 }
 
-/* 카드 정보 */
 .item-info {
-    padding: 12px 14px 14px;
+  padding: 10px;
 }
 
-/* 제목 — 2줄 말줄임 */
 .truncate-text {
-  margin: 0;
-  display: block;
-  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;   
-  font-size: 16px;
-  font-weight: 500;
+  text-overflow: ellipsis;
+  display: block;
 }
 
-/* 가격 — 보라 톤 */
 .price-info {
-    font-weight: 800;
-    font-size: 14px;
-    margin-top: 6px;
+  font-weight: bold;
+  color: #e8652d;
+  font-size: 14px;
 }
 
-/* 보조 정보(조회수/시간) */
-.extra-info, .region-chip {
-    font-size: 13px;
-    color: var(--muted);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0;
+.extra-info {
+  font-size: 13px;
+  color: #666;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0;
 }
 
-/* 로딩/에러 */
 .loading-text,
-.main-container .error-text {
-    text-align: center;
-    font-size: 16px;
-    color: var(--muted);
-    margin-top: 20px;
+.error-text {
+  text-align: center;
+  font-size: 16px;
+  color: #666;
+  margin-top: 20px;
 }
 
-/* 페이드 인 */
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-.fade-in {
-    animation: fadeInUp 0.8s ease-out;
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* 레이아웃 */
+.fade-in {
+  animation: fadeInUp 0.8s ease-out;
+}
+
 .content-layout {
-    display: flex;
-    gap: 30px;
+  display: flex;
+  gap: 30px;
 }
 
 .sidebar {
-    width: 200px;
+  width: 200px;
 }
 
 .main-content {
-    flex: 1;
+  flex: 1;
 }
 
-/* 반응형 */
 @media (max-width: 768px) {
-    .content-layout { flex-direction: column; }
-    .sidebar { width: 100%; }
-}
+  .content-layout {
+    flex-direction: column;
+  }
 
-/* 비어있음 텍스트 */
-.empty-text {
-    margin: 24px 0;
-    color: var(--muted);
-    font-size: 14px;
-    text-align: center;
-}
-
-/* 페이지 타이틀 */
-.page-title {
-    font-size: 22px;
-    font-weight: 800;
-    margin: 0 0 12px 0;
-    color: var(--text-strong);
-}
-
-/* 카드 등장 애니메이션 */
-@keyframes fade-in-up {
-    from { opacity: 0; transform: translate3d(0, 10px, 0); }
-    to   { opacity: 1; transform: translateZ(0); }
-}
-.item-card.fade-in-up {
-    animation: fade-in-up .28s ease-out both;
-}
-
-/* 무한스크롤 보조 UI */
-.infinite-spinner {
-    text-align: center;
-    color: var(--muted);
-    padding: 16px 0 24px;
-    font-size: 14px;
-}
-.infinite-end {
-    text-align: center;
-    color: #7d7998;
-    padding: 12px 0 28px;
-    font-size: 13px;
-}
-
-/* 더 보기 버튼 — 보라 그라데이션 (카드와 대비) */
-.load-more-btn {
-    padding: 10px 22px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: linear-gradient(135deg, var(--violet-400), var(--violet-600));
-    color: #fff;
-    font-weight: 800;
-    cursor: pointer;
-    transition: transform 0.15s ease, filter 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.load-more-btn:hover {
-    transform: translateY(-1px);
-    border-color: var(--violet-300);
-}
-
-.load-more-btn:disabled {
-    opacity: 0.6;
-    cursor: default;
-}
-
-/* 포커스 접근성 */
-.item-card:focus-visible,
-.load-more-btn:focus-visible,
-a:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-    border-radius: 10px;
-}
-
-/* 위로 살짝 떠오르며 페이드인 */
-@keyframes rise-in {
-    from {
-        opacity: 0;
-        transform: translateY(16px) scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-/* 카드 기본 */
-.card {
-    will-change: transform, opacity;
-}
-
-/* 관찰 대상 기본 상태(숨김) */
-.card.reveal {
-    opacity: 0;
-    transform: translateY(16px) scale(0.98);
-}
-
-/* 뷰포트에 들어오면 실행 */
-.card.reveal.is-visible {
-    animation: rise-in 0.5s cubic-bezier(.21, .6, .35, 1) both;
-    animation-delay: var(--delay, 0ms); /* 지연 제어용 커스텀 속성 */
-}
-
-.item-card.fade-in-up.seen-no-anim {
-    opacity: 1;
-    transform: translateY(var(--scroll-shift, 0px)) scale(1);
-    animation: none !important; /* 위로 스크롤 시 처음 보이는 카드: 애니메이션 없음 */
+  .sidebar {
+    width: 100%;
+  }
 }

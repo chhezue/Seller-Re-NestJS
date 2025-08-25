@@ -1,223 +1,110 @@
-// features/products/routes/ProductDetailPage.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import useAuth from '../../auth/hooks/useAuth';
 import './ProductDetailPage.css';
-import { useProductActions, useProductDetail, usePopularProducts } from '../hooks/useProducts';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faStar, faStarHalfStroke } from '@fortawesome/free-solid-svg-icons';
-import ProductCard from '../components/ProductCard';
-
-/** 확인 모달 (훅 없음) */
-const ConfirmModal: React.FC<{
-    open: boolean;
-    title?: string;
-    message?: string;
-    confirmText?: string;
-    cancelText?: string;
-    danger?: boolean;
-    onConfirm: () => void;
-    onCancel: () => void;
-}> = ({
-    open,
-    title,
-    message,
-    confirmText = '확인',
-    cancelText = '취소',
-    danger,
-    onConfirm,
-    onCancel,
-}) => {
-    if (!open) return null;
-
-    const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (e.key === 'Escape') onCancel();
-        if (e.key === 'Enter') onConfirm();
-    };
-
-    return (
-        <div className="confirm-backdrop" onClick={onCancel} onKeyDown={handleKey} tabIndex={-1}>
-            <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
-                {title && <h3 className="confirm-title">{title}</h3>}
-                {message && <p className="confirm-message">{message}</p>}
-                <div className="confirm-actions">
-                    <button className="btn ghost" onClick={onCancel}>{cancelText}</button>
-                    <button className={`btn ${danger ? 'danger' : 'primary'}`} onClick={onConfirm}>{confirmText}</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-/** ⭐ 별점 (레귤러 아이콘 없이 구현) */
-const StarRating: React.FC<{ value?: number; count?: number }> = ({ value = 0, count }) => {
-    const rounded = Math.round((value || 0) * 2) / 2;
-    const full = Math.floor(rounded);
-    const half = rounded - full === 0.5 ? 1 : 0;
-    const empty = 5 - full - half;
-
-    return (
-        <span className="seller-rating" aria-label={`평점 ${rounded} / 5`}>
-            {Array.from({ length: full }).map((_, i) => (
-                <FontAwesomeIcon key={`f${i}`} icon={faStar} className="star full" />
-            ))}
-            {half === 1 && <FontAwesomeIcon icon={faStarHalfStroke} className="star half" />}
-            {Array.from({ length: empty }).map((_, i) => (
-                <FontAwesomeIcon key={`e${i}`} icon={faStar} className="star empty" />
-            ))}
-            <span className="rating-count"> ({typeof count === 'number' ? count : 0})</span>
-        </span>
-    );
-};
-
-const formatRelativeTime = (iso?: string) => {
-    if (!iso) return '';
-    const d = new Date(iso);
-    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-    const diff = Date.now() - kst.getTime();
-    const m = Math.floor(diff / 60000);
-    const h = Math.floor(m / 60);
-    const day = Math.floor(h / 24);
-    if (m < 1) return '방금 전';
-    if (m < 60) return `${m}분 전`;
-    if (h < 24) return `${h}시간 전`;
-    return `${day}일 전`;
-};
 
 const ProductDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { userId, initialized } = useAuth();
+    const [product, setProduct] = useState<any>(null);
 
-    const { product, loading, error, errorStatus } = useProductDetail(id);
-    const { deleteProduct, toggleFavorite } = useProductActions() as any;
+    const { userId, initialized } = useAuth(); // 현재 로그인 사용자 ID
 
-    // ✅ 인기 상품 훅 (뷰카운트 없으면 최신순, 있으면 조회수 내림차순)
-    const {
-        popular,
-        popularLoading,
-        popularError,
-    } = usePopularProducts({
-        limit: 20,                      // 서버 요청도 20개
-        status: 'ON_SALE',
-        excludeId: id,
-        categoryId: product?.category?.id,
-    });
-
-    // ✅ 렌더는 안전하게 20개로 슬라이스
-    const limitedPopular = useMemo(() => popular.slice(0, 20), [popular]);
-
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [isFavorited, setIsFavorited] = useState<boolean>(false);
-    const [favoriteCount, setFavoriteCount] = useState<number>(0);
-
-    // 토큰 필요 시 안내
     useEffect(() => {
-        const token = localStorage.getItem('accessToken');
+    const fetchProduct = async () => {
+        const token = localStorage.getItem("accessToken");
+
         if (!token) {
-            toast.info('로그인이 필요합니다.');
-            navigate('/login');
+        alert("로그인이 필요합니다.");
+        navigate("/login");
+        return;
         }
-    }, [navigate]);
 
-    // 에러 상태 안내
-    useEffect(() => {
-        if (!error) return;
-        if (errorStatus === 401) {
-            toast.info('세션이 만료되었거나 로그인되지 않았습니다.');
-            navigate('/login');
-        } else if (errorStatus) {
-            toast.error(error);
+        try {
+        const response = await fetch(`http://127.0.0.1:3000/api/product/${id}`, {
+            headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    }, [error, errorStatus, navigate]);
 
-    // 초기 찜 상태 세팅
-    useEffect(() => {
-        setIsFavorited((product as any)?.isFavorited ?? false);
-        setFavoriteCount(product?.favoriteCount ?? 0);
-    }, [product?.id, (product as any)?.isFavorited, product?.favoriteCount]);
+        const data = await response.json();
+        console.log('상품 데이터:', data);
+        setProduct(data);
+        } catch (error) {
+        console.error('상품 데이터 불러오기 실패:', error);
+        }
+    };
 
-    if (loading || !initialized) return <p>로딩 중...</p>;
-    if (!product) return <p>상품을 불러오지 못했습니다.</p>;
+    fetchProduct();
+    }, [id, navigate]);
 
-    const getDisplayTime = (u?: string, c?: string) => formatRelativeTime(u || c);
+
+    const formatRelativeTime = (isoDate?: string) => {
+        if (!isoDate) return '';
+        const date = new Date(isoDate);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHour = Math.floor(diffMin / 60);
+        const diffDay = Math.floor(diffHour / 24);
+
+        if (diffSec < 60) return '방금 전';
+        if (diffMin < 60) return `${diffMin}분 전`;
+        if (diffHour < 24) return `${diffHour}시간 전`;
+        return `${diffDay}일 전`;
+    };
+
+    const handleDelete = async () => {
+        const confirmDelete = window.confirm('정말로 이 상품을 삭제하시겠습니까?');
+        if (!confirmDelete) return;
+
+        try {
+            const response = await fetch('http://127.0.0.1:3000/api/product', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ id }) // ✅ id만 전송
+            });
+
+            if (response.ok) {
+            alert('상품이 삭제되었습니다.');
+            navigate('/homepage');
+            } else {
+            const errorText = await response.text();
+            alert(`삭제 실패: ${errorText}`);
+            }
+        } catch (error) {
+            console.error('삭제 중 오류:', error);
+            alert('서버 오류로 삭제에 실패했습니다.');
+        }
+    };
+
+
+
+    const getDisplayTime = (updatedAt?: string, createdAt?: string) => {
+        const baseTime = updatedAt || createdAt;
+        return formatRelativeTime(baseTime);
+    };
+
+    if (!product || !initialized) return <p>로딩 중...</p>;
 
     const isAuthor = product.author?.id === userId;
 
-    const handleEdit = () => navigate(`/UpDateProductPage/${id}`);
-    const handleDelete = () => setShowDeleteConfirm(true);
-
-    const doDelete = async () => {
-        if (!id) return;
-        try {
-            await deleteProduct(id);
-            toast.success('상품이 삭제되었습니다.');
-            navigate('/homepage');
-        } catch (e: any) {
-            if (e?.code === 'NOT_AUTHENTICATED' || e?.status === 401) {
-                toast.info('로그인이 필요합니다.');
-                navigate('/login');
-                return;
-            }
-            if (e?.status === 403) {
-                toast.error('권한이 없습니다. 본인이 등록한 상품만 삭제할 수 있습니다.');
-                return;
-            }
-            toast.error(e?.message ?? '서버 오류로 삭제에 실패했습니다.');
-        } finally {
-            setShowDeleteConfirm(false);
-        }
+    const handleEdit = () => {
+        navigate(`/UpDateProductPage/${id}`);
     };
 
-    // ❤️ 찜하기
-    const handleToggleFavorite = async () => {
-        if (!id) return;
-        try {
-            let next: boolean;
-            if (typeof toggleFavorite === 'function') {
-                const res = await toggleFavorite(id);
-                next = res?.isFavorited ?? !isFavorited;
-            } else {
-                next = !isFavorited;
-            }
-            setIsFavorited(next);
-            setFavoriteCount((p) => Math.max(0, p + (next ? 1 : -1)));
-            toast.success(next ? '찜했어요!' : '찜을 해제했어요.');
-        } catch (e: any) {
-            toast.error(e?.message ?? '찜하기에 실패했습니다.');
-        }
-    };
-
-    // 🔗 링크 공유
-    const handleShare = async () => {
-        const url = window.location.href;
-        try {
-            if (navigator.share) {
-                await navigator.share({ title: product.name, text: '상품 링크', url });
-                return;
-            }
-            await navigator.clipboard.writeText(url);
-            toast.success('링크가 복사되었습니다.');
-        } catch {
-            try {
-                await navigator.clipboard.writeText(url);
-                toast.success('링크가 복사되었습니다.');
-            } catch {
-                toast.error('링크 복사에 실패했습니다.');
-            }
-        }
-    };
-
-    const handleReport = () => navigate(`/report?productId=${id}`);
-    const handleChat = () => {
-        if (product.status === 'SOLD') return;
-        toast.success('채팅을 시작합니다!');
-    };
-
-    // 상태 라벨 (Hook 아님)
-    const statusInfo = (() => {
-        switch (product.status) {
+    // 상태 라벨 한글 변환 및 스타일 결정
+    const getStatusLabel = (status: string) => {
+        switch (status) {
             case 'ON_SALE':
                 return { text: '판매중', className: 'on-sale' };
             case 'RESERVED':
@@ -227,15 +114,9 @@ const ProductDetailPage: React.FC = () => {
             default:
                 return { text: '상태 알 수 없음', className: '' };
         }
-    })();
+    };
 
-    // 판매자 정보
-    const author = product.author;
-    const sellerName = (author as any)?.username || (author as any)?.name || '판매자';
-    const sellerRegion = author?.region?.name || '';
-    const sellerImg = author?.profileImage;
-    const ratingAvg = (author as any)?.ratingAvg as number | undefined;
-    const ratingCount = (author as any)?.ratingCount as number | undefined;
+    const { text: statusText, className: statusClass } = getStatusLabel(product.status);
 
     return (
         <div className="product-detail-container">
@@ -246,43 +127,19 @@ const ProductDetailPage: React.FC = () => {
                         alt={product.name}
                         className="product-image"
                     />
-
-                    {/* 이미지 아래: 판매자 정보 */}
-                    <div className="seller-strip">
-                        {sellerImg ? (
-                            <img className="seller-avatar" src={sellerImg} alt={`${sellerName} 프로필`} />
-                        ) : (
-                            <div className="seller-avatar-default" aria-label="기본 아바타">
-                                <FontAwesomeIcon icon={faUser} />
-                            </div>
-                        )}
-                        <div className="seller-meta">
-                            <div className="seller-name-row">
-                                <span className="seller-name">{sellerName}</span>
-                            </div>
-                            <div className="seller-sub">
-                                {sellerRegion && <span className="seller-region">{sellerRegion}</span>}
-                                <div className="seller-rating-right">
-                                    <StarRating
-                                        value={typeof ratingAvg === 'number' ? ratingAvg : 0}
-                                        count={typeof ratingCount === 'number' ? ratingCount : 0}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="product-info-section">
                     <div className="product-title-row">
+                        {/* 판매중은 숨김, 예약중/판매완료만 표시 */}
                         {product.status !== 'ON_SALE' && (
-                            <span className={`status-label ${statusInfo.className}`}>{statusInfo.text}</span>
+                            <span className={`status-label ${statusClass}`}>{statusText}</span>
                         )}
                         <h2 className="product_name">{product.name}</h2>
                     </div>
 
                     <p className="category-time">
-                        {product?.category?.name || '기타'} | {getDisplayTime(product.updatedAt, product.createdAt)}
+                        {product.category?.name || '기타'} | {getDisplayTime(product.updatedAt, product.createdAt)}
                     </p>
 
                     <p className={`price-line ${product.isNegotiable ? 'yes' : 'no'}`}>
@@ -290,98 +147,33 @@ const ProductDetailPage: React.FC = () => {
                             ? '나눔'
                             : `가격: ${product.price.toLocaleString()}원 ${product.isNegotiable ? '(✅ 제안 가능)' : '(🚫 제안 불가)'}`}
                     </p>
-
-                    {product.description && (
-                        <p className="description" style={{ whiteSpace: 'pre-wrap' }}>
-                            {product.description}
-                        </p>
-                    )}
+                    <p className="description">설명: {product.description}</p>
 
                     <p className="detail-stats">
-                        💬 채팅 0 | ❤️ 관심 {favoriteCount} | 👁 조회 {product.viewCount ?? 0}
+                        💬 채팅 0 | ❤️ 관심 {product.favoriteCount ?? 0} | 👁 조회 {product.viewCount ?? 0}
                     </p>
 
+                    {/* 버튼: 작성자 여부 + 상태에 따라 분기 */}
                     {isAuthor ? (
                         <div className="author-buttons">
-                            <button className="edit-post-button" onClick={handleEdit}>✏️ 수정하기</button>
-                            <button className="delete-post-button" onClick={handleDelete}>🗑️ 삭제하기</button>
+                            <button className="edit-post-button" onClick={handleEdit}>
+                            ✏️ 수정하기
+                            </button>
+                            <button className="delete-post-button" onClick={() => handleDelete()}>
+                            🗑️ 삭제하기
+                            </button>
                         </div>
                     ) : product.status === 'SOLD' ? (
-                        <button
-                            className="contact-seller-button disabled"
-                            disabled
-                            title="이미 거래가 완료된 상품입니다"
-                        >
+                        <button className="contact-seller-button disabled" disabled>
                             거래 완료됨
                         </button>
                     ) : (
-                        <div className="buyer-actions four-inline">
-                            <button
-                                className={`favorite-button xs-action ${isFavorited ? 'on' : ''}`}
-                                onClick={handleToggleFavorite}
-                                aria-pressed={isFavorited}
-                            >
-                                {isFavorited ? '❤️ 찜 해제' : '🤍 찜하기'}
-                            </button>
-
-                            <button
-                                className={`chat-button ${product.status === 'SOLD' ? 'disabled' : ''}`}
-                                onClick={handleChat}
-                                disabled={product.status === 'SOLD'}
-                            >
-                                💬 채팅하기
-                            </button>
-
-                            <button className="report-button xs-action" onClick={handleReport}>
-                                🚩 신고
-                            </button>
-
-                            <button className="share-button xs-action" onClick={handleShare}>
-                                🔗 공유
-                            </button>
-                        </div>
+                        <button className="contact-seller-button">
+                            판매자와 거래하기
+                        </button>
                     )}
                 </div>
             </div>
-
-            {/* ✅ 인기 상품: 최대 20개, 5열 고정 그리드 */}
-            <div className="popular-section">
-                <h3 className="popular-title">인기 상품</h3>
-                {popularLoading ? (
-                    <p className="hint-text">로딩 중…</p>
-                ) : popularError ? (
-                    <p className="error-text">{popularError}</p>
-                ) : limitedPopular.length === 0 ? (
-                    <p className="hint-text">표시할 상품이 없어요.</p>
-                ) : (
-                    <div className="popular-grid">
-                        {limitedPopular.map((p, i) => (
-                            <div key={p.id} className="popular-card-wrap">
-                                <ProductCard
-                                    product={p}
-                                    to={`/item/${p.id}`}
-                                    index={i}
-                                    className="popular-mini"
-                                    showRegion={true}     /* 지역만 표시 */
-                                    showTime={false}
-                                    showCounts={false}
-                                />
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            <ConfirmModal
-                open={showDeleteConfirm}
-                title="상품을 삭제할까요?"
-                message="삭제 후 되돌릴 수 없습니다."
-                confirmText="삭제하기"
-                cancelText="취소"
-                danger
-                onConfirm={doDelete}
-                onCancel={() => setShowDeleteConfirm(false)}
-            />
         </div>
     );
 };

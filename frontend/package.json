@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^7.0.0",
-    "@fortawesome/free-regular-svg-icons": "^7.0.0",
     "@fortawesome/free-solid-svg-icons": "^7.0.0",
     "@fortawesome/react-fontawesome": "^0.2.3",
     "@nestjs/common": "^10.0.0",
@@ -20,7 +19,6 @@
     "@nestjs/platform-express": "^10.0.0",
     "@supabase/supabase-js": "^2.52.0",
     "jwt-decode": "^4.0.0",
-    "react-icons": "^5.5.0",
     "react-router-dom": "^7.7.1",
     "react-toastify": "^11.0.5",
     "reflect-metadata": "^0.2.0",

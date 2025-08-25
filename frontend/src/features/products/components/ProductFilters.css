@@ -7,9 +7,9 @@
 }
 
 .category-button {
-    background: none;              
-    border: none;                  
-    border-bottom: 1px solid #e5e7eb; /* #ccc → 연한 라인 */
+    background: none;              /* ✅ 배경 제거 */
+    border: none;                  /* ✅ 테두리 제거 */
+    border-bottom: 1px solid #ccc; /* ✅ 밑줄만 표시 */
     border-radius: 0;
     padding: 6px 0;
     cursor: pointer;
@@ -20,16 +20,16 @@
 
 /* 🔹 호버 시 */
 .category-button:hover {
-    color: #7c3aed;                 /* #40526a → 보라 */
-    border-color: #7c3aed;
-    transform: translateX(4px);
+    color: #40526a;
+    border-color: #40526a;
+    transform: translateX(4px);  /* 살짝 오른쪽으로 이동 */
 }
 
 /* 🔸 선택된 버튼 */
 .category-button.selected {
     font-weight: bold;
-    color: #7c3aed;
-    border-color: #7c3aed;
+    color: #40526a;
+    border-color: #40526a;
     transform: translateX(4px);
 }
 
@@ -41,10 +41,15 @@
 
 /* 바 전체 애니메이션 */
 @keyframes fadeSlideIn {
-    0% { opacity: 0; transform: translateY(10px); }
-    100% { opacity: 1; transform: translateY(0); }
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
-
 .category-wrapper {
   display: flex;
   flex-direction: column;
@@ -55,285 +60,6 @@
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 12px;
-  color: #2a235a;                  /* #333 → 진한 보라톤 텍스트 */
+  color: #333;
   padding-bottom: 6px;
-}
-
-/* ──────────────────────────────────────────
-   지역 선택 (카테고리 위) — 기존 라인 톤 유지
-────────────────────────────────────────── */
-.region-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 14px;
-    animation: fadeSlideIn 0.6s ease-out;
-}
-
-.region-label {
-    font-size: 14px;
-    color: #6b7280;                /* #555 → 중간 회색 */
-    min-width: 36px;
-}
-
-.region-select {
-    flex: 1;
-    border: none;
-    border-bottom: 1px solid #e5e7eb;  /* #ccc → 연한 라인 */
-    background: transparent;
-    padding: 6px 0;
-    font-size: 14px;
-    color: #2a235a;                    /* #333 → 보라톤 텍스트 */
-    transition: border-color 0.2s, color 0.2s;
-}
-
-.region-select:hover {
-    border-color: #7c3aed;
-}
-
-.region-select:focus {
-    outline: none;
-    border-color: #7c3aed;
-}
-
-.region-dual{
-    width: 100%;    
-}
-
-/* ──────────────────────────────────────────
-가격 필터 (카테고리 아래) — 심플 라인 + 텍스트 버튼
-────────────────────────────────────────── */
-.price-filter {
-    animation: fadeSlideIn 0.6s ease-out;
-}
-
-.price-title {
-    margin-top: 0;
-    font-size: 15px;
-    font-weight: 600;
-    color: #2a235a;                   /* #333 → 보라톤 텍스트 */
-    margin-bottom: 10px;
-}
-
-/* 프리셋: 나눔 / 1,000 / 1만원 / 2만원 (카테고리 버튼 느낌) */
-.price-presets {
-    display: flex;
-    flex-wrap: wrap;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 10px;
-}
-
-.preset-chip {
-    background: none;
-    border: none;
-    border-bottom: 1px solid #e5e7eb; /* #ccc → 연한 라인 */
-    padding: 6px 0;
-    font-size: 13px;
-    color: #2a235a;                   /* #333 → 보라톤 텍스트 */
-    cursor: pointer;
-    transition: color 0.3s, border-color 0.3s, transform 0.2s;
-    text-align: left;
-}
-
-.preset-chip:hover {
-    color: #7c3aed;
-    border-color: #7c3aed;
-    transform: translateX(4px);
-}
-
-.preset-chip:active {
-    transform: translateX(2px);
-    opacity: 0.85;
-}
-
-.preset-chip.active {
-    font-weight: bold;
-    color: #7c3aed;
-    border-color: #7c3aed;
-    transform: translateX(4px);
-}
-
-/* 가격 입력 라인 폼 (밑줄만) */
-.price-form {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.price-inputs {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.price-label {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-size: 12px;
-    color: #6b7280;                  /* #555 → 중간 회색 */
-}
-
-.price-label input {
-    border: none;
-    width: 96px;
-    border-bottom: 1px solid #e5e7eb; /* #ccc → 연한 라인 */
-    background: transparent;
-    padding: 6px 0;
-    font-size: 14px;
-    color: #2a235a;                   /* #333 → 보라톤 텍스트 */
-    transition: border-color 0.2s, color 0.2s, opacity 0.2s;
-}
-
-.price-label input:hover { border-color: #7c3aed; }
-
-.price-label input:focus {
-    outline: none;
-    border-color: #7c3aed;
-    color: #7c3aed;
-}
-
-.price-label input:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-}
-
-.price-sep {
-    color: #a1a1aa;                   /* #999 → 옅은 회색 */
-    font-size: 14px;
-    user-select: none;
-}
-
-/* 적용 / 초기화 — 가벼운 버튼 톤 */
-.price-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-start;
-}
-
-.apply-btn,
-.reset-btn {
-    padding: 8px 12px;
-    font-size: 13px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s, color 0.2s, border-color 0.2s, transform 0.15s, opacity 0.2s;
-}
-
-/* 기본 액션은 살짝 강조, 나머지는 고스트 */
-.apply-btn {
-    background: #7c3aed;              /* #40526a → 보라 */
-    color: #fff;
-    border: 1px solid #7c3aed;
-}
-
-.apply-btn:hover {
-    background: #6d28d9;              /* #334255 → 더 진한 보라 */
-    border-color: #6d28d9;
-    transform: translateY(-1px);
-}
-
-.apply-btn:disabled {
-    background: #c4b5fd;              /* #9aa7b9 → 연보라 */
-    border-color: #c4b5fd;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.reset-btn {
-    background: transparent;
-    color: #2a235a;                   /* #333 → 보라톤 텍스트 */
-    border: 1px solid #e5e7eb;        /* #ccc → 연한 라인 */
-}
-
-.reset-btn:hover {
-    border-color: #7c3aed;
-    color: #7c3aed;
-    transform: translateY(-1px);
-}
-
-/* 반응형 */
-@media (max-width: 768px) {
-    .price-inputs { grid-template-columns: 1fr; }
-    .price-sep { display: none; }
-    .price-actions { justify-content: stretch; }
-    .apply-btn,
-    .reset-btn { flex: 1; }
-}
-
-/* 내 판매 상품만 보기 - 카테고리 위쪽 (라인 스타일) */
-.myonly-row {
-    display: flex;
-    margin-bottom: 8px;
-    animation: fadeSlideIn 0.6s ease-out;
-}
-
-.myonly-chip {
-    background: none;
-    width: 100%;
-    border: none;
-    border-bottom: 1px solid #e5e7eb;  /* #ccc → 연한 라인 */
-    padding: 6px 0;
-    font-size: 14px;
-    color: #2a235a;                    /* #333 → 보라톤 텍스트 */
-    cursor: pointer;
-    transition: color 0.3s, border-color 0.3s, transform 0.2s;
-    text-align: left;
-}
-
-.myonly-chip:hover {
-    color: #7c3aed;
-    border-color: #7c3aed;
-    transform: translateX(4px);
-}
-
-.myonly-chip:active {
-    transform: translateX(2px);
-    opacity: 0.85;
-}
-
-.myonly-chip.active {
-    font-weight: bold;
-    color: #7c3aed;
-    border-color: #7c3aed;
-    transform: translateX(4px);
-}
-
-/* 판매중인 상품만 보기 - 카테고리 위쪽 (라인 스타일) */
-.onsale-row {
-    display: flex;
-    margin-bottom: 8px;
-    animation: fadeSlideIn 0.6s ease-out;
-}
-
-.onsale-chip {
-    background: none;
-    width: 100%;
-    border: none;
-    border-bottom: 1px solid #e5e7eb; /* #ccc → 연한 라인 */
-    padding: 6px 0;
-    font-size: 14px;
-    color: #2a235a;                   /* #333 → 보라톤 텍스트 */
-    cursor: pointer;
-    transition: color 0.3s, border-color 0.3s, transform 0.2s;
-    text-align: left;
-}
-
-.onsale-chip:hover {
-    color: #7c3aed;
-    border-color: #7c3aed;
-    transform: translateX(4px);
-}
-
-.onsale-chip:active {
-    transform: translateX(2px);
-    opacity: 0.85;
-}
-
-.onsale-chip.active {
-    font-weight: bold;
-    color: #7c3aed;
-    border-color: #7c3aed;
-    transform: translateX(4px);
 }
