@@ -6,7 +6,6 @@ import {
   TRADE_TYPE,
 } from '../src/product/const/product.const';
 import { CreateProductDto } from '../src/product/dto/create-product.dto';
-import { ProductService } from '../src/product/product.service';
 import { UsersModel } from '../src/users/entity/users.entity';
 import { CommonService } from '../src/common/common.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -19,7 +18,6 @@ import { ProductModel } from '../src/product/entity/product.entity';
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
 
-  const productService = app.get(ProductService);
   const commonService = app.get(CommonService);
   const usersRepository = app.get<Repository<UsersModel>>(
     getRepositoryToken(UsersModel),
@@ -48,10 +46,9 @@ async function bootstrap() {
       return;
     }
 
-    // 더미 사용자들 조회
+    // 더미 사용자들 조회 (모든 사용자 사용)
     const users = await usersRepository.find({
       relations: ['region'],
-      take: 10, // 처음 10명의 사용자만 사용
     });
 
     if (users.length === 0) {
@@ -89,8 +86,13 @@ async function bootstrap() {
     const numberOfProducts = 50; // 생성할 더미 데이터 개수
 
     for (let i = 1; i <= numberOfProducts; i++) {
-      // 랜덤 사용자 선택
-      const randomUser = users[Math.floor(Math.random() * users.length)];
+      // 순차적으로 사용자 선택 (모든 사용자가 골고루 상품을 가지도록)
+      const userIndex = (i - 1) % users.length;
+      const selectedUser = users[userIndex];
+
+      // 순차적으로 카테고리 선택 (모든 카테고리가 골고루 사용되도록)
+      const categoryIndex = (i - 1) % categoryIds.length;
+      const selectedCategoryId = categoryIds[categoryIndex];
 
       // 랜덤 거래 타입 선택
       const tradeType =
@@ -129,13 +131,14 @@ async function bootstrap() {
 
       // 기본 제품 정보
       const baseProductData = {
-        name: `더미 제품 ${i}`,
-        description: `이 제품은 테스트를 위해 생성된 ${i}번째 더미 제품입니다. 품질이 좋고 상태가 양호합니다.`,
-        categoryId: categoryIds[Math.floor(Math.random() * categoryIds.length)],
+        name: `더미 제품 ${i} (${selectedUser.username})`,
+        description: `이 제품은 ${selectedUser.username}이 등록한 ${i}번째 더미 제품입니다. 품질이 좋고 상태가 양호합니다.`,
+        categoryId: selectedCategoryId,
         status: statuses[Math.floor(Math.random() * statuses.length)],
         tradeType: tradeType,
         condition: conditions[Math.floor(Math.random() * conditions.length)],
         images: images,
+        isDeleted: false,
       };
 
       // 거래 타입에 따른 조건부 필드 설정
@@ -156,8 +159,8 @@ async function bootstrap() {
         const newProduct = await productRepository.save({
           ...productData,
           category: { id: categoryId },
-          author: { id: randomUser.id },
-          region: randomUser.region ?? null,
+          author: { id: selectedUser.id },
+          region: selectedUser.region ?? null,
         });
 
         // 2. 이미지가 있는 경우 ProductImage 관계 직접 생성
@@ -174,7 +177,7 @@ async function bootstrap() {
         }
 
         console.log(
-          `생성 완료: ${dummyProduct.name} (${dummyProduct.tradeType}) - 작성자: ${randomUser.username}`,
+          `생성 완료: ${dummyProduct.name} (${dummyProduct.tradeType}) - 작성자: ${selectedUser.username}`,
         );
       } catch (error) {
         console.error(`제품 생성 실패 (${i}번째):`, error.message);

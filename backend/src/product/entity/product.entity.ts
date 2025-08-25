@@ -58,4 +58,7 @@ export class ProductModel extends BaseModel {
     eager: true,
   })
   images: ProductImageModel[];
+
+  @Column({ default: false })
+  isDeleted: boolean;
 }
