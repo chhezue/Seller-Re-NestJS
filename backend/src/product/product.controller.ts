@@ -29,6 +29,7 @@ import { User } from '../users/decorator/user.decorator';
 import { UsersModel } from '../users/entity/users.entity';
 import { IsPublic } from '../common/decorator/is-public.decorator';
 import { ProductOwnerGuard } from './guard/product-owner.guard';
+import { PageDto } from '../common/dto/page.dto';
 
 @Controller('product')
 export class ProductController {
@@ -54,8 +55,18 @@ export class ProductController {
 
   @ApiOperation({ description: '내 상품 목록 조회' })
   @Get('/my-sales')
-  async getMySales(@User() user: UsersModel) {
-    return await this.productService.getMySales(user);
+  async getMySales(@User() user: UsersModel, @Query() pageDto: PageDto) {
+    return await this.productService.getProductsByUserId(user.id, pageDto);
+  }
+
+  @ApiOperation({ description: '특정 유저의 판매 상품 목록 조회' })
+  @IsPublic()
+  @Get('/user-sales/:userId')
+  async getUserProducts(
+    @Param('userId') userId: string,
+    @Query() pageDto: PageDto,
+  ) {
+    return await this.productService.getProductsByUserId(userId, pageDto);
   }
 
   @ApiOperation({ description: '상품 상세 조회' })

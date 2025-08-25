@@ -9,6 +9,7 @@ import { UsersModel } from '../users/entity/users.entity';
 import { RegionModel } from '../common/entity/region.entity';
 import { UploadsService } from '../uploads/uploads.service';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
+import { PageDto } from '../common/dto/page.dto';
 
 @Injectable()
 export class ProductService {
@@ -44,7 +45,8 @@ export class ProductService {
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.author', 'author')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('product.region', 'region');
+      .leftJoinAndSelect('product.region', 'region')
+      .leftJoinAndSelect('product.images', 'images');
 
     if (regionId) {
       const selectedRegion = await this.regionRepository.findOne({
@@ -141,15 +143,47 @@ export class ProductService {
     };
   }
 
-  async getMySales(user: UsersModel): Promise<ProductModel[]> {
-    return await this.productRepository.find({
-      where: {
-        author: {
-          id: user.id,
-        },
-      },
-      relations: ['author', 'category', 'region'],
-    });
+  async getProductsByUserId(
+    userId: string,
+    pageDto: PageDto,
+  ): Promise<{ products: ProductModel[]; nextCursor: string | null }> {
+    const { cursor, limit } = pageDto;
+
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.author', 'author')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.region', 'region')
+      .leftJoinAndSelect('product.images', 'images');
+
+    // 특정 유저의 상품만 조회
+    queryBuilder.where('product.author.id = :userId', { userId });
+
+    if (cursor) {
+      // cursor는 Date 객체여야 할 수 있으므로 타입 변환이 필요할 수 있습니다.
+      queryBuilder.andWhere('product.createdAt < :cursor', {
+        cursor: new Date(cursor),
+      });
+    }
+
+    // 정렬 및 개수 제한
+    queryBuilder.orderBy('product.createdAt', 'DESC');
+    queryBuilder.take(limit);
+
+    const products = await queryBuilder.getMany();
+
+    // 다음 페이지를 위한 nextCursor 계산
+    const lastItem = products.length > 0 ? products[products.length - 1] : null;
+    // 가져온 아이템의 수가 limit과 같을 때만 다음 페이지가 있을 가능성이 있음
+    const nextCursor =
+      lastItem && products.length === limit
+        ? lastItem.createdAt.toISOString()
+        : null;
+
+    return {
+      products,
+      nextCursor,
+    };
   }
 
   async createProduct(
