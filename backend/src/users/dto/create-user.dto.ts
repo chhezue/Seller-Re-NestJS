@@ -36,9 +36,9 @@ export class CreateUserDto {
   @IsNotEmpty({ message: 'Password is required.' })
   password: string;
 
-  @IsString({ message: 'Profile image URL must be a string.' })
+  @IsString({ message: 'Profile image ID must be a string.' })
   @IsOptional()
-  profileImage?: string;
+  profileImageId?: string;
 
   @IsString({ message: 'Phone number must be a string.' })
   @IsOptional()

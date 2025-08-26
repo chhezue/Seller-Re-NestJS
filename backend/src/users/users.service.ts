@@ -9,6 +9,7 @@ import { RegionModel } from '../common/entity/region.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PasswordChangeMethod } from '../logs/const/password-change-method.const';
 import { UsersErrorCode } from './const/users-error-code.const';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Injectable()
 export class UsersService {
@@ -17,6 +18,7 @@ export class UsersService {
     private readonly usersRepository: Repository<UsersModel>,
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly uploadService: UploadsService,
   ) {}
 
   async getUserByEmail(email: string) {
@@ -26,7 +28,8 @@ export class UsersService {
   }
 
   async createUser(userDto: CreateUserDto) {
-    const { username, email, password, region_id, ...rest } = userDto;
+    const { username, email, password, region_id, profileImageId, ...rest } =
+      userDto;
 
     const existingUser = await this.usersRepository.findOne({
       where: [{ username }, { email }],
@@ -60,15 +63,32 @@ export class UsersService {
       region: region_id ? { id: region_id } : null,
     });
 
-    return await this.usersRepository.save(newUserObject);
+    const newUser = await this.usersRepository.save(newUserObject);
+
+    if (profileImageId) {
+      const [committedFile] = await this.uploadService.commitFiles([
+        {
+          fileId: profileImageId,
+          isRepresentative: true,
+          order: 1,
+          isNew: true,
+        },
+      ]);
+      newUser.profileImage = committedFile.url;
+      return await this.usersRepository.save(newUser);
+    }
+    return newUser;
   }
 
   async updateUser(
     userId: string,
-    dto: Partial<UsersModel> & { region_id?: string | null },
+    dto: Partial<UsersModel> & {
+      region_id?: string | null;
+      profileImageId?: string | null;
+    },
     ip?: string,
   ) {
-    const { password, region_id, ...rest } = dto;
+    const { password, region_id, profileImageId, ...rest } = dto;
 
     const updatePayload: Partial<UsersModel> = {
       ...rest,
@@ -103,6 +123,22 @@ export class UsersService {
       updatePayload.region = region_id
         ? ({ id: region_id } as RegionModel)
         : null;
+    }
+
+    if (profileImageId !== undefined) {
+      if (profileImageId === null) {
+        updatePayload.profileImage = null;
+      } else {
+        const [committedFile] = await this.uploadService.commitFiles([
+          {
+            fileId: profileImageId,
+            isRepresentative: true,
+            order: 1,
+            isNew: true,
+          },
+        ]);
+        updatePayload.profileImage = committedFile.url;
+      }
     }
 
     if (Object.keys(updatePayload).length > 0) {
