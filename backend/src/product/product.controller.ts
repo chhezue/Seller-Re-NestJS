@@ -2,7 +2,6 @@ import { ProductService } from './product.service';
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   Patch,
@@ -100,7 +99,7 @@ export class ProductController {
 
   @ApiOperation({ description: '상품 삭제' })
   @UseGuards(ProductOwnerGuard)
-  @Delete('/:productId')
+  @Patch('/:productId')
   async deleteProduct(@Param('productId') productId: string) {
     return await this.productService.deleteProduct(productId);
   }
