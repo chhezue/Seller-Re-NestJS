@@ -71,7 +71,6 @@ export class UsersService {
           fileId: profileImageId,
           isRepresentative: true,
           order: 1,
-          isNew: true,
         },
       ]);
       newUser.profileImage = committedFile.url;
@@ -134,7 +133,6 @@ export class UsersService {
             fileId: profileImageId,
             isRepresentative: true,
             order: 1,
-            isNew: true,
           },
         ]);
         updatePayload.profileImage = committedFile.url;
