@@ -3,16 +3,22 @@ import { MulterModule } from '@nestjs/platform-express';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { diskStorage } from 'multer';
 import * as path from 'path';
+import * as fs from 'fs';
 import { v4 as uuid } from 'uuid';
 import { FileModel } from './entity/file.entity';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
 import { ProductImageModel } from './entity/product-image.entity';
 import { S3Service } from '../s3/s3.service';
-import { ImageProcessingService } from './service/image-processing.service';
 import { CleanupSchedule } from './schedule/cleanup.schedule';
 
 export const TEMP_FOLDER_PATH = path.join(process.cwd(), 'uploads_temp');
+
+// 폴더가 없으면 자동 생성
+if (!fs.existsSync(TEMP_FOLDER_PATH)) {
+  fs.mkdirSync(TEMP_FOLDER_PATH, { recursive: true });
+  console.log(`📁 Created uploads directory: ${TEMP_FOLDER_PATH}`);
+}
 
 @Module({
   imports: [
@@ -39,12 +45,7 @@ export const TEMP_FOLDER_PATH = path.join(process.cwd(), 'uploads_temp');
     }),
   ],
   controllers: [UploadsController],
-  providers: [
-    UploadsService,
-    S3Service,
-    ImageProcessingService,
-    CleanupSchedule,
-  ],
-  exports: [UploadsService, S3Service, ImageProcessingService],
+  providers: [UploadsService, S3Service, CleanupSchedule],
+  exports: [UploadsService, S3Service],
 })
 export class UploadsModule {}
