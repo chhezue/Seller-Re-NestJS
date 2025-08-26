@@ -1,5 +1,9 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 
 // S3 업로드 로직
@@ -42,6 +46,21 @@ export class S3Service {
       throw new InternalServerErrorException(
         '파일을 S3에 업로드하는 데 실패했습니다.',
       );
+    }
+  }
+
+  async delete(key: string) {
+    const command = new DeleteObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+    });
+
+    try {
+      await this.s3Client.send(command);
+    } catch (err) {
+      console.error('S3 Delete Error: ', err);
+      // Only log the error without throwing it to prevent service interruption if the S3 deletion fails.
+      // If necessary, you could throw the error to let the caller handle it.
     }
   }
 }

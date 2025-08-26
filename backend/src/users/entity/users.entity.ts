@@ -15,6 +15,7 @@ import { ProductModel } from '../../product/entity/product.entity';
 import { LoginAttemptLogAtFailedModel } from '../../logs/entity/login-attempt-log.entity';
 import { EmailLogModel } from '../../logs/entity/email-log.entity';
 import { PasswordChangeLogModel } from '../../logs/entity/password-change-log.entity';
+import { FileModel } from '../../uploads/entity/file.entity';
 
 @Entity()
 export class UsersModel extends BaseModel {
@@ -33,8 +34,13 @@ export class UsersModel extends BaseModel {
   @Exclude({ toPlainOnly: true })
   password: string;
 
-  @Column({ name: 'profile_image', type: 'text', nullable: true })
-  profileImage: string;
+  @OneToOne(() => FileModel, {
+    eager: true,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'profile_image_id' })
+  profileImage: FileModel;
 
   @Column({ name: 'phone_number', type: 'varchar', length: 20, nullable: true })
   phoneNumber: string;

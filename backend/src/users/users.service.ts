@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UsersModel } from './entity/users.entity';
 import { Repository } from 'typeorm';
@@ -73,10 +77,12 @@ export class UsersService {
           order: 1,
         },
       ]);
-      newUser.profileImage = committedFile.url;
-      return await this.usersRepository.save(newUser);
+      newUser.profileImage = committedFile;
+      await this.usersRepository.save(newUser);
     }
-    return newUser;
+    return await this.usersRepository.findOne({
+      where: { id: newUser.id },
+    });
   }
 
   async updateUser(
@@ -87,16 +93,20 @@ export class UsersService {
     },
     ip?: string,
   ) {
+    const user = await this.usersRepository.findOneBy({ id: userId });
+
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
     const { password, region_id, profileImageId, ...rest } = dto;
 
-    const updatePayload: Partial<UsersModel> = {
-      ...rest,
-    };
+    Object.assign(user, rest);
 
     if (password) {
       const isAlreadyHashed = password.startsWith('$2b$');
       if (isAlreadyHashed) {
-        updatePayload.password = password;
+        user.password = password;
       } else {
         if (!ip) {
           throw new BadRequestException({
@@ -108,7 +118,7 @@ export class UsersService {
           password,
           parseInt(this.configService.get<string>('HASH_ROUNDS', '10')),
         );
-        updatePayload.password = hashedPassword;
+        user.password = hashedPassword;
 
         this.eventEmitter.emit('user.password.changed', {
           user: { id: userId },
@@ -119,14 +129,17 @@ export class UsersService {
     }
 
     if (region_id !== undefined) {
-      updatePayload.region = region_id
-        ? ({ id: region_id } as RegionModel)
-        : null;
+      user.region = region_id ? ({ id: region_id } as RegionModel) : null;
     }
 
+    let oldImageFileIdToDelete: string | null = null;
+
     if (profileImageId !== undefined) {
+      if (user.profileImage) {
+        oldImageFileIdToDelete = user.profileImage.id;
+      }
       if (profileImageId === null) {
-        updatePayload.profileImage = null;
+        user.profileImage = null;
       } else {
         const [committedFile] = await this.uploadService.commitFiles([
           {
@@ -135,12 +148,16 @@ export class UsersService {
             order: 1,
           },
         ]);
-        updatePayload.profileImage = committedFile.url;
+        user.profileImage = committedFile;
       }
     }
+    await this.usersRepository.save(user);
 
-    if (Object.keys(updatePayload).length > 0) {
-      await this.usersRepository.update(userId, updatePayload);
+    if (
+      oldImageFileIdToDelete &&
+      oldImageFileIdToDelete !== user.profileImage?.id
+    ) {
+      await this.uploadService.deleteFile(oldImageFileIdToDelete);
     }
   }
 
