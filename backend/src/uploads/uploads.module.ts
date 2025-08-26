@@ -29,11 +29,27 @@ if (!fs.existsSync(TEMP_FOLDER_PATH)) {
           cb(null, TEMP_FOLDER_PATH); // 임시 저장 폴더
         },
         filename: (req, file, cb) => {
-          cb(null, `${uuid()}${path.extname(file.originalname)}`); // 파일명 중복을 피하기 위해 uuid 사용
+          // 한글 파일명 인코딩 문제 해결
+          const decodedOriginalName = Buffer.from(
+            file.originalname,
+            'latin1',
+          ).toString('utf8');
+          const fileExtension = path.extname(decodedOriginalName);
+          const uniqueFileName = `${uuid()}${fileExtension}`;
+
+          // 디코딩된 파일명을 originalname에 다시 할당 (DB 저장용)
+          file.originalname = decodedOriginalName;
+
+          cb(null, uniqueFileName);
         },
       }),
       limits: { fileSize: 10 * 1024 * 1024 }, // 10mb 제한
       fileFilter: (req, file, cb) => {
+        // 한글 파일명 인코딩 문제 해결
+        file.originalname = Buffer.from(file.originalname, 'latin1').toString(
+          'utf8',
+        );
+
         // Multer 단계에서 파일 타입 검증
         const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/jpg'];
         if (allowedMimeTypes.includes(file.mimetype)) {
