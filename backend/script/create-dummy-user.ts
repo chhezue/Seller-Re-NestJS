@@ -41,8 +41,7 @@ async function bootstrap() {
         username: `user${i}`,
         email: `user${i}@dummyUser.com`,
         password: `user${i}`,
-        profileImage:
-          'https://images.unsplash.com/photo-1592194996308-7b43878e84a6?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fCVFQSVCMyVBMCVFQyU5NiU5MSVFQyU5RCVCNHxlbnwwfHwwfHx8MA%3D%3D',
+        profileImageId: null,
         phoneNumber: '010-0000-1111',
         region_id: randomRegion?.id || null,
       };
