@@ -14,6 +14,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PasswordChangeMethod } from '../logs/const/password-change-method.const';
 import { UsersErrorCode } from './const/users-error-code.const';
 import { UploadsService } from '../uploads/uploads.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -85,14 +86,7 @@ export class UsersService {
     });
   }
 
-  async updateUser(
-    userId: string,
-    dto: Partial<UsersModel> & {
-      region_id?: string | null;
-      profileImageId?: string | null;
-    },
-    ip?: string,
-  ) {
+  async updateUser(userId: string, dto: UpdateUserDto, ip?: string) {
     const user = await this.usersRepository.findOneBy({ id: userId });
 
     if (!user) {
@@ -159,6 +153,20 @@ export class UsersService {
     ) {
       await this.uploadService.deleteFile(oldImageFileIdToDelete);
     }
+  }
+
+  async updateUserInternal(
+    userId: string,
+    data: Partial<
+      Pick<UsersModel, 'status' | 'passwordFailedCount' | 'password'>
+    >,
+  ) {
+    const result = await this.usersRepository.update(userId, data);
+
+    if (result.affected === 0) {
+      throw new NotFoundException('User not found.');
+    }
+    return result;
   }
 
   async getUserByPhoneNumber(phoneNumber: string): Promise<UsersModel | null> {
