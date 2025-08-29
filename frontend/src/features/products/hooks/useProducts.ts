@@ -1,3 +1,4 @@
+// features/products/hooks/useProducts.ts
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const API_BASE = 'http://127.0.0.1:3000';
@@ -85,7 +86,7 @@ const buildQuery = (filters: Filters, keyword: string, cursor?: string, limit?: 
 
     if (keyword.trim()) params.set('keyword', keyword.trim());
     if (cursor) params.set('cursor', cursor);
-    if (limit) params.set('limit', String(limit));          // ⬅️ limit=20 송부
+    if (limit) params.set('limit', String(limit));          // ⬅️ limit 송부
 
     return params.toString();
 };
@@ -93,6 +94,13 @@ const buildQuery = (filters: Filters, keyword: string, cursor?: string, limit?: 
 /* =========================
  *  등록/삭제 등 액션 훅
  * ========================= */
+
+/** ✅ 서버 제출 스펙에 맞춰 수정: tempId → fileId */
+export type ImageInput = {
+    fileId: string;
+    order: number;
+    isRepresentative: boolean;
+};
 
 export type CreateProductPayload = {
     name: string;
@@ -103,6 +111,7 @@ export type CreateProductPayload = {
     tradeType: string;
     condition: string;
     isNegotiable: boolean;
+    images?: ImageInput[]; // ✅ fileId/order/isRepresentative
 };
 
 export type UpdateProductPayload = CreateProductPayload;
@@ -120,6 +129,94 @@ export const useProductActions = () => {
             Authorization: `Bearer ${token}`,
         } as HeadersInit;
     };
+
+    /* =========================
+     *  ✅ 임시 이미지 업로드 (서버 명세)
+     *   - Endpoint: POST /uploads/temp
+     *   - Request: multipart/form-data (field name = 'file')
+     *   - Response: 201 { id, tempUrl }
+     * ========================= */
+    
+    // ✅ 단건도 'files' 필드로 전송
+    const uploadTempImage = async (file: File): Promise<{ id: string; tempUrl: string }> => {
+        const form = new FormData();
+        form.append('files', file, file.name); // ← 반드시 'files'
+
+        const token = localStorage.getItem('accessToken');
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const candidates = [
+            `${API_BASE}/api/uploads/temp`,
+            `${API_BASE}/uploads/temp`,
+        ] as const;
+
+        let lastErr: any = null;
+        for (const url of candidates) {
+            try {
+                const res = await fetch(url, { method: 'POST', headers, body: form });
+                if (!res.ok) {
+                    const txt = await res.text().catch(() => '');
+                    throw new Error(txt || `임시 업로드 실패 (${res.status})`);
+                }
+                const data: any = await res.json().catch(() => ({}));
+                // 서버가 단건도 배열로 줄 수 있으니 모두 대응
+                const item = Array.isArray(data) ? data[0] : data;
+                if (item?.id && item?.tempUrl) return { id: item.id, tempUrl: item.tempUrl };
+                throw new Error('임시 업로드 응답 형식이 올바르지 않습니다. (id/tempUrl 누락)');
+            } catch (e) {
+                lastErr = e;
+            }
+        }
+        throw lastErr || new Error('임시 업로드 엔드포인트를 찾을 수 없습니다.');
+    };
+
+    // ✅ 여러 장도 'files' 필드로 전송 (배치) — 필요 시 단건 병렬 폴백
+    const uploadTempImages = async (
+        files: File[]
+    ): Promise<Array<{ id: string; tempUrl: string }>> => {
+        if (!files || files.length === 0) return [];
+
+        const token = localStorage.getItem('accessToken');
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+        try {
+            const form = new FormData();
+            files.forEach((f) => form.append('files', f, f.name)); // ← 반드시 'files'
+
+            const res = await fetch(`${API_BASE}/api/uploads/temp`, {
+                method: 'POST',
+                headers, // Content-Type는 브라우저가 설정
+                body: form,
+            });
+
+            if (!res.ok) {
+                const txt = await res.text().catch(() => '');
+                throw new Error(txt || `임시 업로드(배치) 실패 (${res.status})`);
+            }
+
+            const data: any = await res.json().catch(() => ({}));
+            const items: any[] =
+                Array.isArray(data)
+                    ? data
+                    : Array.isArray(data?.items)
+                    ? data.items
+                    : (data?.id && data?.tempUrl)
+                    ? [data]
+                    : [];
+
+            // 단건/배치 모두 배열로 정규화
+            return items.map((it) => {
+                if (!it?.id || !it?.tempUrl) {
+                    throw new Error('임시 업로드 응답 형식이 올바르지 않습니다. (id/tempUrl 누락)');
+                }
+                return { id: it.id, tempUrl: it.tempUrl };
+            });
+        } catch {
+            // 배치가 안 되면 단건('files' 필드) 병렬 폴백
+            return Promise.all(files.map(uploadTempImage));
+        }
+    };
+
 
     const createProduct = async (payload: CreateProductPayload) => {
         const headers = withAuthHeaders();
@@ -163,7 +260,7 @@ export const useProductActions = () => {
         const headers = withAuthHeaders();
 
         const res = await fetch(`${API_BASE}/api/product/${productId}`, {
-            method: 'DELETE',
+            method: 'PATCH',
             headers,
         });
 
@@ -218,7 +315,7 @@ export const useProductActions = () => {
         throw new Error('찜 API 엔드포인트를 찾을 수 없습니다.');
     };
 
-    return { createProduct, updateProduct, deleteProduct, toggleFavorite };
+    return { createProduct, updateProduct, deleteProduct, toggleFavorite, uploadTempImages, uploadTempImage };
 };
 
 /* =========================
@@ -328,7 +425,7 @@ export const useProductEnums = () => {
 /* =========================
  *  목록/검색 훅 (기본 내보내기)
  * ========================= */
-const PAGE_SIZE = 20;                             // ✅ 페이지 크기 20으로 고정
+const PAGE_SIZE = 20; // ✅ 페이지 크기 20으로 고정
 
 // ✅ 중복 제거 & 업서트 유틸
 const dedupById = (arr: Product[]) => {
@@ -351,9 +448,9 @@ const mergeUniqueById = (prev: Product[], next: Product[]) => {
         const i = indexById.get(n.id);
         if (i == null) {
             indexById.set(n.id, out.length);
-            out.push(n);              // 새 항목 추가
+            out.push(n); // 새 항목 추가
         } else {
-            out[i] = n;               // 기존 항목 최신값으로 교체(업서트)
+            out[i] = n; // 기존 항목 최신값으로 교체(업서트)
         }
     }
     return out;
@@ -664,9 +761,6 @@ export const useCategories = () => {
 };
 
 /* =========================
- *  🔥 인기 상품 훅 (조회수 기준/없으면 최신순)
- * ========================= */
-/* =========================
  *  🔥 인기 상품 훅 (조회수 우선, 동률이면 최신순)
  * ========================= */
 export type PopularOptions = {
@@ -674,9 +768,9 @@ export type PopularOptions = {
     status?: string;          // 기본 'ON_SALE'
     excludeId?: string;       // 제외할 상품 (상세 페이지의 현재 상품 등)
 
-    // ✅ 호환용: 외부에서 넘겨도 여기서는 사용하지 않음 (무시)
-    region?: string;          // (ignored)
-    categoryId?: string;      // (ignored)
+    // 호환용(무시)
+    region?: string;
+    categoryId?: string;
 };
 
 export const usePopularProducts = (opts: PopularOptions = {}) => {
@@ -684,7 +778,6 @@ export const usePopularProducts = (opts: PopularOptions = {}) => {
         limit = 12,
         status = 'ON_SALE',
         excludeId,
-        // region, categoryId 는 의도적으로 받기만 하고 사용하지 않음(호환)
     } = opts;
 
     const [popular, setPopular] = useState<Product[]>([]);
@@ -702,7 +795,7 @@ export const usePopularProducts = (opts: PopularOptions = {}) => {
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             };
 
-            // ✅ 지역/카테고리 필터 완전 제거: 전체 목록 + (선택) 상태만 적용
+            // ✅ 지역/카테고리 필터 제거: 전체 목록 + (선택) 상태만 적용
             const filters: Filters = {
                 ...(status ? { status } : {}),
             };
@@ -754,4 +847,3 @@ export const usePopularProducts = (opts: PopularOptions = {}) => {
         refreshPopular: fetchPopular,
     };
 };
-

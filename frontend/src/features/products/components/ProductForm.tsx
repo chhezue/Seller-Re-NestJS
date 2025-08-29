@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import CategoryDropdown from '../../products/routes/CategoryDropdown';
-import { useProductEnums, useProductActions, useCategories } from '../../products/hooks/useProducts';
+import { useProductEnums, useCategories } from '../../products/hooks/useProducts';
 import '../../products/routes/NewProductPage.css';
 
 type EnumOption = { key: string; label: string };
@@ -22,13 +22,36 @@ type ProductPayload = {
 type ProductFormMode = 'create' | 'update';
 
 type InitialData = Partial<ProductPayload> & {
-    imageUrl?: string;          // 단일 대표 이미지 URL
-    imageUrls?: string[];       // 다중 URL 있으면 우선 사용
+    imageUrl?: string;
+    imageUrls?: string[];
+    // ✅ 서버가 내려주는 상세의 images 배열을 그대로 받기 위함
+    images?: Array<{
+        fileId?: string;
+        order?: number;
+        isRepresentative?: boolean;
+        file?: { id?: string; url?: string };
+        url?: string;        // 백엔드 변형 대응
+        tempUrl?: string;    // 백엔드 변형 대응
+        path?: string;       // 백엔드 변형 대응
+        id?: string;         // 백엔드 변형 대응
+    }>;
 };
 
-const MAX_IMAGES = 8;
+const API_BASE = 'http://127.0.0.1:3000';
+const MAX_IMAGES = 5;
 
-/* Segmented 작은 토글 버튼 */
+const toAbsUrl = (u?: string) =>
+    !u ? '' : /^https?:\/\//i.test(u) ? u : `${API_BASE}${u.startsWith('/') ? '' : '/'}${u}`;
+
+type TempUpload = { id: string; tempUrl: string };
+type TempImageState = {
+    id: string;             // 서버 fileId (수정 제출 시 사용)
+    previewUrl: string;     // 화면 표시용
+    order: number;          // 순서 (0 = 대표)
+    isNew: boolean;         // ✅ 새로 업로드된 파일인지 여부
+    isRepresentative: boolean; // ✅ 대표 여부(상태로도 관리)
+};
+
 const Segmented: React.FC<{
     value: string;
     onChange: (v: string) => void;
@@ -55,7 +78,6 @@ const Segmented: React.FC<{
     );
 };
 
-/* 확인 모달 */
 const ConfirmModal: React.FC<{
     open: boolean;
     title?: string;
@@ -89,17 +111,14 @@ const ConfirmModal: React.FC<{
 
 const ProductForm: React.FC<{
     mode: ProductFormMode;
-    productId?: string;                 // update 모드에서 필요
-    initial?: InitialData;              // update 모드에서 초기값으로 사용
+    productId?: string;
+    initial?: InitialData;
 }> = ({ mode, productId, initial }) => {
     const navigate = useNavigate();
 
-    // 공통 훅
-    const { createProduct, updateProduct } = useProductActions();
     const { statusOptions, tradeTypeOptions, conditionOptions, enumsError, loadingEnums } = useProductEnums();
     const { categories, loadingCategories, categoriesError } = useCategories();
 
-    // 폼 상태
     const [title, setTitle] = useState('');
     const [price, setPrice] = useState<number>(0);
     const [description, setDescription] = useState('');
@@ -109,12 +128,13 @@ const ProductForm: React.FC<{
     const [tradeType, setTradeType] = useState('SELL');
     const [condition, setCondition] = useState('USED');
 
-    const [images, setImages] = useState<File[]>([]);
-    const [previewImages, setPreviewImages] = useState<string[]>([]);
     const [errorMessage, setErrorMessage] = useState('');
     const [showConfirm, setShowConfirm] = useState(false);
 
-    // refs
+    const [tempImages, setTempImages] = useState<TempImageState[]>([]);
+    const [dragIdx, setDragIdx] = useState<number | null>(null);
+    const [overIdx, setOverIdx] = useState<number | null>(null);
+
     const imageInputRef = useRef<HTMLInputElement>(null);
     const titleRef = useRef<HTMLInputElement>(null);
     const priceRef = useRef<HTMLInputElement>(null);
@@ -124,7 +144,9 @@ const ProductForm: React.FC<{
 
     const isShare = tradeType === 'SHARE';
 
-    // 초기값 세팅 (update일 때)
+    /* =========================
+     *   초기값 세팅 (update)
+     * ========================= */
     useEffect(() => {
         if (!initial) return;
 
@@ -138,13 +160,56 @@ const ProductForm: React.FC<{
         setTradeType(initial.tradeType ?? 'SELL');
         setCondition(initial.condition ?? 'USED');
 
-        const preset = Array.isArray(initial.imageUrls) && initial.imageUrls.length > 0
-            ? initial.imageUrls
-            : (initial.imageUrl ? [initial.imageUrl] : []);
-        setPreviewImages(preset);
+        // ✅ 1순위: 상세에서 내려온 images 배열
+        if (Array.isArray(initial.images) && initial.images.length > 0) {
+            const sorted = [...initial.images].sort((a, b) => {
+                const ar = a?.isRepresentative ? -1 : 0;
+                const br = b?.isRepresentative ? -1 : 0;
+                if (ar !== br) return ar - br;
+                const ao = a?.order ?? 0;
+                const bo = b?.order ?? 0;
+                return ao - bo;
+            });
+
+            const next: TempImageState[] = sorted.slice(0, MAX_IMAGES).map((it, i) => {
+                const fileId = it?.fileId ?? it?.file?.id ?? it?.id ?? '';
+                const url =
+                    it?.file?.url ??
+                    it?.url ??
+                    it?.tempUrl ??
+                    it?.path ??
+                    initial.imageUrl ?? '';
+                return {
+                    id: fileId,                       // 기존 파일의 fileId
+                    previewUrl: toAbsUrl(url),        // 절대 URL
+                    order: i,                         // 정렬 반영
+                    isNew: false,                     // ✅ 기존 이미지
+                    isRepresentative: i === 0,        // 0번 대표
+                };
+            });
+
+            setTempImages(next);
+            return;
+        }
+
+        // ✅ 2순위(폴백): 기존 단일/다중 URL만 있을 때
+        const urls: string[] =
+            Array.isArray(initial.imageUrls) && initial.imageUrls.length > 0
+                ? initial.imageUrls
+                : (initial.imageUrl ? [initial.imageUrl] : []);
+
+        if (urls.length) {
+            const next = urls.slice(0, MAX_IMAGES).map((u, i) => ({
+                id: '',                              // fileId 없음 → 제출 시 제외됨
+                previewUrl: toAbsUrl(u),
+                order: i,
+                isNew: false,
+                isRepresentative: i === 0,
+            }));
+            setTempImages(next);
+        }
     }, [initial]);
 
-    // SHARE 자동 처리
     useEffect(() => {
         if (isShare) {
             setPrice(0);
@@ -152,7 +217,6 @@ const ProductForm: React.FC<{
         }
     }, [isShare]);
 
-    // 훅 에러
     useEffect(() => {
         if (enumsError) setErrorMessage(enumsError);
     }, [enumsError]);
@@ -160,78 +224,142 @@ const ProductForm: React.FC<{
         if (categoriesError) setErrorMessage(categoriesError);
     }, [categoriesError]);
 
-    // 파일 추가
+    /* =========================
+     *   임시 업로드 API
+     * ========================= */
+    const uploadTempImages = async (files: File[]): Promise<TempUpload[]> => {
+        const form = new FormData();
+        files.forEach((f) => form.append('files', f, f.name));
+
+        const token = localStorage.getItem('accessToken');
+        const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+
+        const res = await fetch(`${API_BASE}/api/uploads/temp`, {
+            method: 'POST',
+            headers,
+            body: form,
+        });
+
+        if (!res.ok) {
+            const txt = await res.text().catch(() => '');
+            throw new Error(txt || `임시 업로드 실패 (${res.status})`);
+        }
+
+        const data = await res.json().catch(() => ({}));
+        const items: any[] = Array.isArray(data)
+            ? data
+            : Array.isArray((data as any)?.items)
+            ? (data as any).items
+            : (data as any)?.id && (data as any)?.tempUrl
+            ? [data as any]
+            : [];
+
+        return items.map((it) => {
+            if (!it?.id || !it?.tempUrl) throw new Error('임시 업로드 응답 형식이 올바르지 않습니다.');
+            return { id: it.id, tempUrl: it.tempUrl } as TempUpload;
+        });
+    };
+
+    /* =========================
+     *   이미지 업로드/관리
+     * ========================= */
     const openFileDialog = () => imageInputRef.current?.click();
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const fl = e.target.files;
         if (!fl || fl.length === 0) return;
-        const newlySelected = Array.from(fl);
 
-        // 중복 방지(이름+크기+수정시각)
-        const keyOf = (f: File) => `${f.name}_${f.size}_${f.lastModified}`;
-        const existingKeys = new Set(images.map(keyOf));
-        const deduped = newlySelected.filter((f) => !existingKeys.has(keyOf(f)));
-
-        // 최대 제한
-        const room = MAX_IMAGES - images.length;
-        const toAdd = deduped.slice(0, Math.max(0, room));
-        if (toAdd.length < newlySelected.length) {
+        const remain = MAX_IMAGES - tempImages.length;
+        if (remain <= 0) {
             toast.info(`이미지는 최대 ${MAX_IMAGES}장까지 등록할 수 있어요.`);
-        }
-        if (toAdd.length === 0 && images.length >= MAX_IMAGES) {
             e.target.value = '';
             return;
         }
 
-        const nextImages = [...images, ...toAdd];
-        const nextPreviews = [...previewImages, ...toAdd.map((f) => URL.createObjectURL(f))];
+        const files = Array.from(fl).slice(0, remain);
 
-        setImages(nextImages);
-        setPreviewImages(nextPreviews);
-        e.target.value = '';
+       // 1) 미리보기 먼저 추가 (Blob URL)
+        const start = tempImages.length;
+        const previews = files.map((file, i) => ({
+            id: '',
+            previewUrl: URL.createObjectURL(file),
+            order: start + i,
+            isNew: true,                 // ✅ 새 파일
+            isRepresentative: false,
+        }));
+        setTempImages(prev => [...prev, ...previews]);
+
+        // 2) 업로드해서 fileId 채우기
+        try {
+            const uploaded = await uploadTempImages(files); // [{ id, tempUrl }]
+            setTempImages(prev => {
+                const next = [...prev];
+                for (let i = 0; i < uploaded.length; i++) {
+                    const idx = start + i;
+                    if (next[idx]) {
+                        next[idx].id = uploaded[i].id;           // 서버 fileId
+                        // 필요하면 미리보기 교체도 가능:
+                        // next[idx].previewUrl = toAbsUrl(uploaded[i].tempUrl);
+                    }
+                }
+                // 대표/순서 재계산
+                return next.map((it, i) => ({ ...it, order: i, isRepresentative: i === 0 }));
+            });
+        } catch (err: any) {
+            // 실패 시 방금 추가한 프리뷰 제거 + revoke
+            setTempImages(prev => {
+                const next = [...prev];
+                for (let i = previews.length - 1; i >= 0; i--) {
+                    const idx = start + i;
+                    const removed = next[idx];
+                    if (removed?.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(removed.previewUrl);
+                    next.splice(idx, 1);
+                }
+                return next.map((it, i) => ({ ...it, order: i, isRepresentative: i === 0 }));
+            });
+            toast.error(err?.message || '이미지 업로드 실패');
+        } finally {
+            e.target.value = '';
+        }
     };
 
     const handleRemoveImage = (index: number) => {
-        const nextImages = images.slice();
-        const nextPreviews = previewImages.slice();
-        const removedUrl = nextPreviews[index];
-        nextImages.splice(index, 1);
-        nextPreviews.splice(index, 1);
-        try {
-            if (removedUrl?.startsWith('blob:')) URL.revokeObjectURL(removedUrl);
-        } catch {}
-        setImages(nextImages);
-        setPreviewImages(nextPreviews);
+        setTempImages(prev => {
+            const next = prev.slice();
+            const removed = next.splice(index, 1)[0];
+            if (removed?.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(removed.previewUrl);
+            return next.map((it, i) => ({ ...it, order: i, isRepresentative: i === 0 }));
+        });
     };
-
-    // 드래그 정렬
-    const [dragIdx, setDragIdx] = useState<number | null>(null);
-    const [overIdx, setOverIdx] = useState<number | null>(null);
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, index: number) => {
         setDragIdx(index);
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', String(index)); // Firefox
+        e.dataTransfer.setData('text/plain', String(index));
     };
-    const handleDragEnter = (index: number) => { if (index !== dragIdx) setOverIdx(index); };
-    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+    const handleDragEnter = (index: number) => {
+        if (index !== dragIdx) setOverIdx(index);
+    };
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
     const handleDrop = (index: number) => {
-        if (dragIdx === null || dragIdx === index) { setDragIdx(null); setOverIdx(null); return; }
-        const reorder = <T,>(arr: T[]) => {
-            const next = arr.slice();
+        setTempImages(prev => {
+            if (dragIdx === null || dragIdx === index) return prev;
+            const next = prev.slice();
             const [moved] = next.splice(dragIdx, 1);
             next.splice(index, 0, moved);
-            return next;
-        };
-        setImages((prev) => reorder(prev));
-        setPreviewImages((prev) => reorder(prev));
+            return next.map((it, i) => ({ ...it, order: i, isRepresentative: i === 0 })); // ✅ 대표/순서만 변경
+        });
         setDragIdx(null);
         setOverIdx(null);
     };
-    const handleDragEnd = () => { setDragIdx(null); setOverIdx(null); };
+    const handleDragEnd = () => {
+        setDragIdx(null);
+        setOverIdx(null);
+    };
 
-    // 포커스/스크롤
     const focusAndScroll = (el: Element | null) => {
         if (!el) return;
         const node = el as HTMLElement;
@@ -240,7 +368,6 @@ const ProductForm: React.FC<{
     };
     const scrollErrorMessage = () => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-    // 검증
     const validate = () => {
         if (!title) {
             setErrorMessage('상품명을 입력하세요.');
@@ -266,7 +393,7 @@ const ProductForm: React.FC<{
             scrollErrorMessage();
             return false;
         }
-        if (previewImages.length < 1) {
+        if (tempImages.length < 1) {
             setErrorMessage('이미지는 최소 1개 이상 등록하세요.');
             scrollErrorMessage();
             return false;
@@ -288,9 +415,49 @@ const ProductForm: React.FC<{
     const doSubmit = async () => {
         if (!validate()) { setShowConfirm(false); return; }
 
+    // 서버 스펙: images = [{ fileId, order, isRepresentative, ...(update면 isNew) }]
+    const imagesPayload = tempImages
+        .filter(im => im.id)                       // fileId 없는 항목 제외
+        .sort((a, b) => a.order - b.order)
+        .map((im, idx) => {
+            const base = {
+                fileId: im.id,
+                order: idx,                        // 0부터 다시 매기기
+                isRepresentative: idx === 0,
+            } as any;
+
+            // ✅ 수정(UPDATE)일 때만 isNew 포함 (새로 추가된 것만 true, 기존은 false)
+            if (mode === 'update') {
+                base.isNew = !!im.isNew;
+            }
+            return base;
+        });
+
         try {
+            const token = localStorage.getItem('accessToken');
+            if (!token) {
+                toast.info('로그인이 필요합니다.');
+                navigate('/login');
+                return;
+            }
+
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            };
+
             if (mode === 'create') {
-                const created = await createProduct(payload);
+                const body = JSON.stringify({ ...payload, images: imagesPayload });
+                const res = await fetch(`${API_BASE}/api/product`, {
+                    method: 'POST',
+                    headers,
+                    body,
+                });
+                if (!res.ok) {
+                    const txt = await res.text().catch(() => '');
+                    throw new Error(txt || `상품 등록 실패 (${res.status})`);
+                }
+                const created = await res.json().catch(() => ({} as any));
                 toast.success('상품 등록 완료!');
                 if (created?.id) navigate(`/item/${created.id}`); else navigate('/homepage');
             } else {
@@ -298,16 +465,21 @@ const ProductForm: React.FC<{
                     toast.error('상품 ID가 없습니다.');
                     return;
                 }
-                const updated = await updateProduct(productId, payload);
+                const body = JSON.stringify({ ...payload, images: imagesPayload });
+                const res = await fetch(`${API_BASE}/api/product/${productId}`, {
+                    method: 'PATCH',
+                    headers,
+                    body,
+                });
+                if (!res.ok) {
+                    const txt = await res.text().catch(() => '');
+                    throw new Error(txt || `상품 수정 실패 (${res.status})`);
+                }
+                await res.json().catch(() => ({}));
                 toast.success('상품 수정 성공!');
                 navigate(`/item/${productId}`);
             }
         } catch (e: any) {
-            if (e?.code === 'NOT_AUTHENTICATED') {
-                toast.info('로그인이 필요합니다.');
-                navigate('/login');
-                return;
-            }
             const msg = e?.message ?? (mode === 'create' ? '상품 등록에 실패했습니다.' : '상품 수정에 실패했습니다.');
             setErrorMessage(msg);
             scrollErrorMessage();
@@ -355,19 +527,19 @@ const ProductForm: React.FC<{
                         tabIndex={0}
                         onClick={openFileDialog}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openFileDialog(); }}
-                        aria-label="이미지 추가: 최소 1개, 최대 8개까지 가능"
+                        aria-label={`이미지 추가: 최소 1개, 최대 ${MAX_IMAGES}개까지 가능`}
                     >
-                        {previewImages.length === 0 ? (
+                        {tempImages.length === 0 ? (
                             <div className="dropzone-empty">
                                 <div className="dropzone-plus">＋</div>
                                 <div className="dropzone-text">이미지 추가</div>
-                                <div className="dropzone-sub">최소 1개, 최대 8개까지 가능</div>
+                                <div className="dropzone-sub">최소 1개, 최대 {MAX_IMAGES}개까지 가능</div>
                             </div>
                         ) : (
                             <div className="preview-grid inside-dropzone">
-                                {previewImages.map((src, idx) => (
+                                {tempImages.map((img, idx) => (
                                     <div
-                                        key={idx}
+                                        key={`${img.id || 'url'}-${idx}`}
                                         className={
                                             `thumb ${idx === 0 ? 'main' : ''} ` +
                                             `${dragIdx === idx ? 'dragging' : ''} ` +
@@ -380,22 +552,28 @@ const ProductForm: React.FC<{
                                         onDrop={() => handleDrop(idx)}
                                         onDragEnd={handleDragEnd}
                                         onClick={(e) => e.stopPropagation()}
-                                        title={idx === 0 ? '메인 이미지' : '드래그해서 순서 변경'}
+                                        // 🔧 대표 안내 문구도 index 0 기준
+                                        title={idx === 0 ? '대표 이미지' : '드래그해서 순서 변경'}
                                     >
-                                        {idx === 0 && <span className="main-badge">메인</span>}
-                                        <img src={src} alt={`preview-${idx}`} />
-                                        <button
-                                            type="button"
-                                            className="thumb-remove"
-                                            aria-label="이미지 삭제"
-                                            onClick={(e) => { e.stopPropagation(); handleRemoveImage(idx); }}
-                                            title="이미지 삭제"
-                                        >
-                                            ×
-                                        </button>
+                                        {/* 🔧 대표 배지: idx === 0 일 때만 */}
+                                        {idx === 0 && <span className="main-badge">대표</span>}
+
+                                        <img src={img.previewUrl} alt={`preview-${idx}`} />
+                                        <div className="thumb-actions">
+                                            {/* 🔧 “대표로” 버튼 제거 */}
+                                            <button
+                                                type="button"
+                                                className="thumb-remove"
+                                                aria-label="이미지 삭제"
+                                                onClick={(e) => { e.stopPropagation(); handleRemoveImage(idx); }}
+                                                title="이미지 삭제"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
-                                {previewImages.length < MAX_IMAGES && (
+                                {tempImages.length < MAX_IMAGES && (
                                     <button
                                         type="button"
                                         className="thumb add-more"
@@ -407,10 +585,10 @@ const ProductForm: React.FC<{
                                 )}
                             </div>
                         )}
-                        <div className="count-badge">{previewImages.length}/{MAX_IMAGES}</div>
+                        <div className="count-badge">{tempImages.length}/{MAX_IMAGES}</div>
                     </div>
 
-                    <p className="help-text">최소 1개, 최대 8개까지 가능</p>
+                    <p className="help-text">최소 1개, 최대 {MAX_IMAGES}개까지 가능</p>
                 </section>
 
                 {/* 카드 2: 기본 정보 */}

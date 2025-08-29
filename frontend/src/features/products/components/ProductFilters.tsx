@@ -278,7 +278,11 @@ const ProductFilters: React.FC<Props> = ({
         }
     }, [regionLoading, regions, isAuthenticated, authFetch, onRegionTextChange]);
 
-
+    useEffect(() => {
+    if (!regionLoading) {
+        setRegionReady(true);
+    }
+    }, [regionLoading]);
     // ✅ URL 쿼리(myOnly=1) 적용 — 지역 복원(regionReady) 이후에만
     const appliedMyOnlyFromQueryRef = useRef(false);
     useEffect(() => {
@@ -474,6 +478,7 @@ const ProductFilters: React.FC<Props> = ({
                 </div>
             </div>
             {regionError && <p className="error-text" style={{ marginTop: 6 }}>{regionError}</p>}
+
 
             {/* 내 판매 상품 */}
             {isLoggedIn && (

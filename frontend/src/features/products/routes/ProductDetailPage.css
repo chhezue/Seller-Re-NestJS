@@ -43,16 +43,6 @@
     width: 520px;
 }
 
-/* ✅ 이미지 고정 높이 + 커버 */
-.product-image {
-    width: 100%;
-    height: 360px;            /* ← 고정 높이 */
-    max-width: 520px;
-    border-radius: 12px;
-    object-fit: cover;
-    border: 1px solid var(--border);
-}
-
 .product-info-section {
     flex: 1 1 auto;           /* 남은 공간을 차지 */
     display: flex;
@@ -361,7 +351,6 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     height: 76px;             /* ← 고정 높이 */
-    overflow: hidden;         /* 텍스트 길어도 높이 유지 */
     background: var(--surface);
 }
 
@@ -427,6 +416,7 @@
 .seller-rating-right {
     margin-left: auto;    
     display: flex;
+    flex-direction: column;
     align-items: center;
 }
 
@@ -500,4 +490,46 @@
 /* 찜 버튼 토글 컬러 */
 .favorite-button .heart.on {
     color: #ef4444; /* red-500 */
+}
+
+
+/* 매너온도 라벨 */
+.seller-rating-Text {
+    margin: 5px 0 0 0;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration-line: underline;
+    position: relative;        /* 기준 컨테이너 */
+    display: inline-block;     /* 크기 기준 안정화 */
+}
+
+/* 클릭 전에는 숨김 */
+.seller-rating-Text::after {
+    content: attr(data-tip);
+    position: absolute;
+    right: 0;                   /* 라벨의 왼쪽에 맞춤 */
+    top: calc(100% + 6px);     /* 라벨 바로 아래로 */
+    transform: none;           /* 가운데 정렬 해제 */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .12s ease, visibility .12s ease;
+    z-index: 10;
+
+    width: 300px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-elev);
+    line-height: 1.45;
+    white-space: normal;
+    pointer-events: none;
+}
+
+/* 클릭(포커스) 시 표시 */
+.seller-rating-Text:focus::after,
+.seller-rating-Text:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
 }

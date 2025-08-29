@@ -81,14 +81,6 @@ a {
     overflow: hidden;
 }
 
-.product-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    transform: scale(1.01);
-    transition: transform .24s ease, filter .24s ease;
-}
 
 .item-card:hover .product-image {
     transform: scale(1.04);

@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUser } from '@fortawesome/free-solid-svg-icons';
 import ProductCard from '../components/ProductCard';
 import MannerTemp from '../../../components/ui/MannerTemp';
+import ImageGallery from '../components/ImageGallery';
 
 /** ✅ Lucide eye SVG */
 const EyeIcon: React.FC<{ className?: string; title?: string }> = ({ className, title }) => (
@@ -134,6 +135,12 @@ const ProductDetailPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { userId, initialized } = useAuth();
+
+    useEffect((): void => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        document.body.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+    }, [id]);
 
     const { product, loading, error, errorStatus } = useProductDetail(id);
     const { deleteProduct, toggleFavorite } = useProductActions() as any;
@@ -286,11 +293,7 @@ const ProductDetailPage: React.FC = () => {
         <div className="product-detail-container">
             <div className="product-detail-content">
                 <div className="product-image-section">
-                    <img
-                        src={product.imageUrl || '/images/default.jpg'}
-                        alt={product.name}
-                        className="product-image"
-                    />
+                    <ImageGallery productId={id!} className="product-image" />
 
                     {/* 이미지 아래: 판매자 정보 */}
                     <div className="seller-strip">
@@ -314,6 +317,7 @@ const ProductDetailPage: React.FC = () => {
                                 score5={typeof ratingAvg === 'number' ? ratingAvg : 0}
                                 count={typeof ratingCount === 'number' ? ratingCount : 0}
                             />
+                            <p className="seller-rating-Text" tabIndex={0} data-tip="최근 거래 후기 등을 기반으로 산출되는 신뢰 지표예요. 높을수록 좋아요.">매너온도</p>
                         </div>
                     </div>
                 </div>

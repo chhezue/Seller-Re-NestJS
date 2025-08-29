@@ -2,6 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import type { Product } from '../hooks/useProducts';
+import ImageGallery from '../components/ImageGallery';
 
 type Props = {
     product: Product;
@@ -96,7 +97,7 @@ const ProductCard: React.FC<Props> = ({
             <div className="image-wrapper">
                 {renderStatusBadge(product.status)}
                 <img
-                    src={product.imageUrl || '/images/default.jpg'}
+                    src={product.imageUrl || '/images/default2.jpg'}
                     alt={product.name}
                     className="product-image"
                 />
