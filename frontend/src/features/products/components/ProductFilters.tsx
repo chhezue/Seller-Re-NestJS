@@ -153,14 +153,36 @@ const ProductFilters: React.FC<Props> = ({
         catch { window.scrollTo(0, 0); }
     };
 
-    /** ✅ 최초 1회 지역 초기화: 저장값 > (없으면) 프로필 기본지역 */
+    // ✅ 지역 초기화 완료 여부 (다른 이펙트가 먼저 실행돼서 region이 지워지는 걸 방지)
+    const [regionReady, setRegionReady] = useState(false);
+
+    // ✅ 로컬스토리지 저장/복원 헬퍼
+    type StoredRegion = { regionId?: string; cityId?: string; districtId?: string; label?: string };
+    const saveRegion = (data: StoredRegion) => {
+        try { localStorage.setItem(REGION_STORE_KEY, JSON.stringify(data)); } catch {}
+    };
+    const loadRegion = (): StoredRegion | null => {
+        try {
+            const raw = localStorage.getItem(REGION_STORE_KEY);
+            if (!raw) return null;
+            const obj = JSON.parse(raw);
+            return {
+                regionId: obj?.regionId != null ? String(obj.regionId) : undefined,
+                cityId: obj?.cityId != null ? String(obj.cityId) : undefined,
+                districtId: obj?.districtId != null ? String(obj.districtId) : undefined,
+                label: typeof obj?.label === 'string' ? obj.label : undefined,
+            };
+        } catch { return null; }
+    };
+
+    // ✅ 최초 1회 지역 초기화: 저장값 > (없으면) 프로필 기본지역
     const initRegionOnceRef = useRef(false);
     useEffect(() => {
         if (initRegionOnceRef.current) return;
         if (regionLoading || !regions.length) return;
         initRegionOnceRef.current = true;
 
-        // 1) 저장값 우선 복원
+        // 1) 저장값 우선 복원 (빈 문자열 ""도 '전체'로서 유효한 선택으로 처리)
         let stored: { cityId?: string; districtId?: string; label?: string } | null = null;
         try {
             const raw = localStorage.getItem(REGION_STORE_KEY);
@@ -169,25 +191,46 @@ const ProductFilters: React.FC<Props> = ({
 
         const flat = flattenRegions(regions);
 
-        if (stored && (stored.cityId || stored.districtId)) {
-            const cityId = stored.cityId || '';
-            const districtId = stored.districtId || '';
-            setSelectedCityId(cityId);
-            setSelectedDistrictId(districtId);
+        if (stored) {
+            const cityId = stored.cityId ?? '';
+            const districtId = stored.districtId ?? '';
+            const savedLabel = stored.label ?? '';
 
-            const cityName = cityId ? (flat.find(n => n.id === cityId)?.name ?? '') : '';
-            const distName = districtId ? (flat.find(n => n.id === districtId)?.name ?? '') : '';
-            const label =
-                (stored.label && stored.label.trim().length)
-                    ? stored.label
-                    : (cityName && distName ? `${cityName} ${distName}` : (distName || cityName || ''));
+            // ✅ 시/도 = 전체, 구 = 전체 로 저장되어 있으면 그대로 '전체' 유지
+            if (cityId === '' && districtId === '') {
+                setSelectedCityId('');
+                setSelectedDistrictId('');
+                emitFilters({ region: undefined, regionLabel: undefined });
+                onRegionTextChange?.('');
+                return; // 저장값 적용 끝
+            }
 
-            emitFilters({ region: districtId || cityId || undefined, regionLabel: label || undefined });
-            onRegionTextChange?.(label || '');
-            return; // 저장값 적용했으면 끝
+            // ✅ 시/도만 선택되고(구=전체) 저장된 경우
+            if (cityId && !districtId) {
+                setSelectedCityId(cityId);
+                setSelectedDistrictId('');
+                const cityName = flat.find(n => n.id === cityId)?.name ?? '';
+                const label = savedLabel || cityName || '';
+                emitFilters({ region: cityId, regionLabel: label || undefined });
+                onRegionTextChange?.(label);
+                return;
+            }
+
+            // ✅ 시/도 + 구까지 저장된 경우
+            if (cityId && districtId) {
+                setSelectedCityId(cityId);
+                setSelectedDistrictId(districtId);
+                const cityName = flat.find(n => n.id === cityId)?.name ?? '';
+                const distName = flat.find(n => n.id === districtId)?.name ?? '';
+                const label = savedLabel || (cityName && distName ? `${cityName} ${distName}` : (distName || cityName || ''));
+                emitFilters({ region: districtId, regionLabel: label || undefined });
+                onRegionTextChange?.(label);
+                return;
+            }
+            // (그 외 케이스는 아래 프로필 기본지역 로직으로 진행)
         }
 
-        // 2) 저장값 없으면 프로필 기본지역 사용(로그인 시)
+        // 2) 저장값이 없으면 프로필 기본지역 사용(로그인 시)
         if (isAuthenticated) {
             (async () => {
                 try {
@@ -208,7 +251,12 @@ const ProductFilters: React.FC<Props> = ({
                             const label = `${parent.name} ${node.name}`;
                             emitFilters({ region: node.id, regionLabel: label });
                             onRegionTextChange?.(label);
-                            try { localStorage.setItem(REGION_STORE_KEY, JSON.stringify({ cityId: parent.id, districtId: node.id, label })); } catch {}
+                            try {
+                                localStorage.setItem(
+                                    REGION_STORE_KEY,
+                                    JSON.stringify({ cityId: parent.id, districtId: node.id, label })
+                                );
+                            } catch {}
                         }
                     } else {
                         setSelectedCityId(node.id);
@@ -216,7 +264,12 @@ const ProductFilters: React.FC<Props> = ({
                         const label = node.name;
                         emitFilters({ region: node.id, regionLabel: label });
                         onRegionTextChange?.(label);
-                        try { localStorage.setItem(REGION_STORE_KEY, JSON.stringify({ cityId: node.id, districtId: '', label })); } catch {}
+                        try {
+                            localStorage.setItem(
+                                REGION_STORE_KEY,
+                                JSON.stringify({ cityId: node.id, districtId: '', label })
+                            );
+                        } catch {}
                     }
                 } catch {
                     /* ignore */
@@ -225,10 +278,17 @@ const ProductFilters: React.FC<Props> = ({
         }
     }, [regionLoading, regions, isAuthenticated, authFetch, onRegionTextChange]);
 
-    // ✅ URL 쿼리(myOnly=1)로 들어왔을 때 자동으로 "내 판매 상품만 보기" 켜기 (한 번만)
+    useEffect(() => {
+    if (!regionLoading) {
+        setRegionReady(true);
+    }
+    }, [regionLoading]);
+    // ✅ URL 쿼리(myOnly=1) 적용 — 지역 복원(regionReady) 이후에만
     const appliedMyOnlyFromQueryRef = useRef(false);
     useEffect(() => {
         if (appliedMyOnlyFromQueryRef.current) return;
+        if (!regionReady) return;
+
         const sp = new URLSearchParams(location.search);
         const myOnlyParam = sp.get('myOnly');
         const shouldMyOnly = myOnlyParam === '1' || myOnlyParam === 'true';
@@ -243,7 +303,7 @@ const ProductFilters: React.FC<Props> = ({
             emitFilters({ myOnly: true, categoryId: undefined });
             scrollTop();
         }
-    }, [location.search, isLoggedIn, onCategorySelect, onCategoryLabelChange]);
+    }, [location.search, isLoggedIn, regionReady, onCategorySelect, onCategoryLabelChange]);
 
     // 지역 선택
     const handleCitySelect = (id: string) => {
@@ -257,8 +317,10 @@ const ProductFilters: React.FC<Props> = ({
             regionLabel: cityName,
         });
         onRegionTextChange?.(cityName ?? '');
-        // ✅ 저장
-        try { localStorage.setItem(REGION_STORE_KEY, JSON.stringify({ cityId: id || '', districtId: '', label: cityName ?? '' })); } catch {}
+
+        // ✅ 저장 (city만 선택된 경우 regionId=city)
+        saveRegion({ regionId: id || '', cityId: id || '', districtId: '', label: cityName ?? '' });
+
         scrollTop();
     };
 
@@ -274,8 +336,10 @@ const ProductFilters: React.FC<Props> = ({
             regionLabel: label || undefined,
         });
         onRegionTextChange?.(label);
-        // ✅ 저장
-        try { localStorage.setItem(REGION_STORE_KEY, JSON.stringify({ cityId: selectedCityId || '', districtId: id || '', label })); } catch {}
+
+        // ✅ 저장 (district 우선)
+        saveRegion({ regionId: id || selectedCityId || '', cityId: selectedCityId || '', districtId: id || '', label });
+
         scrollTop();
     };
 
@@ -414,6 +478,7 @@ const ProductFilters: React.FC<Props> = ({
                 </div>
             </div>
             {regionError && <p className="error-text" style={{ marginTop: 6 }}>{regionError}</p>}
+
 
             {/* 내 판매 상품 */}
             {isLoggedIn && (
