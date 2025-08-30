@@ -228,16 +228,16 @@ const EditProfileModal: React.FC<Props> = ({
         return only.length === 11;
     };
 
-    // 1단계: 변경내역 팝업 띄우기
+    // 1단계: 변경내역 팝업 띄우기 (지역 선택은 옵션)
     const handleOpenConfirm = (e: React.FormEvent) => {
         e.preventDefault();
 
-        const regionId = selectedRegionNode?.id || profile?.region?.id || profile?.region_id || '';
+        const regionIdSelected = selectedRegionNode?.id || ''; // ✅ 선택한 경우에만 사용
 
         const nextErrors: { [k: string]: boolean } = {
             nickname: !username.trim(),
             phone: !phone.trim() || !validatePhone(phone),
-            region: !regionId,
+            // region: 선택 사항이므로 검증하지 않음
         };
         setErrors(nextErrors);
         if (nextErrors.phone) {
@@ -250,12 +250,12 @@ const EditProfileModal: React.FC<Props> = ({
         }
         if (!validatePasswordBlock()) return;
 
-        // region_id(=구/군 id) + (비번변경시) password만
+        // region_id는 **선택 시에만** 포함
         const payload: UpdateProfilePayloadWithRegion = {
             username,
             phoneNumber: phone,
             profileImage: previewImage ?? '',
-            region_id: regionId,
+            ...(regionIdSelected ? { region_id: regionIdSelected } : {}),
             ...(newPw ? { password: newPw } : {}),
         };
 
@@ -299,6 +299,12 @@ const EditProfileModal: React.FC<Props> = ({
             const friendly = toFriendlyError(err);
             toast.error(friendly);
         }
+    };
+
+    const handleClearRegion = () => {
+        setRegion({ city: '', district: '', dong: '' });
+        setSelectedRegionNode(null);
+        // 선택 사항이므로 에러 표시는 건들 필요 없음
     };
 
     return (
@@ -390,24 +396,25 @@ const EditProfileModal: React.FC<Props> = ({
                                         />
                                     </div>
 
-                                    {/* 주소 */}
+                                    {/* 주소 (선택) */}
                                     <div className="form-item address-search">
                                         <FontAwesomeIcon icon={faMapMarkerAlt} className="input-icon" />
                                         <div className="address-input-wrapper">
                                             <input
                                                 type="text"
-                                                className={`address-input ${errors.region ? s.inputError : ''}`}
-                                                placeholder="주소를 검색해주세요"
+                                                className="address-input"
+                                                placeholder="주소를 검색해주세요 (선택)"
                                                 value={regionLoading ? '주소 불러오는 중...' :
                                                     (region.city && region.district ? `${region.city} ${region.district}` : (region.district || ''))}
                                                 readOnly
                                             />
+                                            
                                             <button type="button" className="address-search-btn" onClick={() => setRegionModalOpen(true)}>
                                                 주소 찾기
                                             </button>
                                         </div>
                                     </div>
-                                    {errors.region && <p className={s.errorText}>주소(시/도, 구/군)를 선택해 주세요.</p>}
+                                    {/* ※ 지역은 선택 사항이므로 에러 메시지 출력 제거 */}
 
                                     {/* 비밀번호 변경(선택) — 현재 비번 입력칸 제거 */}
                                     <h4 className="pw-title" style={{ marginTop: 12, marginBottom: 6 }}>비밀번호 변경 (선택)</h4>

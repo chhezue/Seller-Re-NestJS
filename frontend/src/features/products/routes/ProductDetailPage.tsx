@@ -1,4 +1,3 @@
-// features/products/routes/ProductDetailPage.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -6,8 +5,76 @@ import useAuth from '../../auth/hooks/useAuth';
 import './ProductDetailPage.css';
 import { useProductActions, useProductDetail, usePopularProducts } from '../hooks/useProducts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser, faStar, faStarHalfStroke } from '@fortawesome/free-solid-svg-icons';
+import { faUser } from '@fortawesome/free-solid-svg-icons';
 import ProductCard from '../components/ProductCard';
+import MannerTemp from '../../../components/ui/MannerTemp';
+import ImageGallery from '../components/ImageGallery';
+
+/** ✅ Lucide eye SVG */
+const EyeIcon: React.FC<{ className?: string; title?: string }> = ({ className, title }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="1em"
+        height="1em"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        aria-hidden={title ? undefined : true}
+        role={title ? 'img' : 'presentation'}
+    >
+        {title ? <title>{title}</title> : null}
+        <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+        <circle cx="12" cy="12" r="3" />
+    </svg>
+);
+
+/** ✅ Lucide message-square-text */
+const ChatIcon: React.FC<{ className?: string; title?: string }> = ({ className, title }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="1em"
+        height="1em"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        aria-hidden={title ? undefined : true}
+        role={title ? 'img' : 'presentation'}
+    >
+        {title ? <title>{title}</title> : null}
+        <path d="M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z" />
+        <path d="M7 8h10" />
+        <path d="M7 12h8" />
+    </svg>
+);
+
+/** ✅ Lucide heart (filled 토글 지원) */
+const HeartIcon: React.FC<{ filled?: boolean; className?: string; title?: string }> = ({ filled, className, title }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="1em"
+        height="1em"
+        viewBox="0 0 24 24"
+        fill={filled ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+        aria-hidden={title ? undefined : true}
+        role={title ? 'img' : 'presentation'}
+    >
+        {title ? <title>{title}</title> : null}
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z" />
+    </svg>
+);
 
 /** 확인 모달 (훅 없음) */
 const ConfirmModal: React.FC<{
@@ -50,27 +117,6 @@ const ConfirmModal: React.FC<{
     );
 };
 
-/** ⭐ 별점 (레귤러 아이콘 없이 구현) */
-const StarRating: React.FC<{ value?: number; count?: number }> = ({ value = 0, count }) => {
-    const rounded = Math.round((value || 0) * 2) / 2;
-    const full = Math.floor(rounded);
-    const half = rounded - full === 0.5 ? 1 : 0;
-    const empty = 5 - full - half;
-
-    return (
-        <span className="seller-rating" aria-label={`평점 ${rounded} / 5`}>
-            {Array.from({ length: full }).map((_, i) => (
-                <FontAwesomeIcon key={`f${i}`} icon={faStar} className="star full" />
-            ))}
-            {half === 1 && <FontAwesomeIcon icon={faStarHalfStroke} className="star half" />}
-            {Array.from({ length: empty }).map((_, i) => (
-                <FontAwesomeIcon key={`e${i}`} icon={faStar} className="star empty" />
-            ))}
-            <span className="rating-count"> ({typeof count === 'number' ? count : 0})</span>
-        </span>
-    );
-};
-
 const formatRelativeTime = (iso?: string) => {
     if (!iso) return '';
     const d = new Date(iso);
@@ -90,6 +136,12 @@ const ProductDetailPage: React.FC = () => {
     const navigate = useNavigate();
     const { userId, initialized } = useAuth();
 
+    useEffect((): void => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        document.body.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+    }, [id]);
+
     const { product, loading, error, errorStatus } = useProductDetail(id);
     const { deleteProduct, toggleFavorite } = useProductActions() as any;
 
@@ -99,7 +151,7 @@ const ProductDetailPage: React.FC = () => {
         popularLoading,
         popularError,
     } = usePopularProducts({
-        limit: 20,                      // 서버 요청도 20개
+        limit: 20,
         status: 'ON_SALE',
         excludeId: id,
         categoryId: product?.category?.id,
@@ -241,11 +293,7 @@ const ProductDetailPage: React.FC = () => {
         <div className="product-detail-container">
             <div className="product-detail-content">
                 <div className="product-image-section">
-                    <img
-                        src={product.imageUrl || '/images/default.jpg'}
-                        alt={product.name}
-                        className="product-image"
-                    />
+                    <ImageGallery productId={id!} className="product-image" />
 
                     {/* 이미지 아래: 판매자 정보 */}
                     <div className="seller-strip">
@@ -262,13 +310,14 @@ const ProductDetailPage: React.FC = () => {
                             </div>
                             <div className="seller-sub">
                                 {sellerRegion && <span className="seller-region">{sellerRegion}</span>}
-                                <div className="seller-rating-right">
-                                    <StarRating
-                                        value={typeof ratingAvg === 'number' ? ratingAvg : 0}
-                                        count={typeof ratingCount === 'number' ? ratingCount : 0}
-                                    />
-                                </div>
                             </div>
+                        </div>
+                        <div className="seller-rating-right">
+                            <MannerTemp
+                                score5={typeof ratingAvg === 'number' ? ratingAvg : 0}
+                                count={typeof ratingCount === 'number' ? ratingCount : 0}
+                            />
+                            <p className="seller-rating-Text" tabIndex={0} data-tip="최근 거래 후기 등을 기반으로 산출되는 신뢰 지표예요. 높을수록 좋아요.">매너온도</p>
                         </div>
                     </div>
                 </div>
@@ -298,7 +347,17 @@ const ProductDetailPage: React.FC = () => {
                     )}
 
                     <p className="detail-stats">
-                        💬 채팅 0 | ❤️ 관심 {favoriteCount} | 👁 조회 {product.viewCount ?? 0}
+                        <span className="stat">
+                            <ChatIcon className="stats-icon" /> 채팅 0
+                        </span>{' '}
+                        |{' '}
+                        <span className="stat">
+                            <HeartIcon className="stats-icon" /> 관심 {favoriteCount}
+                        </span>{' '}
+                        |{' '}
+                        <span className="stat">
+                            <EyeIcon className="stats-icon" /> 조회 {product.viewCount ?? 0}
+                        </span>
                     </p>
 
                     {isAuthor ? (
@@ -362,7 +421,7 @@ const ProductDetailPage: React.FC = () => {
                                     to={`/item/${p.id}`}
                                     index={i}
                                     className="popular-mini"
-                                    showRegion={true}     /* 지역만 표시 */
+                                    showRegion={true}
                                     showTime={false}
                                     showCounts={false}
                                 />

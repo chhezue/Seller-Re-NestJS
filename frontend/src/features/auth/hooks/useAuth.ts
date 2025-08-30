@@ -1,3 +1,4 @@
+// auth/hooks/useAuth.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
@@ -7,12 +8,12 @@ const REFRESH_KEY = 'refreshToken';
 const API_BASE = 'http://127.0.0.1:3000';
 const REFRESH_ENDPOINT = `${API_BASE}/api/auth/refresh`;
 const LOGIN_ENDPOINT = `${API_BASE}/api/auth/login`;
+const REGISTER_ENDPOINT = `${API_BASE}/api/users`;
 const UNLOCK_REQUEST_ENDPOINT = `${API_BASE}/api/auth/unlock/request`;
 const UNLOCK_VERIFY_ENDPOINT = `${API_BASE}/api/auth/unlock/verify`;
+const LOGOUT_ENDPOINT = `${API_BASE}/api/auth/logout`;
 
-const REFRESH_SKEW_SEC = 60; // 만료 60초 전 미리 갱신
-
-/** 같은 탭 동기화를 위한 커스텀 이벤트 */
+const REFRESH_SKEW_SEC = 60;
 const AUTH_EVENT = 'auth:changed';
 const emitAuthChanged = () => {
     try { window.dispatchEvent(new Event(AUTH_EVENT)); } catch { /* noop */ }
@@ -38,7 +39,7 @@ export type RegisterPayload = {
     email: string;
     password: string;
     phoneNumber: string;
-    region_id: string;
+    region_id?: string;
     profileImage?: string;
 };
 
@@ -116,14 +117,25 @@ const useAuth = () => {
                 void refreshAccessToken();
             }, delay);
         } catch {
-            // 디코드 실패 시 스케줄 생략
+            // ignore
         }
+    };
+
+    const clearLocalAuth = () => {
+        clearRefreshTimer();
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(REFRESH_KEY);
+        localStorage.removeItem('filters:selectedRegion');
+        setAccessToken(null);
+        setUsername(null);
+        setUserId(null);
+        emitAuthChanged();
     };
 
     const coreRefresh = async (): Promise<string | null> => {
         const refreshToken = localStorage.getItem(REFRESH_KEY);
         if (!refreshToken) {
-            logout();
+            clearLocalAuth();
             return null;
         }
         try {
@@ -132,33 +144,26 @@ const useAuth = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refreshToken }),
             });
-
             if (!res.ok) {
-                logout();
+                clearLocalAuth();
                 return null;
             }
-
             const data = await res.json();
             const newAccess = data?.accessToken as string | undefined;
             const newRefresh = data?.refreshToken as string | undefined;
-
             if (!newAccess) {
-                logout();
+                clearLocalAuth();
                 return null;
             }
-
             localStorage.setItem(TOKEN_KEY, newAccess);
             if (newRefresh) localStorage.setItem(REFRESH_KEY, newRefresh);
-
             setAccessToken(newAccess);
             decodeToken(newAccess);
             scheduleRefresh(newAccess);
-
-            emitAuthChanged(); // 같은 탭 동기화
+            emitAuthChanged();
             return newAccess;
-        } catch (e) {
-            console.error('토큰 재발급 실패:', e);
-            logout();
+        } catch {
+            clearLocalAuth();
             return null;
         }
     };
@@ -183,7 +188,6 @@ const useAuth = () => {
         return token;
     };
 
-    /** 토큰 자동 첨부 fetch + 401 1회 재시도 */
     const authFetch = async (
         input: RequestInfo | URL,
         init?: RequestInit,
@@ -206,10 +210,8 @@ const useAuth = () => {
             return fetch(input, { ...init, headers: mergedHeaders });
         };
 
-        // 1차
         let res = await doFetch(token);
 
-        // 401 → 1회 재발급 후 재시도
         if (res.status === 401) {
             token = await refreshAccessToken();
             if (!token) return res;
@@ -219,35 +221,26 @@ const useAuth = () => {
         return res;
     };
 
-    /** 로그인(이메일/비번) */
     const loginWithPassword = async (email: string, password: string) => {
         const credentials = `${email}:${password}`;
         const encoded = btoa(credentials);
-
         const res = await fetch(LOGIN_ENDPOINT, {
             method: 'POST',
             headers: { Authorization: `Basic ${encoded}` },
         });
-
         if (!res.ok) {
             let body: any = null;
-            try {
-                body = await res.json();
-            } catch {
-                // json이 아니면 무시
-            }
-
-            // 헤더에서도 시도 (서버가 넣어줄 때)
+            try { body = await res.json(); } catch {}
             const headerCount = res.headers.get('X-Fail-Count');
             const parsedHeaderCount = headerCount ? Number(headerCount) : NaN;
 
             const err = new Error(body?.message || `로그인 실패 (${res.status})`);
             (err as any).status = res.status;
-            (err as any).code = res.status === 403 ? 'ACCOUNT_LOCKED'
-                                : res.status === 401 ? 'INVALID_CREDENTIALS'
-                                : 'LOGIN_FAILED';
+            (err as any).code =
+                res.status === 403 ? 'ACCOUNT_LOCKED'
+              : res.status === 401 ? 'INVALID_CREDENTIALS'
+              : 'LOGIN_FAILED';
 
-            // 다양한 필드명 대비
             const bodyCount =
                 body?.password_failed_count ??
                 body?.passwordFailedCount ??
@@ -263,16 +256,11 @@ const useAuth = () => {
                     : undefined;
 
             throw err;
-}
-
+        }
         const data = await res.json();
         const at = data?.accessToken as string | undefined;
         const rt = data?.refreshToken as string | undefined;
-
-        if (!at) {
-            throw new Error('토큰이 비어 있습니다.');
-        }
-
+        if (!at) throw new Error('토큰이 비어 있습니다.');
         login(at, rt);
         return data;
     };
@@ -283,25 +271,73 @@ const useAuth = () => {
         setAccessToken(token);
         decodeToken(token);
         scheduleRefresh(token);
-        emitAuthChanged(); // 같은 탭 동기화
+        emitAuthChanged();
     };
 
-    const logout = (): void => {
-        clearRefreshTimer();
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(REFRESH_KEY);
-        localStorage.removeItem('filters:selectedRegion')
-        setAccessToken(null);
-        setUsername(null);
-        setUserId(null);
-        emitAuthChanged(); // 같은 탭 동기화
+    /** ✅ 회원가입 함수 (없어서 생기던 오류 해결) */
+    const registerUser = async (
+        payload: RegisterPayload,
+        opts?: { autoLogin?: boolean }
+    ) => {
+        const body: Record<string, unknown> = {
+            username: payload.username,
+            email: payload.email,
+            password: payload.password,
+            phoneNumber: payload.phoneNumber,
+        };
+        if (payload.region_id) body.region_id = payload.region_id;
+        if (payload.profileImage) body.profileImage = payload.profileImage;
+
+        const res = await fetch(REGISTER_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+            let message = `회원가입 실패 (${res.status})`;
+            try {
+                const data = await res.json();
+                if (data?.message) message = data.message;
+            } catch {
+                const txt = await res.text().catch(() => '');
+                if (txt) message = txt;
+            }
+            const err = new Error(message);
+            (err as any).status = res.status;
+            throw err;
+        }
+
+        const data = await res.json().catch(() => ({} as any));
+
+        if (opts?.autoLogin) {
+            const at = (data as any)?.accessToken as string | undefined;
+            const rt = (data as any)?.refreshToken as string | undefined;
+            if (at) login(at, rt);
+        }
+        return data;
+    };
+
+    /** ✅ 서버 로그아웃 + 로컬 정리 */
+    const logout = async (): Promise<void> => {
+        const refreshToken = localStorage.getItem(REFRESH_KEY);
+        try {
+            if (refreshToken) {
+                await fetch(LOGOUT_ENDPOINT, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${refreshToken}` },
+                });
+            }
+        } catch {
+            // ignore
+        } finally {
+            clearLocalAuth();
+        }
     };
 
     /** 지역 트리 */
     const getRegions = async (): Promise<RegionItem[]> => {
-        const res = await authFetch(`${API_BASE}/api/common/region/tree`, {
-            method: 'GET',
-        });
+        const res = await authFetch(`${API_BASE}/api/common/region/tree`, { method: 'GET' });
         if (!res.ok) {
             const text = await res.text().catch(() => '');
             throw new Error(text || `지역 목록 조회 실패 (${res.status})`);
@@ -314,8 +350,6 @@ const useAuth = () => {
     const getRegionFullNameById = async (id: string): Promise<string> => {
         if (!id) return '';
         const list = await getRegions();
-
-        // 트리 플래튼 + 맵
         const map = new Map<string, RegionItem>();
         const stack: RegionItem[] = [...list];
         while (stack.length) {
@@ -323,7 +357,6 @@ const useAuth = () => {
             map.set(n.id, n);
             if (n.children?.length) stack.push(...n.children);
         }
-
         const node = map.get(id);
         if (!node) return '';
         if (!node.parentId) return node.name;
@@ -331,7 +364,6 @@ const useAuth = () => {
         return city ? `${city} ${node.name}` : node.name;
     };
 
-    /** 잠금 해제 코드 요청 */
     const requestUnlock = async (email: string): Promise<void> => {
         const res = await fetch(UNLOCK_REQUEST_ENDPOINT, {
             method: 'POST',
@@ -352,23 +384,15 @@ const useAuth = () => {
         }
     };
 
-    /** 잠금 해제 코드 검증 */
     const verifyUnlock = async (email: string, code: string): Promise<void> => {
         const res = await fetch(UNLOCK_VERIFY_ENDPOINT, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email,
-                verificationCode: String(code).trim(), // 서버는 verificationCode(string) 최소 6자 요구
-            }),
+            body: JSON.stringify({ email, verificationCode: String(code).trim() }),
         });
         if (!res.ok) {
             let body: any = null;
-            try {
-                body = await res.json();
-            } catch {
-                // ignore
-            }
+            try { body = await res.json(); } catch {}
             const msg =
                 body?.message ||
                 (await res.text().catch(() => '')) ||
@@ -380,7 +404,6 @@ const useAuth = () => {
         }
     };
 
-    /** 초기화 + 이벤트 구독 */
     useEffect(() => {
         const bootstrap = () => {
             const token = localStorage.getItem(TOKEN_KEY);
@@ -405,15 +428,15 @@ const useAuth = () => {
 
         const onStorage = (e: StorageEvent) => {
             if (e.key === TOKEN_KEY) {
-                bootstrap(); // 토큰 변경 즉시 재부트
+                bootstrap();
             }
             if (e.key === REFRESH_KEY && !e.newValue) {
-                logout();
+                clearLocalAuth();
             }
         };
 
         const onAuthChanged = () => {
-            bootstrap(); // 같은 탭에서 login/logout/refresh 반영
+            bootstrap();
         };
 
         window.addEventListener('storage', onStorage);
@@ -430,28 +453,24 @@ const useAuth = () => {
     const isAuthenticated = Boolean(accessToken);
 
     return {
-        // 상태
         accessToken,
         username,
         userId,
         isAuthenticated,
         initialized,
 
-        // 인증 액션
         login,
         logout,
         loginWithPassword,
         refreshAccessToken,
         getValidAccessToken,
+        registerUser,            // ✅ 이제 스코프에 존재함
 
-        // 유틸 fetch
         authFetch,
 
-        // 지역
         getRegions,
         getRegionFullNameById,
 
-        // 계정 잠금 해제
         requestUnlock,
         verifyUnlock,
     };
