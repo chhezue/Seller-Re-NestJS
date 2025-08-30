@@ -1,7 +1,7 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductModel } from './entity/product.entity';
 import { Repository } from 'typeorm';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { GetProductDto } from './dto/get-product.dto';
@@ -10,6 +10,7 @@ import { RegionModel } from '../common/entity/region.entity';
 import { UploadsService } from '../uploads/uploads.service';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
 import { PageDto } from '../common/dto/page.dto';
+import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 
 @Injectable()
 export class ProductService {
@@ -21,6 +22,7 @@ export class ProductService {
     private readonly regionRepository: Repository<RegionModel>,
     @InjectRepository(ProductImageModel)
     private readonly productImageRepository: Repository<ProductImageModel>,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async getAllProducts(
@@ -309,5 +311,33 @@ export class ProductService {
     });
 
     return product && product.author.id === userId;
+  }
+
+  async viewProduct(productId: string, userId: string): Promise<ProductModel> {
+    const product = await this.productRepository.findOne({
+      where: { id: productId, isDeleted: false },
+    });
+
+    if (!product) {
+      throw new NotFoundException('해당 상품을 찾을 수 없습니다.');
+    }
+
+    const viewHistoryKey = `product:viewed:${userId}:${productId}`;
+    const viewCountKey = `product:views:${productId}`;
+
+    // 1. 이 유저가 24시간 내에 상품을 조회한 기록이 있는지 확인
+    const viewed = await this.cacheManager.get(viewHistoryKey);
+
+    if (!viewed) {
+      // 2. 본 기록이 없으면 조회수를 1 증가시킴.
+      const currentViews =
+        ((await this.cacheManager.get(viewCountKey)) as number) || 0;
+      await this.cacheManager.set(viewCountKey, currentViews + 1, 86400 * 1000);
+
+      // 3. 24시간동안 "봤음" 기록(1)을 남김. 86400초 = 24시간
+      await this.cacheManager.set(viewHistoryKey, 1, 86400 * 1000);
+    }
+
+    return product;
   }
 }

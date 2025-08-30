@@ -78,6 +78,15 @@ export class ProductController {
     return await this.productService.getProduct(productId, userId);
   }
 
+  @ApiOperation({ description: '상품 상세 조회' })
+  @Post('/:productId/view')
+  async viewProduct(
+    @Param('productId') productId: string,
+    @User('id') userId: string,
+  ) {
+    return await this.productService.viewProduct(productId, userId);
+  }
+
   @ApiOperation({ description: '상품 등록' })
   @Post()
   async createProduct(

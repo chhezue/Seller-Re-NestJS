@@ -16,6 +16,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { S3Module } from './s3/s3.module';
 import { LikesModule } from './likes/likes.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import * as redisStore from 'cache-manager-redis-store';
 
 @Module({
   imports: [
@@ -23,7 +24,19 @@ import { ScheduleModule } from '@nestjs/schedule';
       isGlobal: true,
       envFilePath: '.env.development',
     }),
-    CacheModule.register({ isGlobal: true }),
+    CacheModule.registerAsync({
+      isGlobal: true,
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        store: redisStore,
+        host: configService.get('REDIS_HOST', 'localhost'),
+        port: configService.get('REDIS_PORT', 6379),
+        password: configService.get('REDIS_PASSWORD'),
+        db: configService.get('REDIS_DB', 0),
+        ttl: 60 * 60 * 24, // 24시간 기본 TTL
+      }),
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule, EventEmitterModule.forRoot(), LogsModule],
       inject: [ConfigService],
