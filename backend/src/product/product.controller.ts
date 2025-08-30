@@ -99,7 +99,7 @@ export class ProductController {
 
   @ApiOperation({ description: '상품 삭제' })
   @UseGuards(ProductOwnerGuard)
-  @Patch('/:productId')
+  @Patch('/delete/:productId')
   async deleteProduct(@Param('productId') productId: string) {
     return await this.productService.deleteProduct(productId);
   }
