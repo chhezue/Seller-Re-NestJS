@@ -9,6 +9,7 @@ import { UsersModel } from '../users/entity/users.entity';
 import { RegionModel } from '../common/entity/region.entity';
 import { UploadsService } from '../uploads/uploads.service';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
+import { PageDto } from '../common/dto/page.dto';
 
 @Injectable()
 export class ProductService {
@@ -44,7 +45,10 @@ export class ProductService {
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.author', 'author')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('product.region', 'region');
+      .leftJoinAndSelect('product.region', 'region')
+      .leftJoinAndSelect('product.images', 'images')
+      .leftJoinAndSelect('images.file', 'imageFile')
+      .where('product.isDeleted = :isDeleted', { isDeleted: false });
 
     if (regionId) {
       const selectedRegion = await this.regionRepository.findOne({
@@ -120,8 +124,8 @@ export class ProductService {
 
   async getProduct(productId: string, userId?: string): Promise<any> {
     const product = await this.productRepository.findOne({
-      where: { id: productId },
-      relations: ['author', 'category', 'region'],
+      where: { id: productId, isDeleted: false },
+      relations: ['author', 'category', 'region', 'images', 'images.file'],
     });
 
     if (!product) {
@@ -141,15 +145,54 @@ export class ProductService {
     };
   }
 
-  async getMySales(user: UsersModel): Promise<ProductModel[]> {
-    return await this.productRepository.find({
-      where: {
-        author: {
-          id: user.id,
-        },
+  async getProductsByUserId(
+    userId: string,
+    pageDto: PageDto,
+  ): Promise<{ products: ProductModel[]; nextCursor: string | null }> {
+    const { cursor, limit } = pageDto;
+
+    const queryBuilder = this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.author', 'author')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.region', 'region')
+      .leftJoinAndSelect('product.images', 'images')
+      .leftJoinAndSelect('images.file', 'imageFile');
+
+    // 특정 유저의 상품만 조회 (삭제되지 않은 상품만)
+    queryBuilder.where(
+      'product.author.id = :userId AND product.isDeleted = :isDeleted',
+      {
+        userId,
+        isDeleted: false,
       },
-      relations: ['author', 'category', 'region'],
-    });
+    );
+
+    if (cursor) {
+      // cursor는 Date 객체여야 할 수 있으므로 타입 변환이 필요할 수 있습니다.
+      queryBuilder.andWhere('product.createdAt < :cursor', {
+        cursor: new Date(cursor),
+      });
+    }
+
+    // 정렬 및 개수 제한
+    queryBuilder.orderBy('product.createdAt', 'DESC');
+    queryBuilder.take(limit);
+
+    const products = await queryBuilder.getMany();
+
+    // 다음 페이지를 위한 nextCursor 계산
+    const lastItem = products.length > 0 ? products[products.length - 1] : null;
+    // 가져온 아이템의 수가 limit과 같을 때만 다음 페이지가 있을 가능성이 있음
+    const nextCursor =
+      lastItem && products.length === limit
+        ? lastItem.createdAt.toISOString()
+        : null;
+
+    return {
+      products,
+      nextCursor,
+    };
   }
 
   async createProduct(
@@ -165,6 +208,7 @@ export class ProductService {
       category: { id: categoryId },
       author: { id },
       region: region ?? null, // region이 존재할 때만 포함
+      isDeleted: false,
     });
 
     // 최종 이미지 저장 로직 처리
@@ -198,9 +242,9 @@ export class ProductService {
     productId: string,
     updateProductDto: UpdateProductDto,
   ): Promise<ProductModel> {
-    // 1. 상품 정보 확인 (없으면 에러 발생)
+    // 1. 상품 정보 확인 (삭제되지 않은 상품만, 없으면 에러 발생)
     await this.productRepository.findOneOrFail({
-      where: { id: productId },
+      where: { id: productId, isDeleted: false },
     });
 
     // categoryId가 있으면 category 객체로 변환
@@ -244,19 +288,23 @@ export class ProductService {
   }
 
   async deleteProduct(productId: string): Promise<string> {
-    await this.getProduct(productId); // 상품 존재 여부 확인
+    // 삭제되지 않은 상품인지 확인
+    const product = await this.productRepository.findOne({
+      where: { id: productId, isDeleted: false },
+    });
 
-    const result = await this.productRepository.delete(productId);
-    if (result.affected === 0) {
+    if (!product) {
       throw new NotFoundException('삭제할 상품을 찾을 수 없습니다.');
     }
 
+    // Soft Delete: isDeleted를 true로 변경
+    await this.productRepository.update(productId, { isDeleted: true });
     return productId;
   }
 
   async isProductOwner(userId: string, productId: string): Promise<boolean> {
     const product = await this.productRepository.findOne({
-      where: { id: productId },
+      where: { id: productId, isDeleted: false },
       relations: ['author'],
     });
 
