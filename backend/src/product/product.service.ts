@@ -11,6 +11,7 @@ import { UploadsService } from '../uploads/uploads.service';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
 import { PageDto } from '../common/dto/page.dto';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Transactional } from 'typeorm-transactional';
 
 @Injectable()
 export class ProductService {
@@ -197,6 +198,7 @@ export class ProductService {
     };
   }
 
+  @Transactional()
   async createProduct(
     createProductDto: CreateProductDto,
     user: UsersModel,
@@ -240,6 +242,7 @@ export class ProductService {
     return await this.getProduct(newProduct.id);
   }
 
+  @Transactional()
   async updateProduct(
     productId: string,
     updateProductDto: UpdateProductDto,

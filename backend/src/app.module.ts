@@ -17,6 +17,8 @@ import { S3Module } from './s3/s3.module';
 import { LikesModule } from './likes/likes.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { RedisModule } from './redis/redis.module';
+import { addTransactionalDataSource } from 'typeorm-transactional';
+import { DataSource } from 'typeorm';
 
 @Module({
   imports: [
@@ -42,6 +44,12 @@ import { RedisModule } from './redis/redis.module';
         autoLoadEntities: true,
         synchronize: true,
       }),
+      async dataSourceFactory(options) {
+        if (!options) {
+          throw new Error('🚫 Invalid options passed.');
+        }
+        return addTransactionalDataSource(new DataSource(options));
+      },
     }),
     SupabaseModule,
     ProductModule,
