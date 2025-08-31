@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne } from 'typeorm';
 import { BaseModel } from '../../common/entity/base.entity';
 import { Exclude } from 'class-transformer';
 import { RegionModel } from '../../common/entity/region.entity';
