@@ -14,6 +14,8 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AccessTokenGuard } from './auth/guard/bearer-token.guard';
 import { CacheModule } from '@nestjs/cache-manager';
 import { S3Module } from './s3/s3.module';
+import { LikesModule } from './likes/likes.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -47,6 +49,8 @@ import { S3Module } from './s3/s3.module';
     AuthModule,
     ConfigModule,
     S3Module,
+    ScheduleModule.forRoot(),
+    LikesModule,
   ],
   controllers: [AppController],
   providers: [

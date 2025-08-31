@@ -1,11 +1,4 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany,
-  OneToOne,
-} from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { BaseModel } from '../../common/entity/base.entity';
 import { Exclude } from 'class-transformer';
 import { RegionModel } from '../../common/entity/region.entity';
@@ -16,6 +9,7 @@ import { LoginAttemptLogAtFailedModel } from '../../logs/entity/login-attempt-lo
 import { EmailLogModel } from '../../logs/entity/email-log.entity';
 import { PasswordChangeLogModel } from '../../logs/entity/password-change-log.entity';
 import { FileModel } from '../../uploads/entity/file.entity';
+import { LikeModel } from '../../likes/entity/like.entity';
 
 @Entity()
 export class UsersModel extends BaseModel {
@@ -84,4 +78,7 @@ export class UsersModel extends BaseModel {
 
   @OneToMany(() => PasswordChangeLogModel, (log) => log.user)
   passwordChangeLogs: PasswordChangeLogModel[];
+
+  @OneToMany(() => LikeModel, (like) => like.user)
+  likes: LikeModel[];
 }

@@ -7,7 +7,9 @@ const ProfilePage: React.FC = () => {
 
     return (
         <div className="page page-profile">
-            <h1 className="page-title">내 프로필</h1>
+            <h2 className="page-title">
+                <span className="page-title__text">내 프로필</span>
+            </h2>
 
             <UserProfile
                 profile={profile}

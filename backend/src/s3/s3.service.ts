@@ -36,6 +36,7 @@ export class S3Service {
       Key: key,
       Body: fileBuffer,
       ContentType: mimetype,
+      ACL: 'public-read', // 퍼블릭 읽기 권한 설정
     });
 
     try {
