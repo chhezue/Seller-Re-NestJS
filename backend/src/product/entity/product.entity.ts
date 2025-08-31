@@ -49,7 +49,7 @@ export class ProductModel extends BaseModel {
   isNegotiable: boolean; // 가격 제안 가능 여부
 
   @Column({ default: 0 })
-  viewCount: number; // 조회수
+  views: number; // 조회수
 
   @Column({ default: 0 })
   favoriteCount: number; // 즐겨찾기 수

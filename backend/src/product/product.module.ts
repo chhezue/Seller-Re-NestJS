@@ -9,6 +9,8 @@ import { RegionModel } from '../common/entity/region.entity';
 import { UploadsModule } from '../uploads/uploads.module';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
 import { LikesModule } from '../likes/likes.module';
+import { ViewCountSchedule } from './schedule/view.count.schedule';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
@@ -17,9 +19,10 @@ import { LikesModule } from '../likes/likes.module';
     AuthModule,
     UploadsModule,
     LikesModule,
+    RedisModule, // Redis 클라이언트 사용을 위해 추가
   ],
   controllers: [ProductController],
-  providers: [ProductService],
+  providers: [ProductService, ViewCountSchedule],
   exports: [ProductService],
 })
 export class ProductModule {}
