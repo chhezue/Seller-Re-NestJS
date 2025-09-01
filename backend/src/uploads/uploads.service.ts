@@ -100,4 +100,25 @@ export class UploadsService {
     const results = await Promise.all(uploadPromises);
     return results.filter((result) => result !== null);
   }
+
+  async deleteFile(fileId: string) {
+    const file = await this.fileRepository.findOneBy({ id: fileId });
+
+    if (!file) {
+      //already deleted or invalid id.
+      console.warn(
+        `Attempted to delete a non-existent file with ID: ${fileId}`,
+      );
+      return;
+    }
+
+    if (file.status === FileStatus.PERMANENT) {
+      try {
+        await this.s3Service.delete(file.key);
+      } catch (err) {
+        console.error(`Failed to delete file from S3. Key: ${file.key}`, err);
+      }
+    }
+    await this.fileRepository.remove(file);
+  }
 }

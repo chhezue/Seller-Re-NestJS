@@ -35,10 +35,6 @@ export class UsersController {
     @Body() body: UpdateUserDto,
     @Ip() ip: string,
   ) {
-    console.log('patch.');
-    console.log('userId : ', userId);
-    console.log('body : ', body);
-    console.log('ip : ', ip);
     await this.usersService.updateUser(userId, body, ip);
     return { message: 'Your profile has been updated successfully.' };
   }
