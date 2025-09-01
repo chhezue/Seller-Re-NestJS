@@ -1,7 +1,7 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductModel } from './entity/product.entity';
 import { Repository } from 'typeorm';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { GetProductDto } from './dto/get-product.dto';
@@ -10,8 +10,6 @@ import { RegionModel } from '../common/entity/region.entity';
 import { UploadsService } from '../uploads/uploads.service';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
 import { PageDto } from '../common/dto/page.dto';
-import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Transactional } from 'typeorm-transactional';
 
 @Injectable()
 export class ProductService {
@@ -23,12 +21,11 @@ export class ProductService {
     private readonly regionRepository: Repository<RegionModel>,
     @InjectRepository(ProductImageModel)
     private readonly productImageRepository: Repository<ProductImageModel>,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async getAllProducts(
     getProductDto: GetProductDto,
-  ): Promise<{ products: ProductModel[]; nextCursor: string | null }> {
+  ): Promise<{ products: any[]; nextCursor: string | null }> {
     const {
       categoryId,
       status,
@@ -49,9 +46,20 @@ export class ProductService {
       .leftJoinAndSelect('product.author', 'author')
       .leftJoinAndSelect('product.category', 'category')
       .leftJoinAndSelect('product.region', 'region')
-      .leftJoinAndSelect('product.images', 'images')
-      .leftJoinAndSelect('images.file', 'imageFile')
       .where('product.isDeleted = :isDeleted', { isDeleted: false });
+
+    // 대표 이미지 URL을 위한 서브쿼리 추가
+    queryBuilder.addSelect((subQuery) => {
+      return subQuery
+        .select('file.url')
+        .from(ProductImageModel, 'image')
+        .leftJoin('image.file', 'file')
+        .where('image.product = product.id')
+        .andWhere('image.isRepresentative = :isRepresentative', {
+          isRepresentative: true,
+        })
+        .limit(1);
+    }, 'imageUrl');
 
     if (regionId) {
       const selectedRegion = await this.regionRepository.findOne({
@@ -114,7 +122,17 @@ export class ProductService {
     queryBuilder.orderBy('product.createdAt', 'DESC');
     queryBuilder.take(limit);
 
-    const products = await queryBuilder.getMany();
+    const { entities, raw } = await queryBuilder.getRawAndEntities();
+
+    // entities와 raw 결과를 조합하여 최종 products 배열을 만듦.
+    const products = entities.map((product) => {
+      // raw 결과에서 현재 product와 ID가 일치하는 데이터를 찾습니다.
+      const rawData = raw.find((r) => r.product_id === product.id);
+      return {
+        ...product,
+        imageUrl: rawData?.imageUrl || null, // 찾은 raw 데이터에서 imageUrl을 추가합니다.
+      };
+    });
 
     const lastItem = products.length > 0 ? products[products.length - 1] : null;
     const nextCursor = lastItem ? lastItem.createdAt.toISOString() : null;
@@ -158,9 +176,7 @@ export class ProductService {
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.author', 'author')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('product.region', 'region')
-      .leftJoinAndSelect('product.images', 'images')
-      .leftJoinAndSelect('images.file', 'imageFile');
+      .leftJoinAndSelect('product.region', 'region');
 
     // 특정 유저의 상품만 조회 (삭제되지 않은 상품만)
     queryBuilder.where(
@@ -170,6 +186,19 @@ export class ProductService {
         isDeleted: false,
       },
     );
+
+    // 대표 이미지 URL을 위한 서브쿼리 추가
+    queryBuilder.addSelect((subQuery) => {
+      return subQuery
+        .select('file.url')
+        .from(ProductImageModel, 'image')
+        .leftJoin('image.file', 'file')
+        .where('image.product = product.id')
+        .andWhere('image.isRepresentative = :isRepresentative', {
+          isRepresentative: true,
+        })
+        .limit(1);
+    }, 'imageUrl');
 
     if (cursor) {
       // cursor는 Date 객체여야 할 수 있으므로 타입 변환이 필요할 수 있습니다.
@@ -182,7 +211,17 @@ export class ProductService {
     queryBuilder.orderBy('product.createdAt', 'DESC');
     queryBuilder.take(limit);
 
-    const products = await queryBuilder.getMany();
+    const { entities, raw } = await queryBuilder.getRawAndEntities();
+
+    // entities와 raw 결과를 조합하여 최종 products 배열을 만듦.
+    const products = entities.map((product) => {
+      // raw 결과에서 현재 product와 ID가 일치하는 데이터를 찾습니다.
+      const rawData = raw.find((r) => r.product_id === product.id);
+      return {
+        ...product,
+        imageUrl: rawData?.imageUrl || null, // 찾은 raw 데이터에서 imageUrl을 추가합니다.
+      };
+    });
 
     // 다음 페이지를 위한 nextCursor 계산
     const lastItem = products.length > 0 ? products[products.length - 1] : null;
@@ -198,7 +237,6 @@ export class ProductService {
     };
   }
 
-  @Transactional()
   async createProduct(
     createProductDto: CreateProductDto,
     user: UsersModel,
@@ -242,7 +280,6 @@ export class ProductService {
     return await this.getProduct(newProduct.id);
   }
 
-  @Transactional()
   async updateProduct(
     productId: string,
     updateProductDto: UpdateProductDto,
@@ -314,33 +351,5 @@ export class ProductService {
     });
 
     return product && product.author.id === userId;
-  }
-
-  async viewProduct(productId: string, userId: string): Promise<ProductModel> {
-    const product = await this.productRepository.findOne({
-      where: { id: productId, isDeleted: false },
-    });
-
-    if (!product) {
-      throw new NotFoundException('해당 상품을 찾을 수 없습니다.');
-    }
-
-    const viewHistoryKey = `product:viewed:${userId}:${productId}`;
-    const viewCountKey = `product:views:${productId}`;
-
-    // 1. 이 유저가 24시간 내에 상품을 조회한 기록이 있는지 확인
-    const viewed = await this.cacheManager.get(viewHistoryKey);
-
-    if (!viewed) {
-      // 2. 본 기록이 없으면 조회수를 1 증가시킴.
-      const currentViews =
-        ((await this.cacheManager.get(viewCountKey)) as number) || 0;
-      await this.cacheManager.set(viewCountKey, currentViews + 1, 86400 * 1000);
-
-      // 3. 24시간동안 "봤음" 기록(1)을 남김. 86400초 = 24시간
-      await this.cacheManager.set(viewHistoryKey, 1, 86400 * 1000);
-    }
-
-    return product;
   }
 }
