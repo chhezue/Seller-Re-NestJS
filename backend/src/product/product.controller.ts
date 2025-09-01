@@ -78,13 +78,13 @@ export class ProductController {
     return await this.productService.getProduct(productId, userId);
   }
 
-  @ApiOperation({ description: '상품 상세 조회' })
+  @ApiOperation({ description: '상품 조회 시 조회수 증가' })
   @Post('/:productId/view')
   async viewProduct(
     @Param('productId') productId: string,
     @User('id') userId: string,
   ) {
-    return await this.productService.viewProduct(productId, userId);
+    return await this.productService.incrementViewCount(productId, userId);
   }
 
   @ApiOperation({ description: '상품 등록' })

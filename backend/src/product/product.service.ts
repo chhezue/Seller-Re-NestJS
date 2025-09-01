@@ -1,7 +1,7 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductModel } from './entity/product.entity';
 import { Repository } from 'typeorm';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { GetProductDto } from './dto/get-product.dto';
@@ -10,6 +10,7 @@ import { RegionModel } from '../common/entity/region.entity';
 import { UploadsService } from '../uploads/uploads.service';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
 import { PageDto } from '../common/dto/page.dto';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 
 @Injectable()
 export class ProductService {
@@ -21,6 +22,7 @@ export class ProductService {
     private readonly regionRepository: Repository<RegionModel>,
     @InjectRepository(ProductImageModel)
     private readonly productImageRepository: Repository<ProductImageModel>,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async getAllProducts(
@@ -351,5 +353,34 @@ export class ProductService {
     });
 
     return product && product.author.id === userId;
+  }
+
+  async incrementViewCount(productId: string, userId: string): Promise<void> {
+    const viewHistoryKey = `product:viewed:${userId}:${productId}`; // 유저가 상품을 봤는지 (1 or undefined)
+    const viewCountKey = `product:views:${productId}`; // 해당 상품의 조회수 (DB와 연동되지 않음)
+    const dirtyListKey = 'dirty:product:views'; // 조회수가 변경되어 DB에 업데이트가 필요한 product id 목록
+
+    // 1. 해당 유저가 30분 내에 본 기록이 있는지 캐시에서 확인
+    const viewed = await this.cacheManager.get(viewHistoryKey);
+
+    if (!viewed) {
+      // 2. 본 기록이 없으면 캐시의 조회수를 1 증가
+      const currentViewsInCache =
+        (await this.cacheManager.get<number>(viewCountKey)) || 0;
+      await this.cacheManager.set(viewCountKey, currentViewsInCache + 1);
+
+      // 3. 30분동안 "봤음" 기록을 남김.
+      // viewHistoryKey는 cacheManager가 30분 후 자동으로 초기화
+      await this.cacheManager.set(viewHistoryKey, 1, 1800);
+
+      // 4. 스케줄러가 처리할 상품 ID 목록에 추가
+      // 중복 product id를 허용하지 않기 위해 Set 사용
+      const dirtyList =
+        (await this.cacheManager.get<Set<string>>(dirtyListKey)) ||
+        new Set<string>();
+      dirtyList.add(productId);
+
+      await this.cacheManager.set(dirtyListKey, dirtyList);
+    }
   }
 }

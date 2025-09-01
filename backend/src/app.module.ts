@@ -3,7 +3,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SupabaseModule } from './supabase/supabase.module';
 import { ProductModule } from './product/product.module';
 import { CommonModule } from './common/common.module';
 import { UsersModule } from './users/users.module';
@@ -16,7 +15,6 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { S3Module } from './s3/s3.module';
 import { LikesModule } from './likes/likes.module';
 import { ScheduleModule } from '@nestjs/schedule';
-import { RedisModule } from './redis/redis.module';
 import { addTransactionalDataSource } from 'typeorm-transactional';
 import { DataSource } from 'typeorm';
 
@@ -51,7 +49,6 @@ import { DataSource } from 'typeorm';
         return addTransactionalDataSource(new DataSource(options));
       },
     }),
-    SupabaseModule,
     ProductModule,
     CommonModule,
     UsersModule,
@@ -60,7 +57,6 @@ import { DataSource } from 'typeorm';
     S3Module,
     ScheduleModule.forRoot(),
     LikesModule,
-    RedisModule,
   ],
   controllers: [AppController],
   providers: [

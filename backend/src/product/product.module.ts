@@ -10,7 +10,7 @@ import { UploadsModule } from '../uploads/uploads.module';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
 import { LikesModule } from '../likes/likes.module';
 import { ViewCountSchedule } from './schedule/view.count.schedule';
-import { RedisModule } from '../redis/redis.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -19,7 +19,9 @@ import { RedisModule } from '../redis/redis.module';
     AuthModule,
     UploadsModule,
     LikesModule,
-    RedisModule, // Redis 클라이언트 사용을 위해 추가
+    CacheModule.register({
+      ttl: 1800, // 30분
+    }),
   ],
   controllers: [ProductController],
   providers: [ProductService, ViewCountSchedule],
