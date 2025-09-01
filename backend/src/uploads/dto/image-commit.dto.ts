@@ -29,5 +29,5 @@ export class ImageCommitDto {
   @ApiProperty({ description: '수정 시 새 이미지를 구분하는 플래그' })
   @IsBoolean()
   @IsOptional()
-  isNew: boolean;
+  isNew?: boolean;
 }

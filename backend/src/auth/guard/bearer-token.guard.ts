@@ -28,22 +28,18 @@ export class BearerTokenGuard implements CanActivate {
     const rawToken = req.headers.authorization;
 
     if (isPublic) {
-      if (rawToken) {
-        if (rawToken.startsWith('Bearer ')) {
-          try {
-            const token = this.authService.extractTokenFromHeader(
-              rawToken,
-              true,
-            );
-            const payload = await this.authService.verifyToken(token);
-            const user = await this.userService.getUserByEmail(payload.email);
+      if (rawToken && rawToken.startsWith('Bearer ')) {
+        try {
+          const token = this.authService.extractTokenFromHeader(rawToken, true);
+          const payload = await this.authService.verifyToken(token);
+          const user = await this.userService.getUserByEmail(payload.email);
 
-            req.user = user;
-            req.token = token;
-            req.tokenType = payload.type;
-          } catch (e) {
-            throw e;
-          }
+          req.user = user;
+          req.token = token;
+          req.tokenType = payload.type;
+        } catch (e) {
+          // For public routes, if token validation fails, we just don't populate the user.
+          // The request is allowed to proceed without authentication.
         }
       }
       req.isRouterPublic = true;
@@ -57,20 +53,22 @@ export class BearerTokenGuard implements CanActivate {
       });
     }
 
-    try {
-      const token = this.authService.extractTokenFromHeader(rawToken, true);
-      const payload = await this.authService.verifyToken(token);
-      const user = await this.userService.getUserByEmail(payload.email);
+    // For protected routes, token extraction and verification must succeed.
+    // The services (authService, userService) will throw appropriate exceptions on failure.
+    const token = this.authService.extractTokenFromHeader(rawToken, true);
+    const payload = await this.authService.verifyToken(token);
+    const user = await this.userService.getUserByEmail(payload.email);
 
-      req.user = user;
-      req.token = token;
-      req.tokenType = payload.type;
-    } catch (e) {
+    if (!user) {
       throw new UnauthorizedException({
-        message: 'Invalid token.',
+        message: 'User associated with token not found.',
         errorCode: AuthErrorCode.INVALID_TOKEN,
       });
     }
+
+    req.user = user;
+    req.token = token;
+    req.tokenType = payload.type;
 
     return true;
   }

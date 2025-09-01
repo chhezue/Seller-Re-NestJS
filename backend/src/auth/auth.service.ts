@@ -128,7 +128,7 @@ export class AuthService {
 
     if (isPasswordMatch) {
       if (existingUser.passwordFailedCount > 0) {
-        await this.userService.updateUser(existingUser.id, {
+        await this.userService.updateUserInternal(existingUser.id, {
           passwordFailedCount: 0,
         });
       }
@@ -138,7 +138,7 @@ export class AuthService {
     const newFailedCount = existingUser.passwordFailedCount + 1;
     const shouldLock = newFailedCount >= this.maxLoginAttempts;
 
-    await this.userService.updateUser(existingUser.id, {
+    await this.userService.updateUserInternal(existingUser.id, {
       passwordFailedCount: newFailedCount,
       status: shouldLock ? UserStatusEnum.LOCKED : existingUser.status,
     });
@@ -363,7 +363,7 @@ export class AuthService {
       parseInt(this.configService.get<string>('HASH_ROUNDS', '10')),
     );
 
-    await this.userService.updateUser(user.id, {
+    await this.userService.updateUserInternal(user.id, {
       status: UserStatusEnum.ACTIVE,
       passwordFailedCount: 0,
       password: hashedPassword,

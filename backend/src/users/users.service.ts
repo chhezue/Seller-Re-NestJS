@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UsersModel } from './entity/users.entity';
 import { Repository } from 'typeorm';
@@ -9,6 +13,8 @@ import { RegionModel } from '../common/entity/region.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PasswordChangeMethod } from '../logs/const/password-change-method.const';
 import { UsersErrorCode } from './const/users-error-code.const';
+import { UploadsService } from '../uploads/uploads.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -17,6 +23,7 @@ export class UsersService {
     private readonly usersRepository: Repository<UsersModel>,
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly uploadService: UploadsService,
   ) {}
 
   async getUserByEmail(email: string) {
@@ -26,7 +33,8 @@ export class UsersService {
   }
 
   async createUser(userDto: CreateUserDto) {
-    const { username, email, password, region_id, ...rest } = userDto;
+    const { username, email, password, region_id, profileImageId, ...rest } =
+      userDto;
 
     const existingUser = await this.usersRepository.findOne({
       where: [{ username }, { email }],
@@ -60,24 +68,39 @@ export class UsersService {
       region: region_id ? { id: region_id } : null,
     });
 
-    return await this.usersRepository.save(newUserObject);
+    const newUser = await this.usersRepository.save(newUserObject);
+
+    if (profileImageId) {
+      const [committedFile] = await this.uploadService.commitFiles([
+        {
+          fileId: profileImageId,
+          isRepresentative: true,
+          order: 1,
+        },
+      ]);
+      newUser.profileImage = committedFile;
+      await this.usersRepository.save(newUser);
+    }
+    return await this.usersRepository.findOne({
+      where: { id: newUser.id },
+    });
   }
 
-  async updateUser(
-    userId: string,
-    dto: Partial<UsersModel> & { region_id?: string | null },
-    ip?: string,
-  ) {
-    const { password, region_id, ...rest } = dto;
+  async updateUser(userId: string, dto: UpdateUserDto, ip?: string) {
+    const user = await this.usersRepository.findOneBy({ id: userId });
 
-    const updatePayload: Partial<UsersModel> = {
-      ...rest,
-    };
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    const { password, region_id, profileImageId, ...rest } = dto;
+
+    Object.assign(user, rest);
 
     if (password) {
       const isAlreadyHashed = password.startsWith('$2b$');
       if (isAlreadyHashed) {
-        updatePayload.password = password;
+        user.password = password;
       } else {
         if (!ip) {
           throw new BadRequestException({
@@ -89,7 +112,7 @@ export class UsersService {
           password,
           parseInt(this.configService.get<string>('HASH_ROUNDS', '10')),
         );
-        updatePayload.password = hashedPassword;
+        user.password = hashedPassword;
 
         this.eventEmitter.emit('user.password.changed', {
           user: { id: userId },
@@ -100,14 +123,50 @@ export class UsersService {
     }
 
     if (region_id !== undefined) {
-      updatePayload.region = region_id
-        ? ({ id: region_id } as RegionModel)
-        : null;
+      user.region = region_id ? ({ id: region_id } as RegionModel) : null;
     }
 
-    if (Object.keys(updatePayload).length > 0) {
-      await this.usersRepository.update(userId, updatePayload);
+    let oldImageFileIdToDelete: string | null = null;
+
+    if (profileImageId !== undefined) {
+      if (user.profileImage) {
+        oldImageFileIdToDelete = user.profileImage.id;
+      }
+      if (profileImageId === null) {
+        user.profileImage = null;
+      } else {
+        const [committedFile] = await this.uploadService.commitFiles([
+          {
+            fileId: profileImageId,
+            isRepresentative: true,
+            order: 1,
+          },
+        ]);
+        user.profileImage = committedFile;
+      }
     }
+    await this.usersRepository.save(user);
+
+    if (
+      oldImageFileIdToDelete &&
+      oldImageFileIdToDelete !== user.profileImage?.id
+    ) {
+      await this.uploadService.deleteFile(oldImageFileIdToDelete);
+    }
+  }
+
+  async updateUserInternal(
+    userId: string,
+    data: Partial<
+      Pick<UsersModel, 'status' | 'passwordFailedCount' | 'password'>
+    >,
+  ) {
+    const result = await this.usersRepository.update(userId, data);
+
+    if (result.affected === 0) {
+      throw new NotFoundException('User not found.');
+    }
+    return result;
   }
 
   async getUserByPhoneNumber(phoneNumber: string): Promise<UsersModel | null> {

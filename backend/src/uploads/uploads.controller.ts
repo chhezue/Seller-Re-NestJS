@@ -8,6 +8,7 @@ import { UploadsService } from './uploads.service';
 import { ApiOperation } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { UploadTempResponseDto } from './dto/upload-temp-response.dto';
+import { IsPublic } from '../common/decorator/is-public.decorator';
 
 @Controller('uploads')
 export class UploadsController {
@@ -19,6 +20,15 @@ export class UploadsController {
   @Post('/temp')
   @UseInterceptors(FilesInterceptor('files', 5)) // form-data의 'file' 필드를 받음.
   async uploadTempFiles(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+  ): Promise<UploadTempResponseDto[]> {
+    return await this.uploadsService.uploadTempFiles(files);
+  }
+
+  @Post('/tempUserImage')
+  @IsPublic()
+  @UseInterceptors(FilesInterceptor('files', 5)) // form-data의 'file' 필드를 받음.
+  async uploadTempFilesForUserImage(
     @UploadedFiles() files: Array<Express.Multer.File>,
   ): Promise<UploadTempResponseDto[]> {
     return await this.uploadsService.uploadTempFiles(files);
