@@ -1,7 +1,12 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductModel } from './entity/product.entity';
 import { Repository } from 'typeorm';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { GetProductDto } from './dto/get-product.dto';
@@ -24,6 +29,30 @@ export class ProductService {
     private readonly productImageRepository: Repository<ProductImageModel>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
+
+  // 상품 목록에 캐시의 실시간 조회수를 더해주는 헬퍼 메소드
+  private async getProductsWithCacheViews(products: ProductModel[]) {
+    // 처리할 상품이 없으면 바로 반환
+    if (products.length === 0) return products;
+
+    // 처리할 상품에 대한 캐시 키 목록 설정
+    const cacheKeys = products.map((p) => `product:views:${p.id}`);
+
+    const cachedViewsPromises = cacheKeys.map((key) =>
+      this.cacheManager.get<number>(key),
+    );
+    const cachedViews = await Promise.all(cachedViewsPromises);
+
+    const productsWithViews = products.map((product, index) => {
+      const recentViews = cachedViews[index] || 0;
+      return {
+        ...product,
+        views: product.views + recentViews,
+      };
+    });
+
+    return productsWithViews;
+  }
 
   async getAllProducts(
     getProductDto: GetProductDto,
@@ -136,11 +165,17 @@ export class ProductService {
       };
     });
 
-    const lastItem = products.length > 0 ? products[products.length - 1] : null;
+    // 캐시된 조회수를 포함한 상품 목록 반환
+    const productsWithViews = await this.getProductsWithCacheViews(products);
+
+    const lastItem =
+      productsWithViews.length > 0
+        ? productsWithViews[productsWithViews.length - 1]
+        : null;
     const nextCursor = lastItem ? lastItem.createdAt.toISOString() : null;
 
     return {
-      products, // 조회된 상품 목록
+      products: productsWithViews, // 조회된 상품 목록
       nextCursor, // 다음 페이지를 위한 커서
     };
   }
@@ -155,15 +190,19 @@ export class ProductService {
       throw new NotFoundException('해당 상품을 찾을 수 없습니다.');
     }
 
+    // 캐시된 조회수를 포함한 상품 정보 반환
+    const productsWithViews = await this.getProductsWithCacheViews([product]);
+    const productWithViews = productsWithViews[0];
+
     if (product.author.id === userId) {
       return {
-        ...product,
+        ...productWithViews,
         isOwner: true,
       };
     }
 
     return {
-      ...product,
+      ...productWithViews,
       isOwner: false,
     };
   }
@@ -225,16 +264,22 @@ export class ProductService {
       };
     });
 
+    // 캐시된 조회수를 포함한 상품 목록 반환
+    const productsWithViews = await this.getProductsWithCacheViews(products);
+
     // 다음 페이지를 위한 nextCursor 계산
-    const lastItem = products.length > 0 ? products[products.length - 1] : null;
+    const lastItem =
+      productsWithViews.length > 0
+        ? productsWithViews[productsWithViews.length - 1]
+        : null;
     // 가져온 아이템의 수가 limit과 같을 때만 다음 페이지가 있을 가능성이 있음
     const nextCursor =
-      lastItem && products.length === limit
+      lastItem && productsWithViews.length === limit
         ? lastItem.createdAt.toISOString()
         : null;
 
     return {
-      products,
+      products: productsWithViews,
       nextCursor,
     };
   }
@@ -355,32 +400,40 @@ export class ProductService {
     return product && product.author.id === userId;
   }
 
-  async incrementViewCount(productId: string, userId: string): Promise<void> {
-    const viewHistoryKey = `product:viewed:${userId}:${productId}`; // 유저가 상품을 봤는지 (1 or undefined)
-    const viewCountKey = `product:views:${productId}`; // 해당 상품의 조회수 (DB와 연동되지 않음)
-    const dirtyListKey = 'dirty:product:views'; // 조회수가 변경되어 DB에 업데이트가 필요한 product id 목록
+  async incrementViewCount(productId: string, userId: string): Promise<string> {
+    try {
+      const viewHistoryKey = `product:viewed:${userId}:${productId}`;
+      const viewCountKey = `product:views:${productId}`;
+      const dirtyListKey = 'dirty:product:views';
 
-    // 1. 해당 유저가 30분 내에 본 기록이 있는지 캐시에서 확인
-    const viewed = await this.cacheManager.get(viewHistoryKey);
+      const viewed = await this.cacheManager.get(viewHistoryKey);
 
-    if (!viewed) {
-      // 2. 본 기록이 없으면 캐시의 조회수를 1 증가
+      if (viewed) {
+        // 이미 본 기록이 있을 경우, 별도 처리 없이 성공 메시지 반환
+        return '최근에 이미 조회한 상품입니다.';
+      }
+
+      // 본 기록이 없을 경우, 캐시 조회수 1 증가
       const currentViewsInCache =
         (await this.cacheManager.get<number>(viewCountKey)) || 0;
       await this.cacheManager.set(viewCountKey, currentViewsInCache + 1);
 
-      // 3. 30분동안 "봤음" 기록을 남김.
-      // viewHistoryKey는 cacheManager가 30분 후 자동으로 초기화
+      // 30분 동안 "봤음" 기록 남기기
       await this.cacheManager.set(viewHistoryKey, 1, 1800);
 
-      // 4. 스케줄러가 처리할 상품 ID 목록에 추가
-      // 중복 product id를 허용하지 않기 위해 Set 사용
+      // Dirty List에 상품 ID 추가
       const dirtyList =
         (await this.cacheManager.get<Set<string>>(dirtyListKey)) ||
         new Set<string>();
       dirtyList.add(productId);
-
       await this.cacheManager.set(dirtyListKey, dirtyList);
+
+      return `${productId} 상품의 캐시 조회수 1 증가 성공`;
+    } catch (error) {
+      console.error(`조회수 증가 처리 중 에러 발생: ${error.message}`);
+
+      // 2. 클라이언트에게는 내부 서버 오류가 발생했음을 알립니다.
+      throw new InternalServerErrorException('조회수 처리 중 오류 발생');
     }
   }
 }

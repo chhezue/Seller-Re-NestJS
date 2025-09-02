@@ -16,8 +16,8 @@ export class ViewCountSchedule {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
-  // @Cron(CronExpression.EVERY_10_MINUTES) // 10분마다 실행
-  @Cron(CronExpression.EVERY_30_SECONDS) // 테스트: 30초마다 실행
+  @Cron(CronExpression.EVERY_10_MINUTES) // 10분마다 실행
+  // @Cron(CronExpression.EVERY_MINUTE) // 테스트: 1분마다 실행
   async handleViewCount() {
     this.logger.debug('Running view count update from in-memory cache...');
 
@@ -34,7 +34,7 @@ export class ViewCountSchedule {
     for (const productId of dirtyList) {
       const viewCountKey = `product:views:${productId}`;
       const viewCount =
-        (await this.cacheManager.get<number>(viewCountKey)) || 0;
+        (await this.cacheManager.get<number>(viewCountKey)) || 0; // 사용자 A, B, C가 전부 조회한 횟수
 
       if (viewCount > 0) {
         // 1. DB에 조회수 업데이트
@@ -46,10 +46,10 @@ export class ViewCountSchedule {
         // 2. 캐시의 카운터 초기화
         await this.cacheManager.set(viewCountKey, 0);
       }
-
-      // 3. 완료 처리된 목록 초기화
-      await this.cacheManager.del(dirtyListKey);
-      this.logger.debug(`Updated views for ${dirtyList.size} products.`);
     }
+
+    // 3. 완료 처리된 목록 초기화
+    await this.cacheManager.del(dirtyListKey);
+    this.logger.debug(`Updated views for ${dirtyList.size} products.`);
   }
 }
