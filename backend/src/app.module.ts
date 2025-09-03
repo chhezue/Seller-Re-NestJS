@@ -3,7 +3,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SupabaseModule } from './supabase/supabase.module';
 import { ProductModule } from './product/product.module';
 import { CommonModule } from './common/common.module';
 import { UsersModule } from './users/users.module';
@@ -16,6 +15,8 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { S3Module } from './s3/s3.module';
 import { LikesModule } from './likes/likes.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { addTransactionalDataSource } from 'typeorm-transactional';
+import { DataSource } from 'typeorm';
 
 @Module({
   imports: [
@@ -41,8 +42,13 @@ import { ScheduleModule } from '@nestjs/schedule';
         autoLoadEntities: true,
         synchronize: true,
       }),
+      async dataSourceFactory(options) {
+        if (!options) {
+          throw new Error('🚫 Invalid options passed.');
+        }
+        return addTransactionalDataSource(new DataSource(options));
+      },
     }),
-    SupabaseModule,
     ProductModule,
     CommonModule,
     UsersModule,

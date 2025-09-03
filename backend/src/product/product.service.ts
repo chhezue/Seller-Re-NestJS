@@ -1,7 +1,12 @@
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductModel } from './entity/product.entity';
 import { Repository } from 'typeorm';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { GetProductDto } from './dto/get-product.dto';
@@ -10,6 +15,7 @@ import { RegionModel } from '../common/entity/region.entity';
 import { UploadsService } from '../uploads/uploads.service';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
 import { PageDto } from '../common/dto/page.dto';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 
 @Injectable()
 export class ProductService {
@@ -21,11 +27,36 @@ export class ProductService {
     private readonly regionRepository: Repository<RegionModel>,
     @InjectRepository(ProductImageModel)
     private readonly productImageRepository: Repository<ProductImageModel>,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
+
+  // 상품 목록에 캐시의 실시간 조회수를 더해주는 헬퍼 메소드
+  private async getProductsWithCacheViews(products: ProductModel[]) {
+    // 처리할 상품이 없으면 바로 반환
+    if (products.length === 0) return products;
+
+    // 처리할 상품에 대한 캐시 키 목록 설정
+    const cacheKeys = products.map((p) => `product:views:${p.id}`);
+
+    const cachedViewsPromises = cacheKeys.map((key) =>
+      this.cacheManager.get<number>(key),
+    );
+    const cachedViews = await Promise.all(cachedViewsPromises);
+
+    const productsWithViews = products.map((product, index) => {
+      const recentViews = cachedViews[index] || 0;
+      return {
+        ...product,
+        views: product.views + recentViews,
+      };
+    });
+
+    return productsWithViews;
+  }
 
   async getAllProducts(
     getProductDto: GetProductDto,
-  ): Promise<{ products: ProductModel[]; nextCursor: string | null }> {
+  ): Promise<{ products: any[]; nextCursor: string | null }> {
     const {
       categoryId,
       status,
@@ -46,9 +77,20 @@ export class ProductService {
       .leftJoinAndSelect('product.author', 'author')
       .leftJoinAndSelect('product.category', 'category')
       .leftJoinAndSelect('product.region', 'region')
-      .leftJoinAndSelect('product.images', 'images')
-      .leftJoinAndSelect('images.file', 'imageFile')
       .where('product.isDeleted = :isDeleted', { isDeleted: false });
+
+    // 대표 이미지 URL을 위한 서브쿼리 추가
+    queryBuilder.addSelect((subQuery) => {
+      return subQuery
+        .select('file.url')
+        .from(ProductImageModel, 'image')
+        .leftJoin('image.file', 'file')
+        .where('image.product = product.id')
+        .andWhere('image.isRepresentative = :isRepresentative', {
+          isRepresentative: true,
+        })
+        .limit(1);
+    }, 'imageUrl');
 
     if (regionId) {
       const selectedRegion = await this.regionRepository.findOne({
@@ -111,13 +153,29 @@ export class ProductService {
     queryBuilder.orderBy('product.createdAt', 'DESC');
     queryBuilder.take(limit);
 
-    const products = await queryBuilder.getMany();
+    const { entities, raw } = await queryBuilder.getRawAndEntities();
 
-    const lastItem = products.length > 0 ? products[products.length - 1] : null;
+    // entities와 raw 결과를 조합하여 최종 products 배열을 만듦.
+    const products = entities.map((product) => {
+      // raw 결과에서 현재 product와 ID가 일치하는 데이터를 찾습니다.
+      const rawData = raw.find((r) => r.product_id === product.id);
+      return {
+        ...product,
+        imageUrl: rawData?.imageUrl || null, // 찾은 raw 데이터에서 imageUrl을 추가합니다.
+      };
+    });
+
+    // 캐시된 조회수를 포함한 상품 목록 반환
+    const productsWithViews = await this.getProductsWithCacheViews(products);
+
+    const lastItem =
+      productsWithViews.length > 0
+        ? productsWithViews[productsWithViews.length - 1]
+        : null;
     const nextCursor = lastItem ? lastItem.createdAt.toISOString() : null;
 
     return {
-      products, // 조회된 상품 목록
+      products: productsWithViews, // 조회된 상품 목록
       nextCursor, // 다음 페이지를 위한 커서
     };
   }
@@ -132,15 +190,19 @@ export class ProductService {
       throw new NotFoundException('해당 상품을 찾을 수 없습니다.');
     }
 
+    // 캐시된 조회수를 포함한 상품 정보 반환
+    const productsWithViews = await this.getProductsWithCacheViews([product]);
+    const productWithViews = productsWithViews[0];
+
     if (product.author.id === userId) {
       return {
-        ...product,
+        ...productWithViews,
         isOwner: true,
       };
     }
 
     return {
-      ...product,
+      ...productWithViews,
       isOwner: false,
     };
   }
@@ -155,9 +217,7 @@ export class ProductService {
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.author', 'author')
       .leftJoinAndSelect('product.category', 'category')
-      .leftJoinAndSelect('product.region', 'region')
-      .leftJoinAndSelect('product.images', 'images')
-      .leftJoinAndSelect('images.file', 'imageFile');
+      .leftJoinAndSelect('product.region', 'region');
 
     // 특정 유저의 상품만 조회 (삭제되지 않은 상품만)
     queryBuilder.where(
@@ -167,6 +227,19 @@ export class ProductService {
         isDeleted: false,
       },
     );
+
+    // 대표 이미지 URL을 위한 서브쿼리 추가
+    queryBuilder.addSelect((subQuery) => {
+      return subQuery
+        .select('file.url')
+        .from(ProductImageModel, 'image')
+        .leftJoin('image.file', 'file')
+        .where('image.product = product.id')
+        .andWhere('image.isRepresentative = :isRepresentative', {
+          isRepresentative: true,
+        })
+        .limit(1);
+    }, 'imageUrl');
 
     if (cursor) {
       // cursor는 Date 객체여야 할 수 있으므로 타입 변환이 필요할 수 있습니다.
@@ -179,18 +252,34 @@ export class ProductService {
     queryBuilder.orderBy('product.createdAt', 'DESC');
     queryBuilder.take(limit);
 
-    const products = await queryBuilder.getMany();
+    const { entities, raw } = await queryBuilder.getRawAndEntities();
+
+    // entities와 raw 결과를 조합하여 최종 products 배열을 만듦.
+    const products = entities.map((product) => {
+      // raw 결과에서 현재 product와 ID가 일치하는 데이터를 찾습니다.
+      const rawData = raw.find((r) => r.product_id === product.id);
+      return {
+        ...product,
+        imageUrl: rawData?.imageUrl || null, // 찾은 raw 데이터에서 imageUrl을 추가합니다.
+      };
+    });
+
+    // 캐시된 조회수를 포함한 상품 목록 반환
+    const productsWithViews = await this.getProductsWithCacheViews(products);
 
     // 다음 페이지를 위한 nextCursor 계산
-    const lastItem = products.length > 0 ? products[products.length - 1] : null;
+    const lastItem =
+      productsWithViews.length > 0
+        ? productsWithViews[productsWithViews.length - 1]
+        : null;
     // 가져온 아이템의 수가 limit과 같을 때만 다음 페이지가 있을 가능성이 있음
     const nextCursor =
-      lastItem && products.length === limit
+      lastItem && productsWithViews.length === limit
         ? lastItem.createdAt.toISOString()
         : null;
 
     return {
-      products,
+      products: productsWithViews,
       nextCursor,
     };
   }
@@ -309,5 +398,42 @@ export class ProductService {
     });
 
     return product && product.author.id === userId;
+  }
+
+  async incrementViewCount(productId: string, userId: string): Promise<string> {
+    try {
+      const viewHistoryKey = `product:viewed:${userId}:${productId}`;
+      const viewCountKey = `product:views:${productId}`;
+      const dirtyListKey = 'dirty:product:views';
+
+      const viewed = await this.cacheManager.get(viewHistoryKey);
+
+      if (viewed) {
+        // 이미 본 기록이 있을 경우, 별도 처리 없이 성공 메시지 반환
+        return '최근에 이미 조회한 상품입니다.';
+      }
+
+      // 본 기록이 없을 경우, 캐시 조회수 1 증가
+      const currentViewsInCache =
+        (await this.cacheManager.get<number>(viewCountKey)) || 0;
+      await this.cacheManager.set(viewCountKey, currentViewsInCache + 1);
+
+      // 30분 동안 "봤음" 기록 남기기
+      await this.cacheManager.set(viewHistoryKey, 1, 1800);
+
+      // Dirty List에 상품 ID 추가
+      const dirtyList =
+        (await this.cacheManager.get<Set<string>>(dirtyListKey)) ||
+        new Set<string>();
+      dirtyList.add(productId);
+      await this.cacheManager.set(dirtyListKey, dirtyList);
+
+      return `${productId} 상품의 캐시 조회수 1 증가 성공`;
+    } catch (error) {
+      console.error(`조회수 증가 처리 중 에러 발생: ${error.message}`);
+
+      // 2. 클라이언트에게는 내부 서버 오류가 발생했음을 알립니다.
+      throw new InternalServerErrorException('조회수 처리 중 오류 발생');
+    }
   }
 }
