@@ -52,7 +52,7 @@ export class ProductModel extends BaseModel {
   views: number; // 조회수
 
   @Column({ default: 0 })
-  favoriteCount: number; // 즐겨찾기 수
+  likeCount: number; // 찜 수
 
   @OneToMany(() => ProductImageModel, (image) => image.product, {
     nullable: false,
