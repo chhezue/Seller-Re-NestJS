@@ -16,7 +16,7 @@ export class ViewCountSchedule {
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
-  @Cron(CronExpression.EVERY_10_MINUTES) // 10분마다 실행
+  @Cron(CronExpression.EVERY_HOUR) // 1시간마다 실행
   // @Cron(CronExpression.EVERY_MINUTE) // 테스트: 1분마다 실행
   async handleViewCount() {
     this.logger.debug('Running view count update from in-memory cache...');
