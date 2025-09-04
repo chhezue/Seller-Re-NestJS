@@ -51,9 +51,6 @@ export class ProductModel extends BaseModel {
   @Column({ default: 0 })
   views: number; // 조회수
 
-  @Column({ default: 0 })
-  likeCount: number; // 찜 수
-
   @OneToMany(() => ProductImageModel, (image) => image.product, {
     nullable: false,
     eager: true,
@@ -62,6 +59,9 @@ export class ProductModel extends BaseModel {
 
   @OneToMany(() => LikeModel, (like) => like.product)
   likes: LikeModel[];
+
+  @Column({ default: 0 })
+  likesCount: number; // 찜 수
 
   @Column({ default: false })
   isDeleted: boolean;

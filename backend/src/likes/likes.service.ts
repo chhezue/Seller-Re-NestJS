@@ -88,7 +88,7 @@ export class LikesService {
     });
 
     // 상품의 likesCount 1 증가
-    await this.productRepository.increment({ id: productId }, 'likeCount', 1);
+    await this.productRepository.increment({ id: productId }, 'likesCount', 1);
 
     return `${productId} 찜 성공`;
   }
@@ -108,7 +108,7 @@ export class LikesService {
     });
 
     // 상품의 likesCount 1 감소
-    await this.productRepository.decrement({ id: productId }, 'likeCount', 1);
+    await this.productRepository.decrement({ id: productId }, 'likesCount', 1);
 
     return `${productId} 찜 삭제 성공`;
   }
