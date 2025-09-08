@@ -418,8 +418,8 @@ export class ProductService {
         (await this.cacheManager.get<number>(viewCountKey)) || 0;
       await this.cacheManager.set(viewCountKey, currentViewsInCache + 1);
 
-      // 30분 동안 "봤음" 기록 남기기
-      await this.cacheManager.set(viewHistoryKey, 1, 1800);
+      // 24시간 동안 "봤음" 기록 남기기
+      await this.cacheManager.set(viewHistoryKey, 1, 86400);
 
       // Dirty List에 상품 ID 추가
       const dirtyList =

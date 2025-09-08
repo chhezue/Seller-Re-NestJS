@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { LikeModel } from './entity/like.entity';
 import { PageDto } from '../common/dto/page.dto';
 import { ProductModel } from '../product/entity/product.entity';
+import { Transactional } from 'typeorm-transactional';
 
 @Injectable()
 export class LikesService {
@@ -71,6 +72,7 @@ export class LikesService {
     };
   }
 
+  @Transactional()
   async createLike(productId: string, userId: string): Promise<string> {
     // 특정 사용자가 특정 상품을 찜했는지 확인
     const like = await this.likeRepository.findOne({
@@ -85,9 +87,13 @@ export class LikesService {
       product: { id: productId },
     });
 
+    // 상품의 likesCount 1 증가
+    await this.productRepository.increment({ id: productId }, 'likesCount', 1);
+
     return `${productId} 찜 성공`;
   }
 
+  @Transactional()
   async deleteLike(productId: string, userId: string): Promise<string> {
     const like = await this.likeRepository.findOne({
       where: { user: { id: userId }, product: { id: productId } },
@@ -100,6 +106,9 @@ export class LikesService {
       user: { id: userId },
       product: { id: productId },
     });
+
+    // 상품의 likesCount 1 감소
+    await this.productRepository.decrement({ id: productId }, 'likesCount', 1);
 
     return `${productId} 찜 삭제 성공`;
   }
