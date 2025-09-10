@@ -10,7 +10,6 @@ import { UploadsModule } from '../uploads/uploads.module';
 import { ProductImageModel } from '../uploads/entity/product-image.entity';
 import { LikesModule } from '../likes/likes.module';
 import { ViewCountSchedule } from './schedule/view.count.schedule';
-import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -19,9 +18,6 @@ import { CacheModule } from '@nestjs/cache-manager';
     AuthModule,
     UploadsModule,
     LikesModule,
-    CacheModule.register({
-      ttl: 1800, // 30분
-    }),
   ],
   controllers: [ProductController],
   providers: [ProductService, ViewCountSchedule],
