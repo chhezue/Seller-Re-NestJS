@@ -1,12 +1,13 @@
+// auth/components/RegisterForm.tsx
 import React, { useRef, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-    faUser, faLock, faEnvelope, faPhone, faMapMarkerAlt, faIdBadge, faXmark
+    faUser, faLock, faEnvelope, faPhone, faMapMarkerAlt, faIdBadge, faXmark, faRotateLeft
 } from '@fortawesome/free-solid-svg-icons';
 import './RegisterPage.css';
 import useAuth, { RegionItem } from '../../auth/hooks/useAuth';
-import RegionSelectModal from '../../../components/ui/RegionSelectModal'; // ✅ 공용 모달 임포트
+import RegionSelectModal from '../../../components/ui/RegionSelectModal';
 
 interface RegionData {
     city: string;
@@ -28,83 +29,88 @@ interface Props {
     setShowMismatch: (val: boolean) => void;
     phone: string;
     setPhone: (val: string) => void;
-    profileImage: string;
-    setProfileImage: (val: string) => void;
 }
-
-const API_BASE = 'http://127.0.0.1:3000';
 
 const RegisterForm: React.FC<Props> = ({
     region, setRegion, errors, onBlur, onSubmit,
     password, setPassword, confirmPassword, setConfirmPassword,
     showMismatch, setShowMismatch,
-    phone, setPhone,
-    profileImage, setProfileImage
+    phone, setPhone
 }) => {
-    const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const { uploadTempUserImage } = useAuth();
+
+    const [previewImage, setPreviewImage] = useState<string | null>(null); // blob 로컬 미리보기
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [tempImageId, setTempImageId] = useState<string>('');           // 제출용 id
+    const [regionModalOpen, setRegionModalOpen] = useState(false);
+    const [selectedRegionNode, setSelectedRegionNode] = useState<RegionItem | null>(null);
+    const [pwTooShort, setPwTooShort] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // 지역 모달
-    const [regionModalOpen, setRegionModalOpen] = useState(false);
-
-    // 숨은 필드로 내려줄 마지막 선택 노드(구 단위)
-    const [selectedRegionNode, setSelectedRegionNode] = useState<RegionItem | null>(null);
-
-    // ✅ 비밀번호 길이(8자) 검증 상태
-    const [pwTooShort, setPwTooShort] = useState(false);
-
     useEffect(() => {
-        setPreviewImage(profileImage || null);
-    }, [profileImage]);
+        return () => {
+            if (previewImage && previewImage.startsWith('blob:')) {
+                URL.revokeObjectURL(previewImage);
+            }
+        };
+    }, [previewImage]);
 
     const handleProfileClick = () => fileInputRef.current?.click();
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 파일 선택 → 즉시 로컬 미리보기 + 임시 업로드
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64 = reader.result as string;
-                setPreviewImage(base64);
-                setProfileImage(base64);
-            };
-            reader.readAsDataURL(file);
+        if (!file || !file.type.startsWith('image/')) return;
+
+        // 로컬 미리보기
+        const localUrl = URL.createObjectURL(file);
+        if (previewImage && previewImage.startsWith('blob:')) {
+            URL.revokeObjectURL(previewImage);
+        }
+        setPreviewImage(localUrl);
+
+        // 임시 업로드
+        setUploadingAvatar(true);
+        try {
+            const { id, url } = await uploadTempUserImage(file);
+            console.log('[RegisterForm] temp upload ok:', { id, url });
+            setTempImageId(id); // ✅ 회원가입 시 이 id를 전송
+        } catch (err) {
+            console.error('[RegisterForm] temp upload failed:', err);
+        } finally {
+            setUploadingAvatar(false);
         }
     };
 
     const handleDeleteProfileImage = () => {
+        if (previewImage && previewImage.startsWith('blob:')) {
+            URL.revokeObjectURL(previewImage);
+        }
         setPreviewImage(null);
-        setProfileImage('');
+        setTempImageId('');
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    // ✅ 공용 RegionSelectModal(onSelect: { city, district })
     const handleRegionSelect = (path: { city: RegionItem; district: RegionItem }) => {
         const cityName = path.city?.name ?? '';
         const distName = path.district?.name ?? '';
-
-        setRegion({
-            city: cityName,
-            district: distName,
-            dong: '', // 공용 모달에서는 동 선택 없음
-        });
-
+        setRegion({ city: cityName, district: distName, dong: '' });
         setSelectedRegionNode(path.district ?? null);
     };
 
-    // ✅ 로컬 제출 핸들러: 8자 & 일치 검증 후 부모 onSubmit 호출
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    // ✅ 주소 초기화
+    const handleClearRegion = () => {
+        setRegion({ city: '', district: '', dong: '' });
+        setSelectedRegionNode(null);
+    };
 
+    const handleLocalSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
         const tooShort = password.length < 8;
         const mismatch = password !== confirmPassword && confirmPassword !== '';
-
         setPwTooShort(tooShort);
         setShowMismatch(mismatch);
-
-        // 부모 쪽 다른 필드 에러는 부모가 관리(여기선 비번만 막음)
         if (tooShort || mismatch) return;
-
         onSubmit(e);
     };
 
@@ -113,8 +119,8 @@ const RegisterForm: React.FC<Props> = ({
             <div className="register-box fade-in">
                 {/* 프로필 이미지 등록 */}
                 <div className="profile-section">
-                    <div className="profile-wrapper">
-                        <div className="profile-circle" onClick={handleProfileClick}>
+                    <div className="profile-wrapper" onClick={handleProfileClick}>
+                        <div className="profile-circle">
                             {previewImage ? (
                                 <img src={previewImage} alt="미리보기" className="profile-preview" />
                             ) : (
@@ -123,17 +129,20 @@ const RegisterForm: React.FC<Props> = ({
                         </div>
 
                         {previewImage && (
-                            <div className="delete-button-wrapper">
+                            <div className="delete-button-wrapper" onClick={(e) => e.stopPropagation()}>
                                 <button
                                     type="button"
                                     className="delete-image-icon"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleDeleteProfileImage();
-                                    }}
+                                    onClick={handleDeleteProfileImage}
                                 >
                                     <FontAwesomeIcon icon={faXmark} />
                                 </button>
+                            </div>
+                        )}
+
+                        {uploadingAvatar && (
+                            <div className="uploading-chip" aria-live="polite">
+                                업로드 중…
                             </div>
                         )}
                     </div>
@@ -149,7 +158,7 @@ const RegisterForm: React.FC<Props> = ({
                 </div>
 
                 {/* 회원가입 폼 */}
-                <form className="form-list" onSubmit={handleSubmit}>
+                <form className="form-list" onSubmit={handleLocalSubmit}>
                     {/* 닉네임 */}
                     <div className="form-item">
                         <FontAwesomeIcon icon={faIdBadge} className="input-icon" />
@@ -184,15 +193,12 @@ const RegisterForm: React.FC<Props> = ({
                             name="password"
                             placeholder="비밀번호 (8자 이상)"
                             value={password}
-                            minLength={8}                        
+                            minLength={8}
                             onChange={(e) => {
                                 const v = e.target.value;
                                 setPassword(v);
                                 setPwTooShort(v.length < 8);
-                                // 입력 중에도 일치 여부 갱신
-                                if (confirmPassword !== '') {
-                                    setShowMismatch(v !== confirmPassword);
-                                }
+                                if (confirmPassword !== '') setShowMismatch(v !== confirmPassword);
                             }}
                             onBlur={(e) => {
                                 onBlur('password', e.target.value);
@@ -240,15 +246,10 @@ const RegisterForm: React.FC<Props> = ({
                             onChange={(e) => {
                                 const onlyNums = e.target.value.replace(/[^0-9]/g, '');
                                 let formatted = onlyNums;
-                                if (onlyNums.length < 4) {
-                                    formatted = onlyNums;
-                                } else if (onlyNums.length < 7) {
-                                    formatted = `${onlyNums.slice(0, 3)}-${onlyNums.slice(3)}`;
-                                } else if (onlyNums.length < 11) {
-                                    formatted = `${onlyNums.slice(0, 3)}-${onlyNums.slice(3, 6)}-${onlyNums.slice(6)}`;
-                                } else {
-                                    formatted = `${onlyNums.slice(0, 3)}-${onlyNums.slice(3, 7)}-${onlyNums.slice(7, 11)}`;
-                                }
+                                if (onlyNums.length < 4) formatted = onlyNums;
+                                else if (onlyNums.length < 7) formatted = `${onlyNums.slice(0, 3)}-${onlyNums.slice(3)}`;
+                                else if (onlyNums.length < 11) formatted = `${onlyNums.slice(0, 3)}-${onlyNums.slice(3, 6)}-${onlyNums.slice(6)}`;
+                                else formatted = `${onlyNums.slice(0, 3)}-${onlyNums.slice(3, 7)}-${onlyNums.slice(7, 11)}`;
                                 setPhone(formatted);
                             }}
                             onBlur={(e) => onBlur('phone', e.target.value)}
@@ -275,19 +276,39 @@ const RegisterForm: React.FC<Props> = ({
                             <button type="button" className="address-search-btn" onClick={() => setRegionModalOpen(true)}>
                                 주소 찾기
                             </button>
+                            {(region.city || region.district || region.dong) && (
+                                <button
+                                    type="button"
+                                    className="address-clear-btn"
+                                    onClick={handleClearRegion}
+                                    title="주소 초기화"
+                                >
+                                    <FontAwesomeIcon icon={faRotateLeft} />
+                                    초기화
+                                </button>
+                            )}
                         </div>
                     </div>
 
-                    {/* hidden (표시/전송용) */}
+                    {/* hidden fields */}
                     <input type="hidden" name="region_city" value={region.city} />
                     <input type="hidden" name="region_district" value={region.district} />
                     <input type="hidden" name="region_dong" value={region.dong} />
-
                     <input type="hidden" name="region_id" value={selectedRegionNode?.id ?? ''} />
                     <input type="hidden" name="region_name" value={selectedRegionNode?.name ?? ''} />
                     <input type="hidden" name="region_parent_id" value={selectedRegionNode?.parentId ?? ''} />
 
-                    <button type="submit" className="register-button">가입하기</button>
+                    {/* ✅ 제출용: 임시 업로드한 파일의 id */}
+                    <input type="hidden" name="profileImageId" value={tempImageId} />
+
+                    <button
+                        type="submit"
+                        className="register-button"
+                        disabled={uploadingAvatar}
+                        title={uploadingAvatar ? '이미지 업로드가 끝나면 완료할 수 있어요' : undefined}
+                    >
+                        가입하기
+                    </button>
                 </form>
 
                 <p className="login-link">
@@ -295,7 +316,6 @@ const RegisterForm: React.FC<Props> = ({
                 </p>
             </div>
 
-            {/* 지역 선택 모달(공용) */}
             <RegionSelectModal
                 open={regionModalOpen}
                 onClose={() => setRegionModalOpen(false)}

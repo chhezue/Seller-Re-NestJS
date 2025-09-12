@@ -21,6 +21,7 @@ export interface Profile {
     id: string;
     username: string;
     email: string;
+    /** 서버 응답이 문자열/객체/null 등 다양해도, 훅에서는 항상 최종 URL 문자열만 노출 */
     profileImage?: string;
     phoneNumber?: string;
     region?: Region | null;
@@ -33,22 +34,32 @@ export interface Profile {
     status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | string;
     passwordFailedCount?: number;
 
-    // ✅ 파생필드(프론트에서 계산)
+    // 파생필드(프론트에서 계산)
     regionCityName?: string;       // 시/도
     regionDistrictName?: string;   // 구/군/시
     regionFullName?: string;       // "시/도 구/군/시"
 }
 
-/** 이메일(옵션, 보낼 때만) + 비밀번호(선택) 포함
- *  ※ currentPassword는 더 이상 사용하지 않음
- */
+/** 이메일(옵션, 보낼 때만) + 비밀번호(선택) 포함 */
 export type UpdateProfilePayload = {
     username?: string;
     email?: string;
-    password?: string;            // 새 비밀번호 (선택)
+    password?: string;             // 새 비밀번호 (선택)
     phoneNumber?: string;
-    region_id?: string;           // 서버에서 region_id 받도록 유지
-    profileImage?: string;
+    region_id?: string;            // 서버에서 region_id 받도록 유지
+    /** PATCH 시 보낼 이미지 임시파일 ID (삭제는 null, 변경 없음은 undefined) */
+    profileImageId?: string | null;
+};
+
+/** 서버 응답의 profileImage를 URL 문자열로 정규화 */
+const extractProfileImageUrl = (value: unknown): string => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') {
+        const v = value as Record<string, any>;
+        return v.url || v.fileUrl || v.s3Url || '';
+    }
+    return '';
 };
 
 const useProfile = () => {
@@ -96,16 +107,12 @@ const useProfile = () => {
         return flat;
     };
 
-    // ✅ regionId 기준으로 (시/도 + 구/군/시) 이름 합치기
+    // regionId → (시/도, 구/군/시, full) 계산
     const resolveRegionNames = useCallback(
         async (regionId?: string | null, fallbackName?: string) => {
             if (!regionId) {
                 const district = fallbackName || '';
-                return {
-                    city: '',
-                    district,
-                    full: district,
-                };
+                return { city: '', district, full: district };
             }
 
             try {
@@ -143,8 +150,7 @@ const useProfile = () => {
         setError(null);
         try {
             const token =
-                (await getValidAccessToken?.()) ??
-                localStorage.getItem('accessToken');
+                (await getValidAccessToken?.()) ?? localStorage.getItem('accessToken');
 
             if (!token) {
                 setProfile(null);
@@ -175,15 +181,19 @@ const useProfile = () => {
                 throw new Error(text || `프로필 조회 실패 (${res.status})`);
             }
 
-            const raw = (await res.json()) as Profile;
+            const raw = (await res.json()) as any;
 
-            // ✅ 지역 풀네임 계산
+            // 이미지 URL 정규화
+            const normalizedImageUrl = extractProfileImageUrl(raw?.profileImage);
+
+            // 지역 풀네임 계산
             const regionId = raw?.region?.id ?? raw?.region_id ?? null;
             const fallbackName = raw?.region?.name ?? '';
             const names = await resolveRegionNames(regionId, fallbackName);
 
             const data: Profile = {
                 ...raw,
+                profileImage: normalizedImageUrl,
                 regionCityName: names.city,
                 regionDistrictName: names.district,
                 regionFullName: names.full,
@@ -209,24 +219,21 @@ const useProfile = () => {
 
         const curRegionId = base.region?.id ?? base.region_id ?? '';
 
-        // username
         if (typeof nextPayload.username !== 'undefined' && nextPayload.username !== base.username) {
             delta.username = nextPayload.username;
         }
-        
-        // phone
         if (typeof nextPayload.phoneNumber !== 'undefined' && nextPayload.phoneNumber !== (base.phoneNumber ?? '')) {
             delta.phoneNumber = nextPayload.phoneNumber;
         }
-        // region_id
         if (typeof nextPayload.region_id !== 'undefined' && nextPayload.region_id !== curRegionId) {
             delta.region_id = nextPayload.region_id;
         }
-        // profileImage
-        if (typeof nextPayload.profileImage !== 'undefined' && (nextPayload.profileImage ?? '') !== (base.profileImage ?? '')) {
-            delta.profileImage = nextPayload.profileImage;
+
+        /** ✅ 이미지 변경 의도만 전달 (임시파일 id 또는 null, 변경 없음은 undefined → 미포함) */
+        if (typeof nextPayload.profileImageId !== 'undefined') {
+            delta.profileImageId = nextPayload.profileImageId;
         }
-        // password (새 비밀번호가 입력되었을 때만)
+
         if (typeof nextPayload.password === 'string' && nextPayload.password.length > 0) {
             delta.password = nextPayload.password;
         }
@@ -234,25 +241,14 @@ const useProfile = () => {
         return delta;
     };
 
-    /** ✅ 프로필 업데이트 (PATCH /api/users/me)
-     *  - 변경된 필드만 전송
-     *  - 전송 직전 콘솔 로그(비밀번호는 마스킹)
+    /** 프로필 업데이트 (PATCH /api/users/me)
+     *  - 변경된 필드만 전송 (이미지는 profileImageId 사용)
+     *  - 응답의 profileImage를 URL 문자열로 정규화
      *  - 응답에도 지역 풀네임 계산해서 profile에 저장
      */
     const updateProfile = useCallback(
         async (payload: UpdateProfilePayload): Promise<Profile> => {
-            const redactedInput = {
-                ...payload,
-                password: payload.password ? '***' : undefined,
-            };
-
             const delta = computeDelta(profile, payload);
-
-            const redactedDelta = {
-                ...delta,
-                password: delta.password ? '***' : undefined,
-            };
-
             if (!delta || Object.keys(delta).length === 0) {
                 return profile as Profile;
             }
@@ -284,14 +280,19 @@ const useProfile = () => {
                 throw new Error(text || `프로필 수정 실패 (${res.status})`);
             }
 
-            const raw = (await res.json()) as Profile;
-            // ✅ 응답에도 지역 풀네임 재계산
+            const raw = (await res.json()) as any;
+
+            // 응답 이미지 URL 정규화
+            const normalizedImageUrl = extractProfileImageUrl(raw?.profileImage);
+
+            // 지역 풀네임 재계산
             const regionId = raw?.region?.id ?? raw?.region_id ?? null;
             const fallbackName = raw?.region?.name ?? '';
             const names = await resolveRegionNames(regionId, fallbackName);
 
             const data: Profile = {
                 ...raw,
+                profileImage: normalizedImageUrl,
                 regionCityName: names.city,
                 regionDistrictName: names.district,
                 regionFullName: names.full,

@@ -139,32 +139,50 @@
 }
 
 /* 로그인/회원가입 버튼 (보라 그라데이션 pill) */
-.login-main-button {
+.register-main-button, .sell-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-weight: 800;
+    font-weight: 500;
     border: none;
-    padding: 8px 14px;
+    padding: 5px 14px;
     cursor: pointer;
     font-size: 13px;
-    border-radius: 999px;
+    border-radius: 10px;
     background: linear-gradient(135deg, var(--violet-400), var(--violet-600));
     box-shadow: 0 8px 20px rgba(139, 92, 246, 0.25);
     transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 
-.login-main-button:hover,
-.login-main-button:focus-visible {
+.sell-button{
+    margin-left: 20px;
+}
+
+.register-main-button:hover,
+.register-main-button:focus-visible,
+.sell-button:hover,
+.sell-button:focus-visible {
     box-shadow: 0 12px 26px rgba(139, 92, 246, 0.35);
     transform: translateY(-1px);
     outline: none;
 }
 
-.login-main-button:active {
+.register-main-button:active,
+.sell-button:active {
     transform: translateY(0);
     filter: saturate(0.95);
+}
+
+.login-main-button{
+    font-weight: 800;
+}
+
+.auth-actions{
+    gap: 30px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
 }
 
 /* 햄버거 버튼 */

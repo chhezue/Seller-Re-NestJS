@@ -510,3 +510,25 @@
     background: var(--violet-100);
     color: var(--violet-700);
 }
+
+/* 주소 초기화 버튼 */
+.address-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s ease, box-shadow .15s ease, border-color .15s ease, transform .04s ease;
+}
+.address-clear-btn:hover { background: #f9fafb; }
+.address-clear-btn:active { transform: translateY(1px); }
+.address-clear-btn:focus-visible {
+    outline: none;
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}

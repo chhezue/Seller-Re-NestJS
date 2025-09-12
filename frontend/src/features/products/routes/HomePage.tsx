@@ -1,15 +1,22 @@
+// pages/HomePage.tsx
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import '../components/HomePage.css';
 import ProductFilters from '../components/ProductFilters';
 import ProductSearch from '../components/ProductSearch';
 import useProducts, { Product, Filters } from '../hooks/useProducts';
 import ProductCard from '../components/ProductCard';
+import RegionFilter, { RegionChange } from '../components/RegionFilter';
 
 const HomePage: React.FC = () => {
     const [animate, setAnimate] = useState(false);
     const hasAnimated = useRef(false);
+
+    // 상단 검색 타이틀에 보여줄 지역 라벨 (예: "서울 강남구" 또는 "서울")
     const [regionText, setRegionText] = useState<string>('');
+
+    // 탭/토글 (UI 전용)
+    const [rightModeShare, setRightModeShare] = useState<boolean>(false); // false=판매, true=나눔
+    const [deliveryType, setDeliveryType] = useState<'DIRECT' | 'PARCEL' | null>(null);
 
     const {
         products,
@@ -21,6 +28,7 @@ const HomePage: React.FC = () => {
         setFilters,
         setSearchKeyword,
         loadMore,
+        refresh,
     } = useProducts();
 
     const [categoryLabel, setCategoryLabel] = useState<string>('');
@@ -34,28 +42,38 @@ const HomePage: React.FC = () => {
 
     const handleSearch = (keyword: string) => setSearchKeyword(keyword);
 
-    const titleText = React.useMemo(() => {
-        const base = (() => {
-            if (filters.myOnly) {
-                return categoryLabel ? `내 판매 상품 · ${categoryLabel}` : '내 판매 상품';
-            }
-            return categoryLabel || '전체 상품';
-        })();
+    // RegionFilter → useProducts 필터 반영 + regionText 반영
+    const handleRegionChange = (r: RegionChange) => {
+        setFilters((prev) => ({
+            ...prev,
+            region: r.region,
+            regionLabel: r.regionLabel,
+        } as Partial<Filters>));
+        setRegionText(r.regionLabel ?? '');
+    };
 
-        // myOnly일 때는 지역(prefix) 제거
-        if (filters.myOnly) return base;
+    const handleRightModeChange = (mode: 'SALE' | 'SHARE') => {
+        const nextShare = mode === 'SHARE';
+        setRightModeShare(nextShare);
+        setFilters((prev) => ({
+            ...prev,
+            shareOnly: nextShare,
+            minPrice: nextShare ? undefined : prev.minPrice,
+            maxPrice: nextShare ? undefined : prev.maxPrice,
+        } as Partial<Filters>));
+    };
 
-        const prefix = regionText.trim();
-        return prefix ? `${prefix} · ${base}` : base;
-    }, [filters.myOnly, categoryLabel, regionText]);
+    const handleDeliveryTypeChange = (t: 'DIRECT' | 'PARCEL' | null) => {
+        setDeliveryType(t);
+        // 서버 필터를 붙일 경우:
+        // setFilters((prev) => ({ ...prev, deliveryType: t } as any));
+    };
 
     const PAGE_SIZE = 20;
     const showLoadMore = hasMore && products.length >= PAGE_SIZE;
 
-    // 각 카드의 '직전 top' 값을 저장할 WeakMap (요소별 방향 판별용)
+    // 스크롤 효과(생략 가능)
     const lastTopMapRef = useRef<WeakMap<HTMLElement, number>>(new WeakMap());
-
-    // 스크롤에 따른 부드러운 플로팅(shift) + 요소별 prevTop 기록
     useEffect(() => {
         let ticking = false;
 
@@ -68,8 +86,6 @@ const HomePage: React.FC = () => {
                 const distance = mid - center;
                 const shift = Math.max(-24, Math.min(24, -distance * 0.08));
                 card.style.setProperty('--scroll-shift', `${shift.toFixed(1)}px`);
-
-                // 이 프레임에서의 top을 저장 (교차 시점에 nowTop과 비교)
                 lastTopMapRef.current.set(card, rect.top);
             });
         };
@@ -93,7 +109,6 @@ const HomePage: React.FC = () => {
         };
     }, [products.length]);
 
-    // 교차 시 요소별 방향 판별
     useEffect(() => {
         const cards = document.querySelectorAll<HTMLElement>('.item-card.fade-in-up');
 
@@ -102,14 +117,10 @@ const HomePage: React.FC = () => {
                 entries.forEach((entry) => {
                     const el = entry.target as HTMLElement;
                     if (!entry.isIntersecting) return;
-
-                    // 이미 1회 처리된 요소는 건너뜀
                     if (el.dataset.seen === '1') return;
 
                     const nowTop = entry.boundingClientRect.top;
                     const prevTop = lastTopMapRef.current.get(el);
-
-                    // prevTop이 아직 없으면 '아래 스크롤'로 간주해 자연스럽게 애니메이션
                     const isScrollingDown = prevTop == null ? true : nowTop < prevTop;
 
                     if (isScrollingDown) {
@@ -126,7 +137,6 @@ const HomePage: React.FC = () => {
             { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
         );
 
-        // 새로 렌더된 카드들 관찰 시작 (기존 클래스는 정리)
         cards.forEach((c) => {
             c.classList.remove('in-view', 'seen-no-anim');
             io.observe(c);
@@ -138,11 +148,14 @@ const HomePage: React.FC = () => {
     return (
         <div className={`main-container ${animate ? 'fade-in' : ''}`}>
             <div className="main-homepage">
-                <ProductSearch onSearch={handleSearch} />
+                {/* ✅ 선택한 지역 라벨을 그대로 전달 */}
+                <ProductSearch
+                    onSearch={handleSearch}
+                    userRegionName={regionText}   // ← "서울 강남구" 또는 "서울"
+                />
 
                 <div className="content-layout">
                     <div className="sidebar">
-                        <h3 className="filter-title">필터</h3>
                         <ProductFilters
                             onCategorySelect={(id) => {
                                 setFilters((prev) => ({
@@ -159,7 +172,21 @@ const HomePage: React.FC = () => {
                     </div>
 
                     <div className="main-content">
-                        <h2 className="result-title">{titleText}</h2>
+                        {/* 상단 툴바 */}
+                        <RegionFilter
+                            onChange={handleRegionChange}
+                            onRegionTextChange={setRegionText}
+                            rightMode={rightModeShare ? 'SHARE' : 'SALE'}
+                            onRightModeChange={handleRightModeChange}
+                            deliveryType={deliveryType}
+                            onDeliveryTypeChange={handleDeliveryTypeChange}
+                            sortKey={(filters as any).sortKey ?? 'latest'}
+                            onSortChange={(s) =>
+                                setFilters((prev) => ({ ...prev, sortKey: s } as Partial<Filters>))
+                            }
+                            onRefresh={refresh}
+                        />
+
                         {loading && products.length === 0 ? (
                             <p className="loading-text">로딩 중...</p>
                         ) : error ? (
