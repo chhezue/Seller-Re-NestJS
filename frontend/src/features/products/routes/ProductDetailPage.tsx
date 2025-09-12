@@ -76,7 +76,6 @@ const HeartIcon: React.FC<{ filled?: boolean; className?: string; title?: string
     </svg>
 );
 
-/** 확인 모달 (훅 없음) */
 const ConfirmModal: React.FC<{
     open: boolean;
     title?: string;
@@ -142,10 +141,23 @@ const ProductDetailPage: React.FC = () => {
         document.documentElement.scrollTop = 0;
     }, [id]);
 
-    const { product, loading, error, errorStatus } = useProductDetail(id);
+    // 상세 + 판매자 다른 상품들
+    const {
+        product,
+        loading,
+        error,
+        errorStatus,
+
+        sellerProducts,
+        sellerLoading,
+        sellerLoadingMore,
+        sellerError,
+        sellerHasMore,
+        loadMoreSeller,
+    } = useProductDetail(id);
+
     const { deleteProduct, toggleFavorite } = useProductActions() as any;
 
-    // ✅ 인기 상품 훅 (뷰카운트 없으면 최신순, 있으면 조회수 내림차순)
     const {
         popular,
         popularLoading,
@@ -157,38 +169,39 @@ const ProductDetailPage: React.FC = () => {
         categoryId: product?.category?.id,
     });
 
-    // ✅ 렌더는 안전하게 20개로 슬라이스
     const limitedPopular = useMemo(() => popular.slice(0, 20), [popular]);
 
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [isFavorited, setIsFavorited] = useState<boolean>(false);
-    const [favoriteCount, setFavoriteCount] = useState<number>(0);
 
-    // 토큰 필요 시 안내
-    useEffect(() => {
-        const token = localStorage.getItem('accessToken');
-        if (!token) {
-            toast.info('로그인이 필요합니다.');
-            navigate('/login');
-        }
-    }, [navigate]);
+    // ✅ 찜 상태/갯수: 서버값 우선, 없으면 로컬 폴백
+    const [isLiked, setIsLiked] = useState<boolean>(false);
+    const [likesCount, setLikesCount] = useState<number>(0);
 
-    // 에러 상태 안내
     useEffect(() => {
         if (!error) return;
         if (errorStatus === 401) {
-            toast.info('세션이 만료되었거나 로그인되지 않았습니다.');
-            navigate('/login');
-        } else if (errorStatus) {
+            toast.info('일부 기능은 로그인 후 이용 가능합니다.');
+        } else {
             toast.error(error);
         }
-    }, [error, errorStatus, navigate]);
+    }, [error, errorStatus]);
 
-    // 초기 찜 상태 세팅
     useEffect(() => {
-        setIsFavorited((product as any)?.isFavorited ?? false);
-        setFavoriteCount(product?.favoriteCount ?? 0);
-    }, [product?.id, (product as any)?.isFavorited, product?.favoriteCount]);
+        // 서버에서 내려오는 신규 필드 우선 사용
+        const serverLiked = (product as any)?.isLiked;
+        const serverLikesCount = (product as any)?.likesCount;
+
+        // (폴백) 서버가 isLiked를 안 내려줄 경우 localStorage에서 유지
+        const localKey = id ? `liked:${id}` : '';
+        const localLiked = localKey ? localStorage.getItem(localKey) === '1' : false;
+
+        setIsLiked(typeof serverLiked === 'boolean' ? serverLiked : localLiked);
+        setLikesCount(
+            typeof serverLikesCount === 'number'
+                ? serverLikesCount
+                : ((product as any)?.favoriteCount ?? 0) // 완전 폴백: 옛 필드 오면 사용
+        );
+    }, [id, product?.id, (product as any)?.isLiked, (product as any)?.likesCount, (product as any)?.favoriteCount]);
 
     if (loading || !initialized) return <p>로딩 중...</p>;
     if (!product) return <p>상품을 불러오지 못했습니다.</p>;
@@ -222,26 +235,35 @@ const ProductDetailPage: React.FC = () => {
         }
     };
 
-    // ❤️ 찜하기
     const handleToggleFavorite = async () => {
         if (!id) return;
         try {
-            let next: boolean;
-            if (typeof toggleFavorite === 'function') {
-                const res = await toggleFavorite(id);
-                next = res?.isFavorited ?? !isFavorited;
-            } else {
-                next = !isFavorited;
-            }
-            setIsFavorited(next);
-            setFavoriteCount((p) => Math.max(0, p + (next ? 1 : -1)));
-            toast.success(next ? '찜했어요!' : '찜을 해제했어요.');
+            const res = await toggleFavorite(id, {
+                currentlyFavorited: isLiked,
+                currentCount: likesCount,
+            });
+
+            // 응답 키 유연 처리 (신규/구버전 호환)
+            const nextLiked: boolean =
+                (res as any).isLiked ?? (res as any).isFavorited ?? !isLiked;
+
+            const nextCount: number =
+                (res as any).likesCount ??
+                (res as any).favoriteCount ??
+                (nextLiked ? likesCount + 1 : Math.max(0, likesCount - 1));
+
+            setIsLiked(nextLiked);
+            setLikesCount(nextCount);
+
+            // 재방문 시 유지 (서버 isLiked 미제공 환경 대비)
+            localStorage.setItem(`liked:${id}`, nextLiked ? '1' : '0');
+
+            toast.success(nextLiked ? '찜했어요!' : '찜을 해제했어요.');
         } catch (e: any) {
-            toast.error(e?.message ?? '찜하기에 실패했습니다.');
+            toast.error(e?.message ?? '찜 처리에 실패했습니다.');
         }
     };
 
-    // 🔗 링크 공유
     const handleShare = async () => {
         const url = window.location.href;
         try {
@@ -267,7 +289,6 @@ const ProductDetailPage: React.FC = () => {
         toast.success('채팅을 시작합니다!');
     };
 
-    // 상태 라벨 (Hook 아님)
     const statusInfo = (() => {
         switch (product.status) {
             case 'ON_SALE':
@@ -281,13 +302,23 @@ const ProductDetailPage: React.FC = () => {
         }
     })();
 
-    // 판매자 정보
+    const toProfileImageUrl = (img: unknown): string | undefined => {
+        if (!img) return undefined;
+        if (typeof img === 'string') return img;
+        if (typeof img === 'object' && 'url' in (img as any)) {
+            const u = (img as any).url;
+            return typeof u === 'string' ? u : undefined;
+        }
+        return undefined;
+    };
+
     const author = product.author;
     const sellerName = (author as any)?.username || (author as any)?.name || '판매자';
     const sellerRegion = author?.region?.name || '';
-    const sellerImg = author?.profileImage;
+    const sellerImg = toProfileImageUrl(author?.profileImage);
     const ratingAvg = (author as any)?.ratingAvg as number | undefined;
     const ratingCount = (author as any)?.ratingCount as number | undefined;
+    const views = (product as any).views ?? 0;
 
     return (
         <div className="product-detail-container">
@@ -331,13 +362,14 @@ const ProductDetailPage: React.FC = () => {
                     </div>
 
                     <p className="category-time">
-                        {product?.category?.name || '기타'} | {getDisplayTime(product.updatedAt, product.createdAt)}
+                        {product?.category?.name || '기타'} | {getDisplayTime(product.createdAt)}
                     </p>
 
                     <p className={`price-line ${product.isNegotiable ? 'yes' : 'no'}`}>
                         {product.tradeType === 'SHARE'
                             ? '나눔'
-                            : `가격: ${product.price.toLocaleString()}원 ${product.isNegotiable ? '(✅ 제안 가능)' : '(🚫 제안 불가)'}`}
+                            : `가격: ${product.price.toLocaleString()}원 ${product.isNegotiable ? '(✅ 제안 가능)' : '(🚫 제안 불가)'}`
+                        }
                     </p>
 
                     {product.description && (
@@ -352,11 +384,11 @@ const ProductDetailPage: React.FC = () => {
                         </span>{' '}
                         |{' '}
                         <span className="stat">
-                            <HeartIcon className="stats-icon" /> 관심 {favoriteCount}
+                            <HeartIcon className="stats-icon" /> 관심 {likesCount}
                         </span>{' '}
                         |{' '}
                         <span className="stat">
-                            <EyeIcon className="stats-icon" /> 조회 {product.viewCount ?? 0}
+                            <EyeIcon className="stats-icon" /> 조회 {views ?? 0}
                         </span>
                     </p>
 
@@ -376,11 +408,11 @@ const ProductDetailPage: React.FC = () => {
                     ) : (
                         <div className="buyer-actions four-inline">
                             <button
-                                className={`favorite-button xs-action ${isFavorited ? 'on' : ''}`}
+                                className={`favorite-button xs-action ${isLiked ? 'on' : ''}`}
                                 onClick={handleToggleFavorite}
-                                aria-pressed={isFavorited}
+                                aria-pressed={isLiked}
                             >
-                                {isFavorited ? '❤️ 찜 해제' : '🤍 찜하기'}
+                                {isLiked ? '❤️ 찜 해제' : '🤍 찜하기'}
                             </button>
 
                             <button
@@ -402,6 +434,43 @@ const ProductDetailPage: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* ✅ 판매자의 다른 상품 (있을 때만 표시) */}
+            {sellerProducts.length > 0 && (
+                <div className="seller-section popular-section">
+                    <h3 className="seller-title">{sellerName}님의 다른 상품</h3>
+
+                    {sellerError && <p className="error-text" style={{ marginTop: 6 }}>{sellerError}</p>}
+
+                    <div className="popular-grid">
+                        {sellerProducts.map((p, i) => (
+                            <div key={p.id} className="popular-card-wrap">
+                                <ProductCard
+                                    product={p}
+                                    to={`/item/${p.id}`}
+                                    index={i}
+                                    className="popular-mini"
+                                    showRegion={true}
+                                    showTime={false}
+                                    showCounts={false}
+                                />
+                            </div>
+                        ))}
+                    </div>
+
+                    {sellerHasMore && (
+                        <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0 8px' }}>
+                            <button
+                                className="load-more-btn"
+                                onClick={loadMoreSeller}
+                                disabled={sellerLoadingMore}
+                            >
+                                {sellerLoadingMore ? '불러오는 중...' : '더 보기'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* ✅ 인기 상품: 최대 20개, 5열 고정 그리드 */}
             <div className="popular-section">

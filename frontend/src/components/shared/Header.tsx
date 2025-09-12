@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlusCircle, faUser, faBell, faBars } from '@fortawesome/free-solid-svg-icons';
+import { faPlusCircle, faUser, faBell } from '@fortawesome/free-solid-svg-icons';
 import './Header.css';
 import useAuth from '../../features/auth/hooks/useAuth';
 
@@ -44,6 +44,7 @@ const Header: React.FC = () => {
                                         window.scrollTo(0, 0);
                                     }
                                 }}
+                                aria-label="Seller-Re 홈으로 이동"
                             >
                                 Seller-<span className="accent-re">Re</span>
                             </Link>
@@ -53,26 +54,34 @@ const Header: React.FC = () => {
                     <div className="header-right">
                         {isAuthenticated ? (
                             <>
-                                <Link to="/notifications">
+    
+                                <Link to="/profile" className="profile-link" title="내 정보" aria-label="내 정보">
+                                    <FontAwesomeIcon icon={faUser} className="icon" />
+                                    <span className="sr-only">내 정보</span>
+                                </Link>
+
+                                <Link to="/notifications" aria-label="알림">
                                     <FontAwesomeIcon icon={faBell} className="icon" title="알림" />
                                 </Link>
 
-                                <Link to="/NewProductPage">
-                                    <FontAwesomeIcon icon={faPlusCircle} className="icon" title="상품 등록하기" />
+                                <Link to="/NewProductPage" className="sell-button">
+                                    <span className="sell-text">판매하기</span>
                                 </Link>
 
-                                <Link to="/profile" className="profile-link" title="내 정보">
-                                    <FontAwesomeIcon icon={faUser} className="icon" />
-                                    <span className="sr-only"></span>
-                                </Link>
-
+                                {/*
                                 <div className="user-info">
                                     <span className="username">{username}님</span>
-                                    <button onClick={handleLogout} className="logout-btn">로그아웃</button>
+                                    <button type="button" onClick={handleLogout} className="logout-btn">
+                                        로그아웃
+                                    </button>
                                 </div>
+                                */}
                             </>
                         ) : (
-                            <Link to="/login" className="login-main-button">로그인 / 회원가입</Link>
+                            <div className="auth-actions">
+                                <Link to="/login" className="login-main-button">로그인</Link>
+                                <Link to="/register" className="register-main-button">회원가입</Link>
+                            </div>
                         )}
                     </div>
                 </header>
