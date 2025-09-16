@@ -11,11 +11,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import {
-  PRODUCT_CONDITION,
-  PRODUCT_STATUS,
-  TRADE_TYPE,
-} from '../const/product.const';
+import { PRODUCT_CONDITION, TRADE_TYPE } from '../const/product.const';
 import { Type } from 'class-transformer';
 import { ImageCommitDto } from '../../uploads/dto/image-commit.dto';
 
@@ -41,11 +37,6 @@ export class CreateProductDto {
   @IsNotEmpty()
   @IsOptional() // tradeType이 SHARE일 경우
   price?: number;
-
-  @ApiProperty({ description: '판매 상태', enum: PRODUCT_STATUS })
-  @IsEnum(PRODUCT_STATUS)
-  @IsNotEmpty()
-  status: PRODUCT_STATUS;
 
   @ApiProperty({ description: '거래 형식', enum: TRADE_TYPE })
   @IsEnum(TRADE_TYPE)

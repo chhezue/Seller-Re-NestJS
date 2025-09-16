@@ -27,7 +27,7 @@ export class GetProductDto extends PageDto {
   @IsUUID()
   readonly regionId?: string;
 
-  @ApiProperty({ description: '제품 상태' })
+  @ApiProperty({ description: '판매 상태' })
   @IsOptional()
   @IsEnum(PRODUCT_STATUS)
   readonly status?: PRODUCT_STATUS;
