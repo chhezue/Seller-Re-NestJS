@@ -106,7 +106,7 @@ export class UploadsService {
       let analysisResult: { category?: string; itemName?: string } = {};
 
       try {
-        const imageFullPath = path.join(process.cwd(), 'backend', 'uploads_temp', savedFile.key);
+        const imageFullPath = path.join(process.cwd(), 'uploads_temp', savedFile.key);
         
         const allCategories = await this.categoryRepository.find();
         const categoryLabels = allCategories.map(c => c.name);
