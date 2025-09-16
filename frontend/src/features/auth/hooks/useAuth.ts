@@ -1,5 +1,5 @@
 // auth/hooks/useAuth.ts
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { jwtDecode } from 'jwt-decode';
 
 const TOKEN_KEY = 'accessToken';
@@ -12,11 +12,12 @@ const REGISTER_ENDPOINT = `${API_BASE}/api/users`;
 const UNLOCK_REQUEST_ENDPOINT = `${API_BASE}/api/auth/unlock/request`;
 const UNLOCK_VERIFY_ENDPOINT = `${API_BASE}/api/auth/unlock/verify`;
 const LOGOUT_ENDPOINT = `${API_BASE}/api/auth/logout`;
+export const TEMP_USER_IMAGE_ENDPOINT = `${API_BASE}/api/uploads/tempUserImage`;
 
 const REFRESH_SKEW_SEC = 60;
 const AUTH_EVENT = 'auth:changed';
 const emitAuthChanged = () => {
-    try { window.dispatchEvent(new Event(AUTH_EVENT)); } catch { /* noop */ }
+    try { window.dispatchEvent(new Event(AUTH_EVENT)); } catch {}
 };
 
 interface DecodedToken {
@@ -40,7 +41,8 @@ export type RegisterPayload = {
     password: string;
     phoneNumber: string;
     region_id?: string;
-    profileImage?: string;
+    /** ✅ 서버가 요구: 임시 업로드로 받은 파일의 id */
+    profileImageId?: string;
 };
 
 export interface Region {
@@ -53,7 +55,7 @@ export interface Profile {
     id: string;
     username: string;
     email: string;
-    profileImage?: string;
+    profileImage?: string | null;
     phoneNumber?: string;
     region?: Region | null;
     region_id?: string;
@@ -87,8 +89,7 @@ const useAuth = () => {
             const decoded = jwtDecode<DecodedToken>(token);
             setUsername(typeof decoded.username === 'string' ? decoded.username : null);
             setUserId(typeof decoded.sub === 'string' ? decoded.sub : null);
-        } catch (err) {
-            console.error('토큰 디코딩 실패:', err);
+        } catch {
             setUsername(null);
             setUserId(null);
         }
@@ -113,12 +114,8 @@ const useAuth = () => {
             const nowMs = Date.now();
             const targetMs = exp * 1000 - REFRESH_SKEW_SEC * 1000;
             const delay = Math.max(targetMs - nowMs, 0);
-            refreshTimerRef.current = window.setTimeout(() => {
-                void refreshAccessToken();
-            }, delay);
-        } catch {
-            // ignore
-        }
+            refreshTimerRef.current = window.setTimeout(() => { void refreshAccessToken(); }, delay);
+        } catch {}
     };
 
     const clearLocalAuth = () => {
@@ -134,27 +131,18 @@ const useAuth = () => {
 
     const coreRefresh = async (): Promise<string | null> => {
         const refreshToken = localStorage.getItem(REFRESH_KEY);
-        if (!refreshToken) {
-            clearLocalAuth();
-            return null;
-        }
+        if (!refreshToken) { clearLocalAuth(); return null; }
         try {
             const res = await fetch(REFRESH_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refreshToken }),
             });
-            if (!res.ok) {
-                clearLocalAuth();
-                return null;
-            }
+            if (!res.ok) { clearLocalAuth(); return null; }
             const data = await res.json();
             const newAccess = data?.accessToken as string | undefined;
             const newRefresh = data?.refreshToken as string | undefined;
-            if (!newAccess) {
-                clearLocalAuth();
-                return null;
-            }
+            if (!newAccess) { clearLocalAuth(); return null; }
             localStorage.setItem(TOKEN_KEY, newAccess);
             if (newRefresh) localStorage.setItem(REFRESH_KEY, newRefresh);
             setAccessToken(newAccess);
@@ -169,12 +157,8 @@ const useAuth = () => {
     };
 
     const refreshAccessToken = async (): Promise<string | null> => {
-        if (refreshInFlightRef.current) {
-            return await refreshInFlightRef.current;
-        }
-        const p = coreRefresh().finally(() => {
-            refreshInFlightRef.current = null;
-        });
+        if (refreshInFlightRef.current) return await refreshInFlightRef.current;
+        const p = coreRefresh().finally(() => { refreshInFlightRef.current = null; });
         refreshInFlightRef.current = p;
         return await p;
     };
@@ -182,9 +166,7 @@ const useAuth = () => {
     const getValidAccessToken = async (): Promise<string | null> => {
         const token = localStorage.getItem(TOKEN_KEY);
         if (!token) return null;
-        if (isExpiredOrNear(token)) {
-            return await refreshAccessToken();
-        }
+        if (isExpiredOrNear(token)) return await refreshAccessToken();
         return token;
     };
 
@@ -211,19 +193,16 @@ const useAuth = () => {
         };
 
         let res = await doFetch(token);
-
         if (res.status === 401) {
             token = await refreshAccessToken();
             if (!token) return res;
             res = await doFetch(token);
         }
-
         return res;
     };
 
     const loginWithPassword = async (email: string, password: string) => {
-        const credentials = `${email}:${password}`;
-        const encoded = btoa(credentials);
+        const encoded = btoa(`${email}:${password}`);
         const res = await fetch(LOGIN_ENDPOINT, {
             method: 'POST',
             headers: { Authorization: `Basic ${encoded}` },
@@ -231,30 +210,8 @@ const useAuth = () => {
         if (!res.ok) {
             let body: any = null;
             try { body = await res.json(); } catch {}
-            const headerCount = res.headers.get('X-Fail-Count');
-            const parsedHeaderCount = headerCount ? Number(headerCount) : NaN;
-
             const err = new Error(body?.message || `로그인 실패 (${res.status})`);
             (err as any).status = res.status;
-            (err as any).code =
-                res.status === 403 ? 'ACCOUNT_LOCKED'
-              : res.status === 401 ? 'INVALID_CREDENTIALS'
-              : 'LOGIN_FAILED';
-
-            const bodyCount =
-                body?.password_failed_count ??
-                body?.passwordFailedCount ??
-                body?.failCount ??
-                body?.count ??
-                null;
-
-            (err as any).passwordFailedCount =
-                typeof bodyCount === 'number'
-                    ? bodyCount
-                    : Number.isFinite(parsedHeaderCount)
-                    ? parsedHeaderCount
-                    : undefined;
-
             throw err;
         }
         const data = await res.json();
@@ -274,11 +231,7 @@ const useAuth = () => {
         emitAuthChanged();
     };
 
-    /** ✅ 회원가입 함수 (없어서 생기던 오류 해결) */
-    const registerUser = async (
-        payload: RegisterPayload,
-        opts?: { autoLogin?: boolean }
-    ) => {
+    const registerUser = async (payload: RegisterPayload, opts?: { autoLogin?: boolean }) => {
         const body: Record<string, unknown> = {
             username: payload.username,
             email: payload.email,
@@ -286,7 +239,7 @@ const useAuth = () => {
             phoneNumber: payload.phoneNumber,
         };
         if (payload.region_id) body.region_id = payload.region_id;
-        if (payload.profileImage) body.profileImage = payload.profileImage;
+        if (payload.profileImageId) body.profileImageId = payload.profileImageId; // ✅ 이거만!
 
         const res = await fetch(REGISTER_ENDPOINT, {
             method: 'POST',
@@ -296,20 +249,22 @@ const useAuth = () => {
 
         if (!res.ok) {
             let message = `회원가입 실패 (${res.status})`;
+            let errorCode: string | undefined;
             try {
                 const data = await res.json();
                 if (data?.message) message = data.message;
+                errorCode = (data?.errorCode || data?.code) as string | undefined; // ✅ 에러코드 추출
             } catch {
                 const txt = await res.text().catch(() => '');
                 if (txt) message = txt;
             }
             const err = new Error(message);
             (err as any).status = res.status;
+            if (errorCode) (err as any).errorCode = errorCode; // ✅ 에러코드 첨부
             throw err;
         }
 
         const data = await res.json().catch(() => ({} as any));
-
         if (opts?.autoLogin) {
             const at = (data as any)?.accessToken as string | undefined;
             const rt = (data as any)?.refreshToken as string | undefined;
@@ -318,7 +273,6 @@ const useAuth = () => {
         return data;
     };
 
-    /** ✅ 서버 로그아웃 + 로컬 정리 */
     const logout = async (): Promise<void> => {
         const refreshToken = localStorage.getItem(REFRESH_KEY);
         try {
@@ -328,14 +282,11 @@ const useAuth = () => {
                     headers: { Authorization: `Bearer ${refreshToken}` },
                 });
             }
-        } catch {
-            // ignore
-        } finally {
+        } catch {} finally {
             clearLocalAuth();
         }
     };
 
-    /** 지역 트리 */
     const getRegions = async (): Promise<RegionItem[]> => {
         const res = await authFetch(`${API_BASE}/api/common/region/tree`, { method: 'GET' });
         if (!res.ok) {
@@ -346,7 +297,6 @@ const useAuth = () => {
         return Array.isArray(data) ? data : [];
     };
 
-    /** id → "시/도 구/군" */
     const getRegionFullNameById = async (id: string): Promise<string> => {
         if (!id) return '';
         const list = await getRegions();
@@ -372,12 +322,8 @@ const useAuth = () => {
         });
         if (!res.ok) {
             let msg = '';
-            try {
-                const data = await res.json();
-                msg = data?.message || '';
-            } catch {
-                msg = await res.text().catch(() => '');
-            }
+            try { const data = await res.json(); msg = data?.message || ''; }
+            catch { msg = await res.text().catch(() => ''); }
             const err = new Error(msg || `잠금 해제 요청 실패 (${res.status})`);
             (err as any).status = res.status;
             throw err;
@@ -393,10 +339,7 @@ const useAuth = () => {
         if (!res.ok) {
             let body: any = null;
             try { body = await res.json(); } catch {}
-            const msg =
-                body?.message ||
-                (await res.text().catch(() => '')) ||
-                `잠금 해제 검증 실패 (${res.status})`;
+            const msg = body?.message || (await res.text().catch(() => '')) || `잠금 해제 검증 실패 (${res.status})`;
             const err = new Error(msg);
             (err as any).status = res.status;
             (err as any).errorCode = body?.errorCode;
@@ -427,21 +370,14 @@ const useAuth = () => {
         bootstrap();
 
         const onStorage = (e: StorageEvent) => {
-            if (e.key === TOKEN_KEY) {
-                bootstrap();
-            }
-            if (e.key === REFRESH_KEY && !e.newValue) {
-                clearLocalAuth();
-            }
+            if (e.key === TOKEN_KEY) bootstrap();
+            if (e.key === REFRESH_KEY && !e.newValue) clearLocalAuth();
         };
 
-        const onAuthChanged = () => {
-            bootstrap();
-        };
+        const onAuthChanged = () => { bootstrap(); };
 
         window.addEventListener('storage', onStorage);
         window.addEventListener(AUTH_EVENT, onAuthChanged);
-
         return () => {
             window.removeEventListener('storage', onStorage);
             window.removeEventListener(AUTH_EVENT, onAuthChanged);
@@ -449,6 +385,38 @@ const useAuth = () => {
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    /** ✅ 임시 업로드: id + url 반환 */
+    const uploadTempUserImage = async (file: File): Promise<{ id: string; url: string }> => {
+        const tryUpload = async (field: 'files' | 'file') => {
+            const form = new FormData();
+            form.append(field, file, file.name);
+            const res = await fetch(TEMP_USER_IMAGE_ENDPOINT, { method: 'POST', body: form });
+            const bodyText = await res.text().catch(() => '');
+            if (!res.ok) {
+                if (res.status === 400 && /Unexpected field/i.test(bodyText)) {
+                    const err = new Error('UNEXPECTED_FIELD');
+                    (err as any).raw = bodyText;
+                    throw err;
+                }
+                throw new Error(bodyText || `임시 업로드 실패 (${res.status})`);
+            }
+            const data = bodyText ? JSON.parse(bodyText) : {};
+            const item = Array.isArray(data) ? data[0] : data;
+            const id = item?.id;
+            const url = item?.url || item?.tempUrl;
+            if (!id || !url) throw new Error('임시 업로드 응답에 id/url 없음');
+            console.log('[useAuth] temp uploaded:', { id, url });
+            return { id, url };
+        };
+
+        try {
+            return await tryUpload('files');
+        } catch (e: any) {
+            if (e?.message !== 'UNEXPECTED_FIELD') throw e;
+            return await tryUpload('file');
+        }
+    };
 
     const isAuthenticated = Boolean(accessToken);
 
@@ -464,15 +432,15 @@ const useAuth = () => {
         loginWithPassword,
         refreshAccessToken,
         getValidAccessToken,
-        registerUser,            // ✅ 이제 스코프에 존재함
+        registerUser,
 
         authFetch,
-
         getRegions,
         getRegionFullNameById,
-
         requestUnlock,
         verifyUnlock,
+
+        uploadTempUserImage,
     };
 };
 

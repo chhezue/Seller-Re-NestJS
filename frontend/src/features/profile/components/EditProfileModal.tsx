@@ -2,9 +2,15 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-    faUser, faPhone, faMapMarkerAlt, faIdBadge, faXmark, faLock
+    faUser,
+    faPhone,
+    faMapMarkerAlt,
+    faIdBadge,
+    faXmark,
+    faLock,
+    faRotateLeft,
 } from '@fortawesome/free-solid-svg-icons';
-import { toast } from 'react-toastify'; // 에러만 사용
+import { toast } from 'react-toastify';
 
 import '../../auth/components/RegisterPage.css';
 import useAuth, { RegionItem } from '../../auth/hooks/useAuth';
@@ -21,7 +27,6 @@ type Props = {
     closeOnBackdrop?: boolean;
 };
 
-// region_id(구/군 id)만 백엔드로 전달 + (비번 변경 시) password만
 type UpdateProfilePayloadWithRegion = UpdateProfilePayload & { region_id?: string };
 
 const EditProfileModal: React.FC<Props> = ({
@@ -32,40 +37,56 @@ const EditProfileModal: React.FC<Props> = ({
     onSave,
     closeOnBackdrop = true,
 }) => {
+    const { getRegions, uploadTempUserImage } = useAuth();
+
+    // 미리보기 URL (서버 URL 또는 blob URL)
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+    /**
+     * 이미지 변경 의도(3-상태):
+     *  - undefined: 변경 없음(서버로 profileImageId를 보내지 않음)
+     *  - string: 새 임시 업로드 파일 id → 교체
+     *  - null: 기존 이미지 삭제
+     */
+    const [tempProfileImageId, setTempProfileImageId] = useState<string | null | undefined>(undefined);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // 폼 상태
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState(''); // 읽기전용
     const [phone, setPhone] = useState('');
 
-    // 주소 표시 & 선택
-    const [region, setRegion] = useState<{ city: string; district: string; dong: string }>({ city: '', district: '', dong: '' });
+    const [region, setRegion] = useState<{ city: string; district: string; dong: string }>({
+        city: '',
+        district: '',
+        dong: '',
+    });
     const [regionModalOpen, setRegionModalOpen] = useState(false);
     const [selectedRegionNode, setSelectedRegionNode] = useState<RegionItem | null>(null);
     const [regionLoading, setRegionLoading] = useState(false);
 
-    // 비밀번호(선택) — 현재 비번 제거
     const [newPw, setNewPw] = useState('');
     const [confirmPw, setConfirmPw] = useState('');
     const [pwError, setPwError] = useState<string>('');
 
-    // 유효성
     const [errors, setErrors] = useState<{ [k: string]: boolean }>({});
 
-    // 변경내역 확인 팝업
     const [showConfirm, setShowConfirm] = useState(false);
     const [pendingPayload, setPendingPayload] = useState<UpdateProfilePayloadWithRegion | null>(null);
-    const [changes, setChanges] = useState<Array<{ key: string; before?: string; after?: string; info?: string }>>([]);
+    const [changes, setChanges] = useState<
+        Array<{ key: string; before?: string; after?: string; info?: string }>
+    >([]);
 
-    // 풀 네임 비교용 초기 지역 풀네임
     const [initialRegionFull, setInitialRegionFull] = useState<string>('');
 
-    // ESC 닫기
+    // ✅ 지역을 비우고 저장하려는 의도 플래그
+    const [regionCleared, setRegionCleared] = useState(false);
+
     useEffect(() => {
         if (!open) return;
-        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [open, onClose]);
@@ -86,21 +107,25 @@ const EditProfileModal: React.FC<Props> = ({
         setEmail(profile?.email ?? '');
         setPhone(profile?.phoneNumber ?? '');
 
-        const img = profile?.profileImage || '';
-        setPreviewImage(img || null);
+        // 기존 프로필 이미지 URL을 미리보기로 세팅
+        const imgUrl = profile?.profileImage || '';
+        setPreviewImage(imgUrl || null);
+
+        // 모달 열릴 때는 '변경 없음' 상태가 맞음
+        setTempProfileImageId(undefined);
 
         setRegion({ city: '', district: '', dong: '' });
         setSelectedRegionNode(null);
         setInitialRegionFull('');
+        setRegionCleared(false); // ✅ 초기화
     }, [open, profile]);
 
-    // 초기 표시용: 시/도 + 구/군 풀네임 구성
-    const { getRegions } = useAuth();
+    // region tree 준비
     const getRegionsRef = useRef(getRegions);
-    useEffect(() => { getRegionsRef.current = getRegions; }, [getRegions]);
+    useEffect(() => {
+        getRegionsRef.current = getRegions;
+    }, [getRegions]);
     const regionListCacheRef = useRef<RegionItem[] | null>(null);
-
-    // 트리(children)를 평면으로 펼치기
     const flattenRegionsTree = (list: RegionItem[]): RegionItem[] => {
         const flat: RegionItem[] = [];
         const stack: RegionItem[] = [...list];
@@ -116,6 +141,9 @@ const EditProfileModal: React.FC<Props> = ({
         if (!open) return;
 
         const regionId = profile?.region?.id ?? profile?.region_id ?? null;
+        the_const: {
+            /* no-op label for clarity */
+        }
         const districtNameFallback = profile?.region?.name ?? '';
 
         if (!regionId) {
@@ -131,17 +159,15 @@ const EditProfileModal: React.FC<Props> = ({
         (async () => {
             try {
                 setRegionLoading(true);
-
-                const raw = regionListCacheRef.current || await getRegionsRef.current();
+                const raw = regionListCacheRef.current || (await getRegionsRef.current());
                 if (cancelled) return;
                 regionListCacheRef.current = raw;
 
-                const flat = raw.some(n => Array.isArray(n.children) && n.children.length)
+                const flat = raw.some((n) => Array.isArray(n.children) && n.children.length)
                     ? flattenRegionsTree(raw)
                     : raw;
 
-                const node = flat.find(n => n.id === regionId) || null;
-
+                const node = flat.find((n) => n.id === regionId) || null;
                 if (!node) {
                     setRegion({ city: '', district: districtNameFallback, dong: '' });
                     setSelectedRegionNode(null);
@@ -150,46 +176,73 @@ const EditProfileModal: React.FC<Props> = ({
                 }
 
                 const parentId = node.parentId ?? null;
-                const parent = parentId ? flat.find(n => n.id === parentId) : undefined;
+                const parent = parentId ? flat.find((n) => n.id === parentId) : undefined;
                 const cityName = parent?.name ?? '';
 
                 setRegion({ city: cityName, district: node.name, dong: '' });
                 setSelectedRegionNode(node);
                 setInitialRegionFull(cityName ? `${cityName} ${node.name}` : node.name);
-            } catch {
-                const dn = districtNameFallback;
-                setRegion({ city: '', district: dn, dong: '' });
-                setSelectedRegionNode(null);
-                setInitialRegionFull(dn);
             } finally {
                 if (!cancelled) setRegionLoading(false);
             }
         })();
 
-        return () => { cancelled = true; };
-    }, [
-        open,
-        profile?.region?.id,
-        profile?.region_id,
-        profile?.region?.name,
-        profile?.region?.parentId,
-    ]);
+        return () => {
+            cancelled = true;
+        };
+    }, [open, profile?.region?.id, profile?.region_id, profile?.region?.name, profile?.region?.parentId]);
+
+    // 모달이 닫힐 때 blob URL 정리
+    useEffect(() => {
+        if (open) return;
+        if (previewImage && previewImage.startsWith('blob:')) {
+            URL.revokeObjectURL(previewImage);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     const onBlur = (field: string, value: string) => {
         setErrors((prev) => ({ ...prev, [field]: !value.trim() }));
     };
 
     const handleProfileClick = () => fileInputRef.current?.click();
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+    // 파일 선택 → 즉시 임시 업로드(id 확보) + 로컬(blob) 미리보기 유지
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onloadend = () => setPreviewImage(reader.result as string);
-            reader.readAsDataURL(file);
+        if (!file || !file.type.startsWith('image/')) return;
+
+        // 1) 이전 blob 미리보기 정리
+        if (previewImage && previewImage.startsWith('blob:')) {
+            URL.revokeObjectURL(previewImage);
+        }
+
+        // 2) 새 파일을 blob 미리보기로 표시 (서버 URL로 교체하지 않음)
+        const blobUrl = URL.createObjectURL(file);
+        setPreviewImage(blobUrl);
+
+        // 3) 백그라운드로 임시 업로드(id만 확보)
+        setUploadingAvatar(true);
+        try {
+            const { id /*, url*/ } = await uploadTempUserImage(file);
+            // preview는 blob 유지
+            setTempProfileImageId(id); // 교체 의도
+        } catch (err) {
+            console.error('[EditProfileModal] temp upload failed:', err);
+            toast.error('이미지 업로드에 실패했어요.');
+        } finally {
+            setUploadingAvatar(false);
+            if (e.target) e.target.value = ''; // 같은 파일 재선택 가능
         }
     };
+
     const handleDeleteProfileImage = () => {
+        if (previewImage && previewImage.startsWith('blob:')) {
+            URL.revokeObjectURL(previewImage);
+        }
         setPreviewImage(null);
+        // 삭제 의도(null)
+        setTempProfileImageId(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -201,10 +254,12 @@ const EditProfileModal: React.FC<Props> = ({
         return `${only.slice(0, 3)}-${only.slice(3, 7)}-${only.slice(7, 11)}`;
     };
 
-    // 비밀번호 검증: 새 비밀번호가 있으면 8자 이상 & 확인 일치만
     const validatePasswordBlock = () => {
         const anyTyped = newPw || confirmPw;
-        if (!anyTyped) { setPwError(''); return true; }
+        if (!anyTyped) {
+            setPwError('');
+            return true;
+        }
 
         if (!newPw.trim()) {
             setPwError('새 비밀번호를 입력해주세요.');
@@ -222,22 +277,18 @@ const EditProfileModal: React.FC<Props> = ({
         return true;
     };
 
-    // 휴대폰 11자리 숫자 검사
     const validatePhone = (v: string) => {
         const only = v.replace(/\D/g, '');
         return only.length === 11;
     };
 
-    // 1단계: 변경내역 팝업 띄우기 (지역 선택은 옵션)
+    // 1단계: 변경내역 팝업
     const handleOpenConfirm = (e: React.FormEvent) => {
         e.preventDefault();
-
-        const regionIdSelected = selectedRegionNode?.id || ''; // ✅ 선택한 경우에만 사용
 
         const nextErrors: { [k: string]: boolean } = {
             nickname: !username.trim(),
             phone: !phone.trim() || !validatePhone(phone),
-            // region: 선택 사항이므로 검증하지 않음
         };
         setErrors(nextErrors);
         if (nextErrors.phone) {
@@ -250,51 +301,74 @@ const EditProfileModal: React.FC<Props> = ({
         }
         if (!validatePasswordBlock()) return;
 
-        // region_id는 **선택 시에만** 포함
+        // 저장 페이로드(이미지는 profileImageId만 사용)
         const payload: UpdateProfilePayloadWithRegion = {
             username,
             phoneNumber: phone,
-            profileImage: previewImage ?? '',
-            ...(regionIdSelected ? { region_id: regionIdSelected } : {}),
             ...(newPw ? { password: newPw } : {}),
         };
 
-        // 변경내역 산출
-        const beforeRegion = initialRegionFull || profile?.region?.name || '';
-        const afterRegion = region.city && region.district ? `${region.city} ${region.district}` : (region.district || '');
+        // ✅ 지역 저장 규칙:
+        // - 초기화 눌렀으면 region_id를 ''(빈 문자열)로 보내 '삭제' 의도 전달
+        // - 아니면 선택된 region_id가 있을 때만 보냄 (없으면 미변경)
+        if (regionCleared) {
+            payload.region_id = '';
+        } else if (selectedRegionNode?.id) {
+            payload.region_id = selectedRegionNode.id;
+        }
 
-        const diff: Array<{ key: string; before?: string; after?: string; info?: string }> = [];
-        if (profile?.username !== username) diff.push({ key: '닉네임', before: profile?.username || '-', after: username || '-' });
-        if ((profile?.phoneNumber || '') !== (phone || '')) diff.push({ key: '연락처', before: profile?.phoneNumber || '-', after: phone || '-' });
-        if ((beforeRegion || '') !== (afterRegion || '')) diff.push({ key: '지역', before: beforeRegion || '-', after: afterRegion || '-' });
-        if (newPw) diff.push({ key: '비밀번호', info: '새 비밀번호로 변경' });
-        if ((profile?.profileImage || '') !== (previewImage || '')) diff.push({ key: '프로필 이미지', info: '이미지 변경' });
+        // 이미지 변경 의도 반영
+        if (typeof tempProfileImageId !== 'undefined') {
+            payload.profileImageId = tempProfileImageId; // string(교체) | null(삭제)
+        }
 
         setPendingPayload(payload);
+
+        // 변경내역 표시
+        const beforeRegion = initialRegionFull || profile?.region?.name || '';
+        const afterRegion =
+            regionCleared
+                ? ''
+                : (region.city && region.district ? `${region.city} ${region.district}` : region.district || '');
+
+        const diff: Array<{ key: string; before?: string; after?: string; info?: string }> = [];
+        if (profile?.username !== username)
+            diff.push({ key: '닉네임', before: profile?.username || '-', after: username || '-' });
+        if ((profile?.phoneNumber || '') !== (phone || ''))
+            diff.push({ key: '연락처', before: profile?.phoneNumber || '-', after: phone || '-' });
+        if ((beforeRegion || '') !== (afterRegion || ''))
+            diff.push({ key: '지역', before: beforeRegion || '-', after: (afterRegion || '-') });
+        if (newPw) diff.push({ key: '비밀번호', info: '새 비밀번호로 변경' });
+
+        if (typeof tempProfileImageId !== 'undefined') {
+            diff.push({ key: '프로필 이미지', info: tempProfileImageId === null ? '이미지 삭제' : '새 이미지로 변경' });
+        }
+
         setChanges(diff);
         setShowConfirm(true);
     };
 
-    // 백엔드 에러 메시지 → 사용자 친화적 문구
     const toFriendlyError = (err: any): string => {
         const raw = err?.message ?? err;
         try {
             const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
             if (typeof parsed?.message === 'string') return parsed.message;
             if (Array.isArray(parsed?.message) && parsed.message.length) return parsed.message[0];
-        } catch { /* ignore */ }
+        } catch {}
         if (typeof raw === 'string') return raw;
         return '수정에 실패했습니다.';
     };
 
-    // 2단계: 최종 저장
     const handleConfirmSave = async () => {
         if (!pendingPayload) return;
         try {
             const saved = await onSave(pendingPayload);
+            // 저장 성공 후 서버가 준 최종 URL로 동기화(선택적이지만 권장)
+            setPreviewImage(saved.profileImage || null);
+
             onSaved?.(saved);
             setShowConfirm(false);
-            onClose(); // ✅ 성공 토스트는 상위(UserProfile)에서 띄웁니다.
+            onClose();
         } catch (err: any) {
             const friendly = toFriendlyError(err);
             toast.error(friendly);
@@ -304,16 +378,13 @@ const EditProfileModal: React.FC<Props> = ({
     const handleClearRegion = () => {
         setRegion({ city: '', district: '', dong: '' });
         setSelectedRegionNode(null);
-        // 선택 사항이므로 에러 표시는 건들 필요 없음
+        setRegionCleared(true); // ✅ 빈값으로 저장할 의도
     };
 
     return (
         <>
             {open && (
-                <div
-                    className="region-backdrop"
-                    onClick={() => { if (closeOnBackdrop) onClose(); }}
-                >
+                <div className="region-backdrop" onClick={() => { if (closeOnBackdrop) onClose(); }}>
                     <div
                         className="region-dialog-popup"
                         onClick={(e) => e.stopPropagation()}
@@ -353,6 +424,10 @@ const EditProfileModal: React.FC<Props> = ({
                                                 </button>
                                             </div>
                                         )}
+
+                                        {uploadingAvatar && (
+                                            <div className="uploading-chip" aria-live="polite">업로드 중…</div>
+                                        )}
                                     </div>
 
                                     <p className="profile-label">프로필 이미지 변경</p>
@@ -367,7 +442,6 @@ const EditProfileModal: React.FC<Props> = ({
 
                                 {/* 수정 폼 */}
                                 <form className="form-list" onSubmit={handleOpenConfirm}>
-                                    {/* 닉네임 */}
                                     <div className="form-item">
                                         <FontAwesomeIcon icon={faIdBadge} className="input-icon" />
                                         <input
@@ -380,9 +454,7 @@ const EditProfileModal: React.FC<Props> = ({
                                             className={errors.nickname ? s.inputError : ''}
                                         />
                                     </div>
-                                    {errors.nickname && <p className={s.errorText}>닉네임은 필수 입력입니다.</p>}
 
-                                    {/* 전화번호 */}
                                     <div className="form-item">
                                         <FontAwesomeIcon icon={faPhone} className="input-icon" />
                                         <input
@@ -396,7 +468,6 @@ const EditProfileModal: React.FC<Props> = ({
                                         />
                                     </div>
 
-                                    {/* 주소 (선택) */}
                                     <div className="form-item address-search">
                                         <FontAwesomeIcon icon={faMapMarkerAlt} className="input-icon" />
                                         <div className="address-input-wrapper">
@@ -404,22 +475,38 @@ const EditProfileModal: React.FC<Props> = ({
                                                 type="text"
                                                 className="address-input"
                                                 placeholder="주소를 검색해주세요 (선택)"
-                                                value={regionLoading ? '주소 불러오는 중...' :
-                                                    (region.city && region.district ? `${region.city} ${region.district}` : (region.district || ''))}
+                                                value={
+                                                    regionLoading
+                                                        ? '주소 불러오는 중...'
+                                                        : regionCleared
+                                                            ? ''
+                                                            : (region.city && region.district
+                                                                ? `${region.city} ${region.district}`
+                                                                : (region.district || '')
+                                                            )
+                                                }
                                                 readOnly
                                             />
-                                            
                                             <button type="button" className="address-search-btn" onClick={() => setRegionModalOpen(true)}>
                                                 주소 찾기
                                             </button>
+                                            {(region.city || region.district || regionCleared) && (
+                                                <button
+                                                    type="button"
+                                                    className={s.addressClearBtn}
+                                                    onClick={handleClearRegion}
+                                                    title="주소 초기화"
+                                                >
+                                                    <FontAwesomeIcon icon={faRotateLeft} />
+                                                    초기화
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                    {/* ※ 지역은 선택 사항이므로 에러 메시지 출력 제거 */}
 
-                                    {/* 비밀번호 변경(선택) — 현재 비번 입력칸 제거 */}
-                                    <h4 className="pw-title" style={{ marginTop: 12, marginBottom: 6 }}>비밀번호 변경 (선택)</h4>
-
-                                    {/* 새 비밀번호 */}
+                                    <h4 className="pw-title" style={{ marginTop: 12, marginBottom: 6 }}>
+                                        비밀번호 변경 (선택)
+                                    </h4>
                                     <div className="form-item">
                                         <FontAwesomeIcon icon={faLock} className="input-icon" />
                                         <input
@@ -430,8 +517,6 @@ const EditProfileModal: React.FC<Props> = ({
                                             onChange={(e) => setNewPw(e.target.value)}
                                         />
                                     </div>
-
-                                    {/* 새 비밀번호 확인 */}
                                     <div className="form-item">
                                         <FontAwesomeIcon icon={faLock} className="input-icon" />
                                         <input
@@ -452,25 +537,37 @@ const EditProfileModal: React.FC<Props> = ({
                                     <input type="hidden" name="region_name" value={selectedRegionNode?.name ?? ''} />
                                     <input type="hidden" name="region_parent_id" value={selectedRegionNode?.parentId ?? ''} />
 
-                                    <button type="submit" className="register-button">수정하기</button>
+                                    <button type="submit" className="register-button" disabled={uploadingAvatar}>
+                                        수정하기
+                                    </button>
                                 </form>
                             </div>
                         </div>
 
-                        {/* 지역 선택 모달 */}
                         <RegionSelectModal
                             open={regionModalOpen}
                             onClose={() => setRegionModalOpen(false)}
                             onSelect={({ city, district }) => {
-                                setRegion({ city: city?.name ?? '', district: district?.name ?? '', dong: '' });
+                                setRegion({
+                                    city: city?.name ?? '',
+                                    district: district?.name ?? '',
+                                    dong: '',
+                                });
                                 setSelectedRegionNode(district);
+                                setRegionCleared(false); // ✅ 선택 시 초기화 해제
                             }}
                         />
                     </div>
 
                     {/* 변경내역 확인 팝업 */}
                     {showConfirm && (
-                        <div className={s.confirmBackdrop} onClick={() => setShowConfirm(false)}>
+                        <div
+                            className={s.confirmBackdrop}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowConfirm(false);
+                            }}
+                        >
                             <div className={s.confirmDialog} onClick={(e) => e.stopPropagation()}>
                                 <h3 className={s.confirmTitle}>수정 내용을 저장할까요?</h3>
                                 <p className={s.confirmText}>아래 변경 사항을 확인해 주세요.</p>
@@ -479,15 +576,21 @@ const EditProfileModal: React.FC<Props> = ({
                                     {changes.length === 0 ? (
                                         <div className={s.confirmRow}>
                                             <div className={s.confirmKey}>변경 사항</div>
-                                            <div className={s.confirmVals}><span className={s.badgeInfo}>변경된 항목이 없습니다</span></div>
+                                            <div className={s.confirmVals}>
+                                                <span className={s.badgeInfo}>변경된 항목이 없습니다</span>
+                                            </div>
                                         </div>
                                     ) : (
                                         changes.map((c, i) => (
                                             <div key={i} className={s.confirmRow}>
                                                 <div className={s.confirmKey}>{c.key}</div>
                                                 <div className={s.confirmVals}>
-                                                    {typeof c.before !== 'undefined' && <div className={s.diffBefore}>{c.before}</div>}
-                                                    {typeof c.after !== 'undefined' && <div className={s.diffAfter}>{c.after}</div>}
+                                                    {typeof c.before !== 'undefined' && (
+                                                        <div className={s.diffBefore}>{c.before}</div>
+                                                    )}
+                                                    {typeof c.after !== 'undefined' && (
+                                                        <div className={s.diffAfter}>{c.after}</div>
+                                                    )}
                                                     {c.info && <span className={s.badgeInfo}>{c.info}</span>}
                                                 </div>
                                             </div>
@@ -496,8 +599,16 @@ const EditProfileModal: React.FC<Props> = ({
                                 </div>
 
                                 <div className={s.confirmActions}>
-                                    <button type="button" className={`btn ${s.ghost}`} onClick={() => setShowConfirm(false)}>취소</button>
-                                    <button type="button" className="btn primary" onClick={handleConfirmSave}>저장</button>
+                                    <button
+                                        type="button"
+                                        className={`btn ${s.ghost}`}
+                                        onClick={() => setShowConfirm(false)}
+                                    >
+                                        취소
+                                    </button>
+                                    <button type="button" className="btn primary" onClick={handleConfirmSave}>
+                                        저장
+                                    </button>
                                 </div>
                             </div>
                         </div>

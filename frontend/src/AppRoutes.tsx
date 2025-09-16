@@ -10,6 +10,8 @@ import ProductDetailPage from './features/products/routes/ProductDetailPage';
 import UpdateProductPage from './features/products/routes/UpDateProductPage';
 import ProfilePage from './features/profile/routes/ProfilePage';
 import EditProfilePage from './features/profile/routes/EditProFilePage';
+import MySalesPage from './features/products/components/MySalesPage';
+import MyLikesPage from './features/products/components/MyLikesPage';
 
 const AppRoutes = () => {
     return (
@@ -21,6 +23,8 @@ const AppRoutes = () => {
             <Route path="/UpDateProductPage/:id" element={<UpdateProductPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/profile/edit" element={<EditProfilePage />} />
+            <Route path="/my-sales" element={<MySalesPage />} />
+            <Route path="/my-likes" element={<MyLikesPage />} />
 
             {/* 선택적으로 로그인/회원가입 경로 유지 */}
             <Route path="/login" element={<LoginPage />} />

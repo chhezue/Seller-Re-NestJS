@@ -258,3 +258,24 @@
 .shakeOnError {
     animation: shakeX 200ms ease-in-out;
 }
+
+.addressClearBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background .15s ease, box-shadow .15s ease, border-color .15s ease, transform .04s ease;
+}
+.addressClearBtn:hover { background: #f9fafb; }
+.addressClearBtn:active { transform: translateY(1px); }
+.addressClearBtn:focus-visible {
+    outline: none;
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+}

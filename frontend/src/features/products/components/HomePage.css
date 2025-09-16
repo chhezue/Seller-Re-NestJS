@@ -115,14 +115,14 @@ a {
 
 /* 제목 — 2줄 말줄임 */
 .truncate-text {
-  margin: 0;
-  display: block;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;   
-  font-size: 16px;
-  font-weight: 500;
+    margin: 0;
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;   
+    font-size: 16px;
+    font-weight: 500;
 }
 
 /* 가격 — 보라 톤 */

@@ -14,7 +14,6 @@ const App = () => {
 
       <main style={{
           minHeight: 'calc(100vh - 180px)'
-          //background: 'linear-gradient(135deg, #e8e8e8, #f4f4f4)'
         }}>
         <AppRoutes />
       </main>
