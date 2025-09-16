@@ -13,6 +13,7 @@
     "build:backend": "cd backend && npm run build",
     "start:frontend:dev": "cd frontend && npm run dev",
     "dev": "concurrently \"npm:start:backend:dev\" \"npm:start:frontend:dev\"",
+    "dev:backend": "concurrently \"npm:start:backend:dev\" \"./image-analysis/venv/bin/uvicorn image-analysis.main:app --reload --port 8001\"",
     "dev:hoo": "rimraf backend/dist && npm run dev"
   },
   "devDependencies": {

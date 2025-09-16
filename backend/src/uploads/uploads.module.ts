@@ -11,6 +11,8 @@ import { UploadsService } from './uploads.service';
 import { ProductImageModel } from './entity/product-image.entity';
 import { S3Service } from '../s3/s3.service';
 import { CleanupSchedule } from './schedule/cleanup.schedule';
+import { HttpModule } from '@nestjs/axios';
+import { CategoryModel } from '../common/entity/category.entity';
 
 export const TEMP_FOLDER_PATH = path.join(process.cwd(), 'uploads_temp');
 
@@ -22,14 +24,14 @@ if (!fs.existsSync(TEMP_FOLDER_PATH)) {
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([FileModel, ProductImageModel]),
+    HttpModule,
+    TypeOrmModule.forFeature([FileModel, ProductImageModel, CategoryModel]),
     MulterModule.register({
       storage: diskStorage({
         destination: (req, file, cb) => {
-          cb(null, TEMP_FOLDER_PATH); // 임시 저장 폴더
+          cb(null, TEMP_FOLDER_PATH);
         },
         filename: (req, file, cb) => {
-          // 한글 파일명 인코딩 문제 해결
           const decodedOriginalName = Buffer.from(
             file.originalname,
             'latin1',
@@ -37,25 +39,22 @@ if (!fs.existsSync(TEMP_FOLDER_PATH)) {
           const fileExtension = path.extname(decodedOriginalName);
           const uniqueFileName = `${uuid()}${fileExtension}`;
 
-          // 디코딩된 파일명을 originalname에 다시 할당 (DB 저장용)
           file.originalname = decodedOriginalName;
 
           cb(null, uniqueFileName);
         },
       }),
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10mb 제한
+      limits: { fileSize: 10 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
-        // 한글 파일명 인코딩 문제 해결
         file.originalname = Buffer.from(file.originalname, 'latin1').toString(
           'utf8',
         );
 
-        // Multer 단계에서 파일 타입 검증
         const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/jpg'];
         if (allowedMimeTypes.includes(file.mimetype)) {
-          cb(null, true); // 허용
+          cb(null, true);
         } else {
-          cb(new Error(`지원하지 않는 파일 형식: ${file.mimetype}`), false); // 거부
+          cb(new Error(`지원하지 않는 파일 형식: ${file.mimetype}`), false);
         }
       },
     }),
@@ -65,3 +64,4 @@ if (!fs.existsSync(TEMP_FOLDER_PATH)) {
   exports: [UploadsService, S3Service],
 })
 export class UploadsModule {}
+

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { UploadTempResponseDto } from './dto/upload-temp-response.dto';
@@ -7,14 +7,57 @@ import { ImageCommitDto } from './dto/image-commit.dto';
 import { S3Service } from '../s3/s3.service';
 import * as path from 'node:path';
 import { promises as fs } from 'fs';
+import { HttpService } from '@nestjs/axios';
+import { CategoryModel } from '../common/entity/category.entity';
+import { catchError, firstValueFrom } from 'rxjs';
+import { AxiosError } from 'axios';
+
+// 2차 분석을 위한 카테고리별 상세 품목 목록
+const subCategoryMap = {
+  디지털기기: ['스마트폰', '노트북', '태블릿', '카메라', '모니터', '키보드', '마우스', '오디오', '게임기'],
+  생활가전: ['냉장고', '세탁기', '에어컨', '청소기', '전자레인지', '밥솥', '공기청정기'],
+  '가구/인테리어': ['침대', '소파', '테이블', '의자', '서랍장', '조명', '인테리어 소품'],
+  '생활/주방': ['냄비', '그릇', '컵', '수저', '조리도구', '청소용품', '생활용품'],
+  유아동: ['장난감', '인형', '유아의류', '유모차', '카시트'],
+  여성의류: ['자켓', '블라우스', '티셔츠', '원피스', '스커트', '바지'],
+  여성잡화: ['가방', '신발', '지갑', '주얼리', '모자', '스카프'],
+  '남성패션/잡화': ['자켓', '셔츠', '티셔츠', '바지', '신발', '가방', '지갑'],
+  '뷰티/미용': ['스킨케어', '메이크업', '향수', '헤어용품', '네일'],
+  '스포츠/레저': ['운동복', '운동화', '자전거', '골프', '캠핑', '낚시', '등산'],
+  식물: ['화분', '관엽식물', '다육식물', '꽃'],
+  '취미/게임/음반': ['책', '음반', 'DVD', '게임타이틀', '피규어', '프라모델', '악기'],
+  도서: ['소설', '만화', '잡지', '전공서적', '자기계발서'],
+  '반려동물용품': ['사료', '간식', '장난감', '의류', '이동장'],
+};
 
 @Injectable()
 export class UploadsService {
+  private readonly analysisApiUrl = 'http://localhost:8001/analyze';
+
   constructor(
     private readonly s3Service: S3Service,
     @InjectRepository(FileModel)
     private readonly fileRepository: Repository<FileModel>,
+    @InjectRepository(CategoryModel)
+    private readonly categoryRepository: Repository<CategoryModel>,
+    private readonly httpService: HttpService,
   ) {}
+
+  private async analyzeImage(imagePath: string, labels: string[]): Promise<any> {
+    const { data } = await firstValueFrom(
+      this.httpService.post(this.analysisApiUrl, {
+        image_path: imagePath,
+        labels,
+      }).pipe(
+        catchError((error: AxiosError) => {
+          const errorData = error.response?.data || 'Unknown error';
+          console.error(`AI 서버 통신 오류: ${JSON.stringify(errorData)}`);
+          throw new InternalServerErrorException('AI 분석 서버와 통신하는 중 오류가 발생했습니다.');
+        }),
+      ),
+    );
+    return data;
+  }
 
   async uploadTempFiles(
     files: Array<Express.Multer.File>,
@@ -35,12 +78,60 @@ export class UploadsService {
       return this.fileRepository.save(newFile); // save는 프로미스 반환
     });
 
-    // Promise.all을 사용해 모든 저장 작업을 병렬로 실행하고 완료될 때까지 기다림.
     const savedFiles = await Promise.all(savedPromises);
 
     return savedFiles.map(
       (fileEntity) => new UploadTempResponseDto(fileEntity),
     );
+  }
+  
+  async uploadTempProductFiles(
+    files: Array<Express.Multer.File>,
+  ): Promise<UploadTempResponseDto[]> {
+    if (!files.length) {
+      throw new BadRequestException('파일이 제공되지 않았습니다.');
+    }
+
+    const savedPromises = files.map(async (file) => {
+      const newFile = this.fileRepository.create({
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        key: file.filename,
+        url: `/uploads_temp/${file.filename}`,
+        status: FileStatus.TEMPORARY,
+      });
+      const savedFile = await this.fileRepository.save(newFile);
+
+      let analysisResult: { category?: string; itemName?: string } = {};
+
+      try {
+        const imageFullPath = path.join(process.cwd(), 'backend', 'uploads_temp', savedFile.key);
+        
+        const allCategories = await this.categoryRepository.find();
+        const categoryLabels = allCategories.map(c => c.name);
+        
+        const categoryAnalysis = await this.analyzeImage(imageFullPath, categoryLabels);
+        const topCategory = categoryAnalysis.results[0]?.keyword;
+
+        if (topCategory) {
+          analysisResult.category = topCategory;
+
+          const subLabels = subCategoryMap[topCategory];
+          if (subLabels && subLabels.length > 0) {
+            const itemAnalysis = await this.analyzeImage(imageFullPath, subLabels);
+            const topItem = itemAnalysis.results[0]?.keyword;
+            analysisResult.itemName = topItem;
+          }
+        }
+      } catch (e) {
+        console.error(`이미지 분석 실패 (파일: ${file.filename}): ${e.message}`);
+      }
+
+      return new UploadTempResponseDto(savedFile, analysisResult);
+    });
+
+    return Promise.all(savedPromises);
   }
 
   async commitFiles(imageDtos: ImageCommitDto[]): Promise<FileModel[]> {
@@ -48,22 +139,18 @@ export class UploadsService {
       throw new BadRequestException('파일이 제공되지 않았습니다.');
     }
 
-    // 1. DTO 배열에서 fileId들만 호출
     const fileIds = imageDtos.map((image) => image.fileId);
 
-    // 2. In 연산자를 사용해 모든 파일 조회
     const files = await this.fileRepository.find({
       where: { id: In(fileIds) },
     });
 
-    // 3. 요청한 ID의 파일이 모두 DB에 존재하는지 확인
     if (files.length !== fileIds.length) {
       throw new BadRequestException(
         '존재하지 않는 파일 ID가 포함되어 있습니다.',
       );
     }
 
-    // 4. TEMPORARY 상태 확인
     files.forEach((file) => {
       if (file.status !== FileStatus.TEMPORARY) {
         throw new BadRequestException(
@@ -72,7 +159,6 @@ export class UploadsService {
       }
     });
 
-    // 5. 각 파일을 S3에 업로드하고 DB를 업데이트하는 작업을 병렬로 처리
     const uploadPromises = files.map(async (file) => {
       const localFilePath = path.join(process.cwd(), 'uploads_temp', file.key);
 
@@ -84,7 +170,6 @@ export class UploadsService {
           file.mimeType,
         );
 
-        // S3에 저장된 정보를 바탕으로 파일 엔티티 업데이트
         file.status = FileStatus.PERMANENT;
         file.url = s3Url;
 
@@ -105,7 +190,6 @@ export class UploadsService {
     const file = await this.fileRepository.findOneBy({ id: fileId });
 
     if (!file) {
-      //already deleted or invalid id.
       console.warn(
         `Attempted to delete a non-existent file with ID: ${fileId}`,
       );

@@ -15,19 +15,22 @@ export class UploadsController {
   constructor(private readonly uploadsService: UploadsService) {}
 
   @ApiOperation({
-    description: '파일을 uploads_temp에 저장하고 임시 경로를 반환',
+    description: '상품 이미지 임시 저장 및 AI 분석 실행',
   })
   @Post('/temp')
-  @UseInterceptors(FilesInterceptor('files', 5)) // form-data의 'file' 필드를 받음.
+  @UseInterceptors(FilesInterceptor('files', 5))
   async uploadTempFiles(
     @UploadedFiles() files: Array<Express.Multer.File>,
   ): Promise<UploadTempResponseDto[]> {
-    return await this.uploadsService.uploadTempFiles(files);
+    return await this.uploadsService.uploadTempProductFiles(files);
   }
 
+  @ApiOperation({
+    description: '사용자 프로필 이미지 임시 저장',
+  })
   @Post('/tempUserImage')
   @IsPublic()
-  @UseInterceptors(FilesInterceptor('files', 5)) // form-data의 'file' 필드를 받음.
+  @UseInterceptors(FilesInterceptor('files', 5))
   async uploadTempFilesForUserImage(
     @UploadedFiles() files: Array<Express.Multer.File>,
   ): Promise<UploadTempResponseDto[]> {
