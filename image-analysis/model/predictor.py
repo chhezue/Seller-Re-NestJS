@@ -25,8 +25,10 @@ def predict(image_path: str, labels: List[str]) -> List[Dict[str, any]]:
     except FileNotFoundError:
         raise FileNotFoundError(f"Image file not found at {image_path}")
 
+    # 프롬프트 엔지니어링: 각 레이블을 더 설명적인 문구로 변환
+    templated_labels = [f"a photo of a {label}" for label in labels]
     # 이미지와 텍스트(키워드)를 모델이 이해할 수 있는 형태로 전처리
-    inputs = processor(text=labels, images=image, return_tensors="pt", padding=True)
+    inputs = processor(text=templated_labels, images=image, return_tensors="pt", padding=True)
 
     # 모델을 통해 이미지와 텍스트 간의 관련성 점수(logits) 추론
     with torch.no_grad():

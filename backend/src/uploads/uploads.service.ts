@@ -12,23 +12,37 @@ import { CategoryModel } from '../common/entity/category.entity';
 import { catchError, firstValueFrom } from 'rxjs';
 import { AxiosError } from 'axios';
 
-// 2차 분석을 위한 카테고리별 상세 품목 목록
+// 1차 분석(카테고리)과 2차 분석(상세 품목)을 통합하여 정확도를 높이기 위한 새로운 상세 품목 목록
 const subCategoryMap = {
-  디지털기기: ['스마트폰', '노트북', '태블릿', '카메라', '모니터', '키보드', '마우스', '오디오', '게임기'],
-  생활가전: ['냉장고', '세탁기', '에어컨', '청소기', '전자레인지', '밥솥', '공기청정기'],
+  '디지털기기': ['스마트폰', '노트북', '태블릿', '카메라', '모니터', '키보드', '마우스', '오디오', '게임기'],
+  '생활가전': ['냉장고', '세탁기', '에어컨', '청소기', '전자레인지', '밥솥', '공기청정기'],
   '가구/인테리어': ['침대', '소파', '테이블', '의자', '서랍장', '조명', '인테리어 소품'],
   '생활/주방': ['냄비', '그릇', '컵', '수저', '조리도구', '청소용품', '생활용품'],
-  유아동: ['장난감', '인형', '유아의류', '유모차', '카시트'],
-  여성의류: ['자켓', '블라우스', '티셔츠', '원피스', '스커트', '바지'],
-  여성잡화: ['가방', '신발', '지갑', '주얼리', '모자', '스카프'],
+  '유아동': ['장난감', '인형', '유아의류', '유모차', '카시트'],
+  '유아도서': ['유아도서'],
+  '여성의류': ['자켓', '블라우스', '티셔츠', '원피스', '스커트', '바지'],
+  '여성잡화': ['가방', '신발', '지갑', '주얼리', '모자', '스카프'],
   '남성패션/잡화': ['자켓', '셔츠', '티셔츠', '바지', '신발', '가방', '지갑'],
   '뷰티/미용': ['스킨케어', '메이크업', '향수', '헤어용품', '네일'],
   '스포츠/레저': ['운동복', '운동화', '자전거', '골프', '캠핑', '낚시', '등산'],
-  식물: ['화분', '관엽식물', '다육식물', '꽃'],
+  '식물': ['화분', '관엽식물', '다육식물', '꽃'],
   '취미/게임/음반': ['책', '음반', 'DVD', '게임타이틀', '피규어', '프라모델', '악기'],
-  도서: ['소설', '만화', '잡지', '전공서적', '자기계발서'],
+  '도서': ['소설', '만화', '잡지', '전공서적', '자기계발서'],
+  '티켓/교환권': ['티켓', '교환권'],
+  '가공식품': ['가공식품'],
+  '건강기능식품': ['건강기능식품'],
   '반려동물용품': ['사료', '간식', '장난감', '의류', '이동장'],
+  '기타 중고물품': ['기타 중고물품'],
 };
+
+// 모든 소분류 아이템 리스트와 아이템-카테고리 역방향 맵 생성
+const allLabels = Object.values(subCategoryMap).flat();
+const itemToCategoryMap = Object.entries(subCategoryMap).reduce((acc, [category, items]) => {
+  items.forEach(item => {
+    acc[item] = category;
+  });
+  return acc;
+}, {});
 
 @Injectable()
 export class UploadsService {
@@ -107,22 +121,24 @@ export class UploadsService {
 
       try {
         const imageFullPath = path.join(process.cwd(), 'uploads_temp', savedFile.key);
-        
-        const allCategories = await this.categoryRepository.find();
-        const categoryLabels = allCategories.map(c => c.name);
-        
-        const categoryAnalysis = await this.analyzeImage(imageFullPath, categoryLabels);
-        const topCategory = categoryAnalysis.results[0]?.keyword;
 
-        if (topCategory) {
-          analysisResult.category = topCategory;
+        // 모든 소분류 아이템을 대상으로 단일 분석 수행
+        const itemAnalysis = await this.analyzeImage(imageFullPath, allLabels);
 
-          const subLabels = subCategoryMap[topCategory];
-          if (subLabels && subLabels.length > 0) {
-            const itemAnalysis = await this.analyzeImage(imageFullPath, subLabels);
-            const topItem = itemAnalysis.results[0]?.keyword;
-            analysisResult.itemName = topItem;
-          }
+        // 분석 결과 로그 기록 (상위 5개)
+        console.log(`--- 이미지 분석 결과 (파일: ${file.filename}) ---`);
+        itemAnalysis.results.slice(0, 5).forEach(result => {
+          const percentage = (result.probability * 100).toFixed(2);
+          console.log(`- ${result.keyword}: ${percentage}%`);
+        });
+        console.log('-------------------------------------------');
+
+        const topItem = itemAnalysis.results[0]?.keyword;
+
+        if (topItem) {
+          // 결과에서 대분류와 소분류(아이템명) 설정
+          analysisResult.category = itemToCategoryMap[topItem];
+          analysisResult.itemName = topItem;
         }
       } catch (e) {
         console.error(`이미지 분석 실패 (파일: ${file.filename}): ${e.message}`);
