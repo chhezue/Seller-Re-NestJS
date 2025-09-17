@@ -3,16 +3,17 @@ import torch
 from .loader import get_model, get_processor
 from typing import List, Dict
 
-def predict(image_path: str, labels: List[str]) -> List[Dict[str, any]]:
+def predict(image_path: str, labels: List[str] = None) -> List[Dict[str, any]]:
     """
-    주어진 이미지 경로와 레이블 목록을 기반으로 분석을 수행합니다.
+    주어진 이미지 경로를 기반으로 이미지 분류를 수행합니다.
+    'labels' 인자는 더 이상 사용되지 않지만 API 호환성을 위해 유지됩니다.
 
     Args:
         image_path (str): 분석할 이미지의 파일 경로.
-        labels (List[str]): 후보 키워드 목록.
+        labels (List[str], optional): 무시됩니다. Defaults to None.
 
     Returns:
-        List[Dict[str, any]]: 키워드와 확률을 담은 딕셔너리 리스트.
+        List[Dict[str, any]]: 상위 5개 예측 키워드와 확률을 담은 딕셔너리 리스트.
     """
     model = get_model()
     processor = get_processor()
@@ -25,23 +26,26 @@ def predict(image_path: str, labels: List[str]) -> List[Dict[str, any]]:
     except FileNotFoundError:
         raise FileNotFoundError(f"Image file not found at {image_path}")
 
-    # 프롬프트 엔지니어링: 각 레이블을 더 설명적인 문구로 변환
-    templated_labels = [f"a photo of a {label}" for label in labels]
-    # 이미지와 텍스트(키워드)를 모델이 이해할 수 있는 형태로 전처리
-    inputs = processor(text=templated_labels, images=image, return_tensors="pt", padding=True)
+    # 이미지를 모델이 이해할 수 있는 형태로 전처리
+    inputs = processor(images=image, return_tensors="pt")
 
-    # 모델을 통해 이미지와 텍스트 간의 관련성 점수(logits) 추론
+    # 모델을 통해 예측 수행
     with torch.no_grad():
         outputs = model(**inputs)
     
-    logits_per_image = outputs.logits_per_image
-    # 점수를 확률로 변환
-    probs = logits_per_image.softmax(dim=1)
-
-    # 각 키워드와 확률을 짝지어 리스트 생성
-    results = [{"keyword": label, "probability": prob.item()} for label, prob in zip(labels, probs[0])]
+    logits = outputs.logits
     
-    # 확률이 높은 순으로 정렬
-    sorted_results = sorted(results, key=lambda x: x["probability"], reverse=True)
+    # 로짓을 확률로 변환
+    probabilities = torch.nn.functional.softmax(logits, dim=-1)[0]
     
-    return sorted_results
+    # 상위 5개 예측 추출
+    top5_probs, top5_indices = torch.topk(probabilities, 5)
+    
+    results = []
+    for i in range(top5_probs.size(0)):
+        prob = top5_probs[i].item()
+        idx = top5_indices[i].item()
+        keyword = model.config.id2label[idx]
+        results.append({"keyword": keyword, "probability": prob})
+        
+    return results

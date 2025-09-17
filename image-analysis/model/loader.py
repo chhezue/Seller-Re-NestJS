@@ -1,4 +1,4 @@
-from transformers import CLIPProcessor, CLIPModel
+from transformers import ViTImageProcessor, ViTForImageClassification
 import torch
 
 # 모델과 프로세서를 담을 변수. 서버 전체에서 공유됩니다.
@@ -13,11 +13,11 @@ def load_model():
     global model, processor
     
     # 사용할 모델 이름
-    model_name = "openai/clip-vit-large-patch14"
+    model_name = "google/vit-base-patch16-224"
     
     print(f"Loading model: {model_name}...")
-    model = CLIPModel.from_pretrained(model_name)
-    processor = CLIPProcessor.from_pretrained(model_name)
+    model = ViTForImageClassification.from_pretrained(model_name)
+    processor = ViTImageProcessor.from_pretrained(model_name)
     print("Model loaded successfully.")
 
 def get_model():
