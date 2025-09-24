@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="WEB_MODULE" version="4">
+  <component name="FacetManager">
+    <facet type="Python" name="Python facet">
+      <configuration sdkName="Python 3.13 virtualenv at ~/WebstormProjects/Seller-Re-NestJS/service-ai-python/venv" />
+    </facet>
+  </component>
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
       <excludeFolder url="file://$MODULE_DIR$/.tmp" />
       <excludeFolder url="file://$MODULE_DIR$/temp" />
       <excludeFolder url="file://$MODULE_DIR$/tmp" />
+      <excludeFolder url="file://$MODULE_DIR$/service-ai-python/venv/bin/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/service-ai-python/venv/lib/python3.13/.venv" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="Python 3.13 virtualenv at ~/WebstormProjects/Seller-Re-NestJS/service-ai-python/venv interpreter library" level="application" />
   </component>
 </module>

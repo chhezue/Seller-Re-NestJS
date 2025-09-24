@@ -17,6 +17,7 @@ import { LikesModule } from './likes/likes.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { addTransactionalDataSource } from 'typeorm-transactional';
 import { DataSource } from 'typeorm';
+import { HttpModule } from '@nestjs/axios';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { DataSource } from 'typeorm';
     S3Module,
     ScheduleModule.forRoot(),
     LikesModule,
+    HttpModule,
   ],
   controllers: [AppController],
   providers: [
