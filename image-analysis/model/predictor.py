@@ -38,13 +38,17 @@ def predict(image_path: str, labels: List[str] = None) -> List[Dict[str, any]]:
     # 로짓을 확률로 변환
     probabilities = torch.nn.functional.softmax(logits, dim=-1)[0]
     
-    # 상위 5개 예측 추출
-    top5_probs, top5_indices = torch.topk(probabilities, 5)
+    # Determine the number of top results to return, ensuring it doesn't exceed the number of classes
+    num_classes = len(model.config.id2label)
+    k = min(5, num_classes)
+    
+    # Get the top k predictions
+    topk_probs, topk_indices = torch.topk(probabilities, k)
     
     results = []
-    for i in range(top5_probs.size(0)):
-        prob = top5_probs[i].item()
-        idx = top5_indices[i].item()
+    for i in range(topk_probs.size(0)):
+        prob = topk_probs[i].item()
+        idx = topk_indices[i].item()
         keyword = model.config.id2label[idx]
         results.append({"keyword": keyword, "probability": prob})
         

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUrl, IsUUID } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUrl, IsUUID } from 'class-validator';
 import { FileModel } from '../entity/file.entity';
 
 // 임시 업로드 API의 응답 형식을 정의하는 DTO
@@ -24,11 +24,17 @@ export class UploadTempResponseDto {
   @IsString()
   @IsOptional()
   itemName?: string;
+  
+  @ApiProperty({ description: 'AI 분석 정확도', required: false })
+  @IsNumber()
+  @IsOptional()
+  probability?: number;
 
-  constructor(file: FileModel, analysisResult?: { category?: string; itemName?: string }) {
+  constructor(file: FileModel, analysisResult?: { category?: string; itemName?: string, probability?: number }) {
     this.id = file.id;
     this.tempUrl = file.url;
     this.category = analysisResult?.category;
     this.itemName = analysisResult?.itemName;
+    this.probability = analysisResult?.probability;
   }
 }

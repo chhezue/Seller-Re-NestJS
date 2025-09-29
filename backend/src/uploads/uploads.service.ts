@@ -117,7 +117,7 @@ export class UploadsService {
       });
       const savedFile = await this.fileRepository.save(newFile);
 
-      let analysisResult: { category?: string; itemName?: string } = {};
+      let analysisResult: { category?: string; itemName?: string, probability?: number } = {};
 
       try {
         const imageFullPath = path.join(process.cwd(), 'uploads_temp', savedFile.key);
@@ -133,12 +133,13 @@ export class UploadsService {
         });
         console.log('-------------------------------------------');
 
-        const topItem = itemAnalysis.results[0]?.keyword;
+        const topResult = itemAnalysis.results[0];
 
-        if (topItem) {
+        if (topResult) {
           // 결과에서 대분류와 소분류(아이템명) 설정
-          analysisResult.category = itemToCategoryMap[topItem];
-          analysisResult.itemName = topItem;
+          analysisResult.category = itemToCategoryMap[topResult.keyword];
+          analysisResult.itemName = topResult.keyword;
+          analysisResult.probability = topResult.probability;
         }
       } catch (e) {
         console.error(`이미지 분석 실패 (파일: ${file.filename}): ${e.message}`);

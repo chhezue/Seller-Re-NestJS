@@ -14,7 +14,7 @@ import evaluate # 'datasets.load_metric' 대신 'evaluate' 사용
 # 사용자가 수정해야 할 부분
 # -----------------------------------
 # 데이터셋 경로 (train/validation 폴더가 있는 상위 폴더)
-DATASET_PATH = "image-analysis/dataset"
+DATASET_PATH = "image-analysis/temp_dataset"
 # 파인튜닝된 모델이 저장될 경로
 MODEL_OUTPUT_PATH = "image-analysis/my_custom_model"
 # 기반으로 할 사전학습 모델
@@ -61,9 +61,11 @@ def main():
         return inputs
 
     print("데이터셋을 로딩하고 전처리를 적용합니다...")
-    dataset = load_dataset("imagefolder", data_dir=DATASET_PATH)
-    train_dataset = dataset["train"].with_transform(transform)
-    eval_dataset = dataset["validation"].with_transform(transform)
+    train_dataset = load_dataset("imagefolder", data_dir=os.path.join(DATASET_PATH, "train"))["train"]
+    eval_dataset = load_dataset("imagefolder", data_dir=os.path.join(DATASET_PATH, "validation"))["train"]
+
+    train_dataset = train_dataset.with_transform(transform)
+    eval_dataset = eval_dataset.with_transform(transform)
     
     print("\n로드된 데이터셋 정보:")
     print(train_dataset)
@@ -93,12 +95,8 @@ def main():
         output_dir=MODEL_OUTPUT_PATH,
         num_train_epochs=NUM_TRAIN_EPOCHS,
         learning_rate=LEARNING_RATE,
-        per_device_train_batch_size=PER_DEVICE_TRAIN_BATCH_SIZE,
         per_device_eval_batch_size=PER_DEVICE_EVAL_BATCH_SIZE,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
-        load_best_model_at_end=True,
-        metric_for_best_model="accuracy",
+
         logging_dir=f"{MODEL_OUTPUT_PATH}/logs",
         remove_unused_columns=False,
     )

@@ -13,7 +13,7 @@ def load_model():
     global model, processor
     
     # 사용할 모델 이름
-    model_name = "image-analysis/my_custom_model" # 파인튜닝된 모델의 경로
+    model_name = "my_custom_model" # 파인튜닝된 모델의 경로
     
     print(f"Loading model: {model_name}...")
     model = ViTForImageClassification.from_pretrained(model_name)

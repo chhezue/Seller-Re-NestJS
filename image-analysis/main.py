@@ -1,9 +1,13 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from .schemas import AnalysisRequest, AnalysisResponse, AnalysisResult
-from .model.loader import load_model
-from .model.predictor import predict
+from schemas import AnalysisRequest, AnalysisResponse, AnalysisResult
+from model.loader import load_model
+from model.predictor import predict
 import json
 
 # 서버 시작/종료 시 수행할 작업을 정의합니다.
