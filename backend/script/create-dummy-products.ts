@@ -88,7 +88,7 @@ async function bootstrap() {
       PRODUCT_CONDITION.FOR_PARTS,
     ];
 
-    const numberOfProducts = 30; // 생성할 더미 데이터 개수
+    const numberOfProducts = 10; // 생성할 더미 데이터 개수
 
     for (let i = 1; i <= numberOfProducts; i++) {
       // 순차적으로 사용자 선택 (모든 사용자가 골고루 상품을 가지도록)

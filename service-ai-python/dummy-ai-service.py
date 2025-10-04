@@ -79,7 +79,10 @@ def generate_creative_text(category: str):
 반드시 아래 형식에 맞는 유효한 JSON 객체만 응답해야 합니다. 다른 설명은 절대 추가하지 마세요.
 {{
   "title": "브랜드와 모델명이 포함된 구체적인 상품명 (25자 이내)",
-  "description": "실제 중고거래처럼 자연스러운 문체로 작성된 상품 설명 (3~4문장)"
+  "description": "실제 중고거래처럼 자연스러운 문체로 작성된 상품 설명 (3~4문장)",
+  "image_keywords": [
+    "Unsplash에서 검색할, 이 상품을 대표하는 일반적인 영어 키워드 3개 (예: 'smartphone screen', 'white sneakers', 'leather wallet')"
+  ]
 }}
 """
 
@@ -116,12 +119,13 @@ def generate_creative_text(category: str):
             parsed = json.loads(json_string)
             title = parsed.get("title", f"멋진 {category} 상품")
             description = parsed.get("description", f"품질 좋은 {category}입니다.")
+            image_keywords = parsed.get("image_keywords", [category]) # 실패 시 카테고리명 사용
             print(f"✅ [Groq] JSON 파싱 성공 - 제품: {title}")
 
             title = clean_text(title, max_sentences=1)
             description = clean_text(description, max_sentences=4)
 
-            return title, description
+            return title, description, image_keywords
 
         except json.JSONDecodeError as je:
             print(f"❌ [Groq] JSON 파싱 실패: {je}")
@@ -133,25 +137,11 @@ def generate_creative_text(category: str):
         return "API 호출 실패", "AI 서버에 연결하는 중 문제가 발생했습니다."
 
 
-def search_images(title: str, category: str):
-    """Unsplash에서 상품명과 카테고리를 이용해 관련 이미지를 단계별로 검색합니다."""
+def search_images(keywords: list[str]):
+    """Unsplash에서 키워드 목록을 이용해 관련 이미지를 검색합니다."""
 
-    KOR_TO_ENG_CATEGORY = {
-        "티켓/교환권": "ticket voucher", "디지털기기": "digital device", "생활가전": "home appliance",
-        "가구/인테리어": "furniture interior", "여성의류": "women's clothing", "여성잡화": "women's accessories",
-        "남성패션/잡화": "men's fashion", "스포츠/레저": "sports leisure", "취미/게임/음반": "hobby game music",
-        "도서": "books", "뷰티/미용": "beauty cosmetics", "유아동": "kids items",
-        "유아도서": "children's book", "생활/주방": "kitchenware", "식물": "plant",
-        "가공식품": "processed food", "건강기능식품": "health supplement", "반려동물용품": "pet supplies",
-        "기타 중고물품": "used goods"
-    }
-    english_category = KOR_TO_ENG_CATEGORY.get(category, "product")
-
-    # 1. AI가 생성한 제목으로 먼저 검색 -> 2. 실패 시 영어 카테고리명으로 검색
-    search_queries = [
-        f"product shot of {title}",
-        english_category
-    ]
+    # AI가 생성한 키워드로 순차적으로 검색
+    search_queries = keywords
 
     for query in search_queries:
         params = {
@@ -198,11 +188,12 @@ def generate_product_data():
 
     category = data['category']
 
-    title, description = generate_creative_text(category)
+    title, description, image_keywords = generate_creative_text(category)
+    image_urls = search_images(keywords=image_keywords)
 
     # AI 생성 실패 시 title 대신 category를 검색어로 사용
-    search_title = title if "실패" not in title else category
-    image_urls = search_images(title=search_title, category=category)
+    # search_title = title if "실패" not in title else category
+    # image_urls = search_images(title=search_title, category=category)
 
     response_data = {
         "name": title,
