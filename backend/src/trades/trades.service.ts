@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UsersModel } from '../users/entity/users.entity';
@@ -16,11 +20,42 @@ export class TradesService {
     private readonly productService: ProductService,
   ) {}
 
-  async getTrade(id: string): Promise<TradeModel> {
-    return await this.tradeRepository.findOne({
-      where: { id },
+  async getReceivedTrades(
+    productId: string,
+    user: UsersModel,
+  ): Promise<TradeModel[]> {
+    return await this.tradeRepository.find({
+      where: {
+        owner: { id: user.id },
+        product: { id: productId },
+      },
       relations: ['product', 'owner', 'requester'],
     });
+  }
+
+  async getTradeById(id: string, user: UsersModel): Promise<TradeModel> {
+    const userId = user.id;
+    const trade = await this.tradeRepository.findOne({
+      where: { id },
+      relations: {
+        product: true,
+        owner: true,
+        requester: true,
+      },
+    });
+
+    if (!trade) {
+      throw new NotFoundException('해당 거래를 찾을 수 없습니다.');
+    }
+
+    const isOwner = trade.owner.id === userId;
+    const isRequester = trade.requester.id === userId;
+
+    if (!isOwner && !isRequester) {
+      throw new ForbiddenException('이 거래를 조회할 권한이 없습니다.');
+    }
+
+    return trade;
   }
 
   async createBuy(
@@ -42,7 +77,7 @@ export class TradesService {
       status: TRADE_REQUEST_STATUS.PENDING,
     });
 
-    return await this.getTrade(newTrade.id);
+    return await this.getTradeById(newTrade.id, user);
   }
 
   async createOffer(
@@ -64,6 +99,6 @@ export class TradesService {
       status: TRADE_REQUEST_STATUS.PENDING,
     });
 
-    return await this.getTrade(newTrade.id);
+    return await this.getTradeById(newTrade.id, user);
   }
 }

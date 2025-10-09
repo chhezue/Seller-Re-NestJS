@@ -27,7 +27,7 @@ export class ProductOwnerGuard implements CanActivate {
 
     if (!isOwner) {
       throw new ForbiddenException(
-        '해당 상품에 대한 수정/삭제 권한이 없습니다.',
+        '해당 상품에 대한 조회/수정/삭제 권한이 없습니다.',
       );
     }
 
