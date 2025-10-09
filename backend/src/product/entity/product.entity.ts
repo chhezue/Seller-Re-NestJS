@@ -65,4 +65,7 @@ export class ProductModel extends BaseModel {
 
   @Column({ default: false })
   isDeleted: boolean;
+
+  @Column({ default: '직거래 장소 미정' })
+  meetingLocation: string; // 거래 장소
 }

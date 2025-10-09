@@ -62,4 +62,9 @@ export class CreateProductDto {
   @ValidateNested({ each: true })
   @Type(() => ImageCommitDto)
   images: ImageCommitDto[];
+
+  @ApiProperty({ description: '거래 장소' })
+  @IsString()
+  @IsNotEmpty()
+  meetingLocation: string;
 }

@@ -39,12 +39,9 @@ export class TradeModel extends BaseModel {
   @Column({ type: 'enum', enum: TRADE_METHOD })
   tradeMethod: TRADE_METHOD; // 거래 방법 (직거래/택배)
 
-  @Column({ type: 'text' })
-  message: string; // 거래 요청 메시지
+  @Column({ type: 'text', nullable: true })
+  message?: string; // 거래 요청 메시지
 
-  @Column({ type: 'timestamp', nullable: true })
-  preferredDateTime?: Date; // 희망 거래 일시
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  meetingLocation?: string; // 거래 장소 (직거래일 때만 사용)
+  @Column({ type: 'boolean', nullable: true })
+  isTodayDepositAvailable?: boolean; // 오늘 입금 가능 여부 (BUY 타입일 때만 사용)
 }

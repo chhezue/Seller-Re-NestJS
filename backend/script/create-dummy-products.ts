@@ -139,6 +139,7 @@ async function bootstrap() {
         condition: conditions[Math.floor(Math.random() * conditions.length)],
         images: images,
         isDeleted: false,
+        meetingLocation: selectedUser.region?.name || '지역 정보 없음',
       };
 
       // 거래 타입에 따른 조건부 필드 설정
