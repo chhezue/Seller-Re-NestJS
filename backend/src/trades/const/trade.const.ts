@@ -2,8 +2,6 @@ export enum TRADE_REQUEST_STATUS {
   PENDING = 'PENDING', // 대기 중
   ACCEPTED = 'ACCEPTED', // 수락됨
   REJECTED = 'REJECTED', // 거절됨
-  CANCELLED = 'CANCELLED', // 취소됨
-  COMPLETED = 'COMPLETED', // 완료됨
 }
 
 // 거래 요청 타입

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation } from '@nestjs/swagger';
 import { User } from '../users/decorator/user.decorator';
 import { UsersModel } from '../users/entity/users.entity';
@@ -6,6 +14,7 @@ import { CreateBuyDto } from './dto/create-buy.dto';
 import { TradesService } from './trades.service';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { ProductOwnerGuard } from '../product/guard/product-owner.guard';
+import { UpdateTradeStatusDto } from './dto/update-trade-status.dto';
 
 @Controller('trades')
 export class TradesController {
@@ -46,5 +55,15 @@ export class TradesController {
     @User() user: UsersModel,
   ) {
     return await this.tradesService.createOffer(createOfferDto, user);
+  }
+
+  @ApiOperation({ description: '거래 요청 수락/거절' })
+  @UseGuards(ProductOwnerGuard)
+  @Patch('/:tradeId/status')
+  async updateTradeStatus(
+    @Param('tradeId') tradeId: string,
+    @Body() updateDto: UpdateTradeStatusDto,
+  ) {
+    return this.tradesService.updateTradeStatus(tradeId, updateDto);
   }
 }

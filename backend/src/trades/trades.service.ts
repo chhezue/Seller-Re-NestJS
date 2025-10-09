@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -11,6 +12,7 @@ import { TRADE_REQUEST_STATUS, TRADE_REQUEST_TYPE } from './const/trade.const';
 import { CreateOfferDto } from './dto/create-offer.dto';
 import { TradeModel } from './entity/trade.entity';
 import { CreateBuyDto } from './dto/create-buy.dto';
+import { UpdateTradeStatusDto } from './dto/update-trade-status.dto';
 
 @Injectable()
 export class TradesService {
@@ -100,5 +102,26 @@ export class TradesService {
     });
 
     return await this.getTradeById(newTrade.id, user);
+  }
+
+  async updateTradeStatus(tradeId: string, updateDto: UpdateTradeStatusDto) {
+    const trade = await this.tradeRepository.findOne({
+      where: { id: tradeId },
+    });
+
+    if (!trade) {
+      throw new NotFoundException('해당 거래를 찾을 수 없습니다.');
+    }
+
+    // PENDING 상태일 때만 변경 가능하도록 제한
+    if (trade.status !== TRADE_REQUEST_STATUS.PENDING) {
+      throw new BadRequestException(
+        '대기 상태의 거래만 수락 또는 거절할 수 있습니다.',
+      );
+    }
+
+    // 4. 상태 업데이트 및 저장
+    trade.status = updateDto.status;
+    return await this.tradeRepository.save(trade);
   }
 }
