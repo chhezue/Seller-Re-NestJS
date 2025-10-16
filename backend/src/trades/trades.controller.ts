@@ -40,7 +40,7 @@ export class TradesController {
   }
 
   @ApiOperation({ description: '신규 거래 요청' })
-  @Post()
+  @Post('/buy')
   async createBuy(
     @Body() createBuyDto: CreateBuyDto,
     @User() user: UsersModel,
@@ -49,7 +49,7 @@ export class TradesController {
   }
 
   @ApiOperation({ description: '신규 가격 제안' })
-  @Post()
+  @Post('/offer')
   async createOffer(
     @Body() createOfferDto: CreateOfferDto,
     @User() user: UsersModel,

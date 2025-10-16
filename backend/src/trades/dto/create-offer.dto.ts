@@ -7,5 +7,5 @@ export class CreateOfferDto extends BaseTradeDto {
   @IsNumber()
   @Min(0)
   @IsNotEmpty()
-  offerPrice: number; // 이제 이 필드는 항상 필수입니다.
+  offerPrice: number;
 }
