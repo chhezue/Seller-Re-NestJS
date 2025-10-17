@@ -2,30 +2,16 @@ import os
 import json
 import re
 import requests
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ---------------------------------
-# 설정 (Configuration)
-# ---------------------------------
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-
 UNSPLASH_ACCESS_KEY = os.environ.get('UNSPLASH_ACCESS_KEY')
 UNSPLASH_API_URL = "https://api.unsplash.com/search/photos"
 
-# Flask 앱 초기화
-app = Flask(__name__)
-CORS(app)
-
-# ---------------------------------
-# 유틸 함수 (Utility Functions)
-# ---------------------------------
 def clean_text(text: str, max_sentences: int = 1) -> str:
-    """간단한 텍스트 후처리: 줄바꿈 제거 및 문장 수 제한"""
     text = re.sub(r"\s+", " ", text).strip()
     sentences = re.split(r'(?<=[.!?])\s+', text)
     limited_sentences = sentences[:max_sentences]
@@ -34,12 +20,7 @@ def clean_text(text: str, max_sentences: int = 1) -> str:
         result += "."
     return result
 
-# ---------------------------------
-# 핵심 로직 (Core Logic)
-# ---------------------------------
-def generate_creative_text(category: str):
-    """카테고리를 기반으로 제품명과 설명을 생성 (Groq API 활용)."""
-
+def _generate_creative_text(category: str):
     category_examples = {
         "티켓/교환권": "에버랜드 자유이용권, CGV 영화관람권, 스파랜드 입욕권",
         "디지털기기": "아이폰 14 프로, 갤럭시 S23, 아이패드 에어, 맥북 프로",
@@ -66,15 +47,12 @@ def generate_creative_text(category: str):
     prompt = f"""
 [역할] 당신은 한국 중고거래 앱에 올릴 현실적인 더미 데이터를 생성하는 AI입니다.
 [목표] 주어진 카테고리에 맞는, 실제 사용자가 작성한 듯한 자연스러운 상품명과 설명을 생성합니다.
-
 [카테고리]: {category}
 [참고 예시]: {examples_text}
-
 [중요 지침]
 - 위 예시를 참고하여, 해당 카테고리에 맞는 **다른** 구체적인 상품을 하나 창작하세요.
 - 실제 존재하는 브랜드와 모델명을 사용하되, 예시와 겹치지 않게 만드세요.
 - 설명은 상태, 구성품, 사용감, 판매 이유 등을 자연스럽게 포함하여 3~4문장으로 작성하세요.
-
 [출력 형식]
 반드시 아래 형식에 맞는 유효한 JSON 객체만 응답해야 합니다. 다른 설명은 절대 추가하지 마세요.
 {{
@@ -85,7 +63,6 @@ def generate_creative_text(category: str):
   ]
 }}
 """
-
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
@@ -97,7 +74,6 @@ def generate_creative_text(category: str):
         "temperature": 0.8,
         "top_p": 0.9,
     }
-
     try:
         print(f"🤖 [Groq] '{category}' 데이터 생성 요청...")
         response = requests.post(GROQ_API_URL, headers=headers, json=body, timeout=20)
@@ -106,43 +82,31 @@ def generate_creative_text(category: str):
 
         content = result["choices"][0]["message"]["content"].strip()
         print(f"✅ [Groq] 응답 수신 완료.")
-
         json_match = re.search(r'\{[\s\S]*\}', content)
 
         if not json_match:
             print(f"❌ [Groq] 응답에서 JSON 객체를 찾지 못했습니다. Content: {content}")
-            return "모델 응답 오류", "AI가 유효한 형식의 응답을 생성하지 못했습니다."
-
+            return "모델 응답 오류", "AI가 유효한 형식의 응답을 생성하지 못했습니다.", [category]
         json_string = json_match.group(0)
-
         try:
             parsed = json.loads(json_string)
             title = parsed.get("title", f"멋진 {category} 상품")
             description = parsed.get("description", f"품질 좋은 {category}입니다.")
             image_keywords = parsed.get("image_keywords", [category]) # 실패 시 카테고리명 사용
             print(f"✅ [Groq] JSON 파싱 성공 - 제품: {title}")
-
             title = clean_text(title, max_sentences=1)
             description = clean_text(description, max_sentences=4)
-
             return title, description, image_keywords
-
         except json.JSONDecodeError as je:
             print(f"❌ [Groq] JSON 파싱 실패: {je}")
             print(f"   파싱 시도 문자열: {json_string}")
-            return "JSON 파싱 실패", "AI가 생성한 데이터의 형식이 잘못되었습니다."
-
+            return "JSON 파싱 실패", "AI가 생성한 데이터의 형식이 잘못되었습니다.", [category]
     except requests.exceptions.RequestException as e:
         print(f"❌ [Groq] API 호출 실패: {e}")
-        return "API 호출 실패", "AI 서버에 연결하는 중 문제가 발생했습니다."
+        return "API 호출 실패", "AI 서버에 연결하는 중 문제가 발생했습니다.", [category]
 
-
-def search_images(keywords: list[str]):
-    """Unsplash에서 키워드 목록을 이용해 관련 이미지를 검색합니다."""
-
-    # AI가 생성한 키워드로 순차적으로 검색
+def _search_images(keywords: list[str]):
     search_queries = keywords
-
     for query in search_queries:
         params = {
             'query': query,
@@ -169,41 +133,25 @@ def search_images(keywords: list[str]):
         except requests.exceptions.RequestException as e:
             print(f"❌ Unsplash API 오류: {e}. 다음 검색어로 시도합니다.")
             continue
-
-    # 모든 검색 실패 시 기본 이미지 반환
     print("⚠️ 모든 Unsplash 검색에 실패하여 기본 이미지를 반환합니다.")
     return [
         'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
         'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500'
     ]
 
-# ---------------------------------
-# API 엔드포인트 (API Endpoint)
-# ---------------------------------
-@app.route('/generate-product-data', methods=['POST'])
-def generate_product_data():
-    data = request.get_json()
-    if not data or 'category' not in data:
-        return jsonify({"error": "카테고리(category) 정보가 필요합니다."}), 400
+# --- app.py에서 호출할 메인 함수 ---
+def generate_dummy_product(category: str):
+    """카테고리를 받아 AI로 상품 데이터를 생성하고 dict 형태로 반환합니다."""
 
-    category = data['category']
+    # 1. 텍스트 생성
+    title, description, image_keywords = _generate_creative_text(category)
 
-    title, description, image_keywords = generate_creative_text(category)
-    image_urls = search_images(keywords=image_keywords)
+    # 2. 이미지 검색
+    image_urls = _search_images(keywords=image_keywords)
 
-    # AI 생성 실패 시 title 대신 category를 검색어로 사용
-    # search_title = title if "실패" not in title else category
-    # image_urls = search_images(title=search_title, category=category)
-
-    response_data = {
+    # 3. 최종 결과 조합 후 반환
+    return {
         "name": title,
         "description": description,
         "imageUrls": image_urls
     }
-    return jsonify(response_data)
-
-# ---------------------------------
-# 서버 실행 (Run Server)
-# ---------------------------------
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
