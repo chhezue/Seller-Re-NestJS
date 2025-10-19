@@ -1,0 +1,6 @@
+Flask
+requests
+python-dotenv
+transformers
+torch
+Flask-Cors
