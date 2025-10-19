@@ -1,5 +1,5 @@
 import torch
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 from transformers import (
     ViTImageProcessor,
     ViTForImageClassification,
@@ -8,36 +8,67 @@ from transformers import (
 )
 import os
 import numpy as np
-import evaluate # 'datasets.load_metric' 대신 'evaluate' 사용
+import evaluate
+from glob import glob
+from PIL import Image
 
 # --- 1. 설정 (Configuration) ---
-# 사용자가 수정해야 할 부분
 # -----------------------------------
-# 데이터셋 경로 (train/validation 폴더가 있는 상위 폴더)
-DATASET_PATH = "image-analysis/temp_dataset"
-# 파인튜닝된 모델이 저장될 경로
-MODEL_OUTPUT_PATH = "image-analysis/my_custom_model"
-# 기반으로 할 사전학습 모델
+MODEL_OUTPUT_PATH = "my_custom_model_v2"
 PRETRAINED_MODEL = "google/vit-base-patch16-224"
 
-# 학습 관련 하이퍼파라미터
-NUM_TRAIN_EPOCHS = 10  # 전체 데이터셋을 몇 번 반복하여 학습할지 결정
-PER_DEVICE_TRAIN_BATCH_SIZE = 32  # 한 번에 몇 개의 이미지를 학습할지 결정 (GPU 메모리에 따라 조절)
+NUM_TRAIN_EPOCHS = 10
+PER_DEVICE_TRAIN_BATCH_SIZE = 32
 PER_DEVICE_EVAL_BATCH_SIZE = 32
 LEARNING_RATE = 5e-5
 # -----------------------------------
 
-# 평가 지표 계산 함수
-metric = evaluate.load("accuracy") # 'load_metric'은 deprecated 되었습니다.
+metric = evaluate.load("accuracy")
+def compute_metrics(p):
+    return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
+
+import torchvision.transforms as T
+
+# --- 1. 설정 (Configuration) ---
+# -----------------------------------
+MODEL_OUTPUT_PATH = "my_custom_model_v2"
+PRETRAINED_MODEL = "google/vit-base-patch16-224"
+
+NUM_TRAIN_EPOCHS = 15 # 에포크 증가
+PER_DEVICE_TRAIN_BATCH_SIZE = 32
+PER_DEVICE_EVAL_BATCH_SIZE = 32
+LEARNING_RATE = 3e-5 # 학습률 감소
+# -----------------------------------
+
+metric = evaluate.load("accuracy")
 def compute_metrics(p):
     return metric.compute(predictions=np.argmax(p.predictions, axis=1), references=p.label_ids)
 
 def collate_fn(examples):
-    """데이터 배치를 구성하는 함수"""
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
     labels = torch.tensor([example["label"] for example in examples])
     return {"pixel_values": pixel_values, "labels": labels}
 
+def create_dataset_from_path(data_path):
+    """주어진 경로에서 이미지 경로와 레이블을 수동으로 찾아 데이터셋을 생성합니다."""
+    image_paths = []
+    labels = []
+    
+    if not os.path.exists(data_path):
+        return None, {}
+
+    class_names = sorted([os.path.basename(d) for d in glob(os.path.join(data_path, "*")) if os.path.isdir(d)])
+    label2id = {name: i for i, name in enumerate(class_names)}
+
+    for class_name in class_names:
+        class_id = label2id[class_name]
+        class_path = os.path.join(data_path, class_name)
+        for ext in ["*.jpg", "*.jpeg", "*.png", "*.gif", "*.bmp"]:
+            for img_path in glob(os.path.join(class_path, ext)):
+                image_paths.append(img_path)
+                labels.append(class_id)
+
+    return Dataset.from_dict({"image": image_paths, "label": labels}), label2id
 
 def main():
     """메인 학습 로직을 수행합니다."""
@@ -45,36 +76,54 @@ def main():
     print("--- 파인튜닝 스크립트 시작 ---")
 
     # --- 2. 데이터셋 로드 및 전처리 ---
-    print(f"데이터셋을 '{DATASET_PATH}' 경로에서 로드합니다.")
-    if not os.path.exists(DATASET_PATH) or not os.path.exists(os.path.join(DATASET_PATH, "train")) or not os.path.exists(os.path.join(DATASET_PATH, "validation")):
-        print(f"오류: 데이터셋 경로 '{DATASET_PATH}'가 올바르지 않거나, 내부에 'train' 또는 'validation' 폴더가 없습니다.")
-        print("스크립트 상단의 DATASET_PATH 변수를 수정하고, 해당 경로에 폴더를 준비해주세요.")
+    print("데이터셋을 로드합니다.")
+
+    processor = ViTImageProcessor.from_pretrained(PRETRAINED_MODEL)
+
+    # 데이터 증강 및 전처리 파이프라인 정의
+    normalize = T.Normalize(mean=processor.image_mean, std=processor.image_std)
+    train_transforms = T.Compose([
+        T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+        T.RandomResizedCrop(processor.size["height"]),
+        T.RandomHorizontalFlip(),
+        T.ToTensor(),
+        normalize,
+    ])
+    val_transforms = T.Compose([
+        T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+        T.Resize(processor.size["height"]),
+        T.CenterCrop(processor.size["height"]),
+        T.ToTensor(),
+        normalize,
+    ])
+
+    def train_transform(example_batch):
+        """학습 데이터셋 전처리"""
+        example_batch["pixel_values"] = [train_transforms(Image.open(path)) for path in example_batch["image"]]
+        return example_batch
+
+    def val_transform(example_batch):
+        """검증 데이터셋 전처리"""
+        example_batch["pixel_values"] = [val_transforms(Image.open(path)) for path in example_batch["image"]]
+        return example_batch
+
+    print("데이터셋을 수동으로 생성하고 전처리를 적용합니다...")
+    train_dataset, label2id = create_dataset_from_path("dataset/train")
+    eval_dataset, _ = create_dataset_from_path("dataset/validation")
+
+    if train_dataset is None or eval_dataset is None:
+        print("오류: 학습 또는 검증 데이터셋을 생성하지 못했습니다. 경로를 확인해주세요.")
         return
 
-    # ImageFolder 형식의 데이터셋 로드
-    processor = ViTImageProcessor.from_pretrained(PRETRAINED_MODEL)
-    
-    def transform(example_batch):
-        """데이터셋 전처리 함수"""
-        inputs = processor([x.convert("RGB") for x in example_batch["image"]], return_tensors="pt")
-        inputs["label"] = example_batch["label"]
-        return inputs
+    id2label = {i: label for label, i in label2id.items()}
+    labels = list(label2id.keys())
 
-    print("데이터셋을 로딩하고 전처리를 적용합니다...")
-    train_dataset = load_dataset("imagefolder", data_dir=os.path.join(DATASET_PATH, "train"))["train"]
-    eval_dataset = load_dataset("imagefolder", data_dir=os.path.join(DATASET_PATH, "validation"))["train"]
-
-    train_dataset = train_dataset.with_transform(transform)
-    eval_dataset = eval_dataset.with_transform(transform)
+    train_dataset = train_dataset.map(train_transform, batched=True, remove_columns=['image'])
+    eval_dataset = eval_dataset.map(val_transform, batched=True, remove_columns=['image'])
     
-    print("\n로드된 데이터셋 정보:")
+    print("\n생성된 데이터셋 정보:")
     print(train_dataset)
     print(eval_dataset)
-
-    # 레이블 정보 추출
-    labels = train_dataset.features["label"].names
-    label2id = {label: i for i, label in enumerate(labels)}
-    id2label = {i: label for i, label in enumerate(labels)}
     print(f"\n감지된 카테고리 (총 {len(labels)}개): {labels}")
 
     # --- 3. 모델 로드 ---
@@ -84,7 +133,7 @@ def main():
         num_labels=len(labels),
         label2id=label2id,
         id2label=id2label,
-        ignore_mismatched_sizes=True, # 사전학습된 모델의 분류층과 크기가 다른 것을 무시하고 새로 초기화
+        ignore_mismatched_sizes=True,
     )
     print("모델 로드가 완료되었습니다.")
 
@@ -95,10 +144,9 @@ def main():
         output_dir=MODEL_OUTPUT_PATH,
         num_train_epochs=NUM_TRAIN_EPOCHS,
         learning_rate=LEARNING_RATE,
+        per_device_train_batch_size=PER_DEVICE_TRAIN_BATCH_SIZE,
         per_device_eval_batch_size=PER_DEVICE_EVAL_BATCH_SIZE,
-
         logging_dir=f"{MODEL_OUTPUT_PATH}/logs",
-        remove_unused_columns=False,
     )
 
     trainer = Trainer(
@@ -106,7 +154,6 @@ def main():
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        data_collator=collate_fn,
         compute_metrics=compute_metrics,
         tokenizer=processor,
     )
@@ -119,7 +166,7 @@ def main():
     print(f"\n학습된 모델과 프로세서를 '{MODEL_OUTPUT_PATH}' 경로에 저장합니다.")
     trainer.save_model(MODEL_OUTPUT_PATH)
     processor.save_pretrained(MODEL_OUTPUT_PATH)
-    print("저장이 완료되었습니다. 이제 'loader.py'에서 이 경로를 사용하여 모델을 로드할 수 있습니다.")
+    print("저장이 완료되었습니다.")
     print("--- 파인튜닝 스크립트 종료 ---")
 
 

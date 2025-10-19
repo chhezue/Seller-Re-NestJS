@@ -57,11 +57,10 @@ export class UploadsService {
     private readonly httpService: HttpService,
   ) {}
 
-  private async analyzeImage(imagePath: string, labels: string[]): Promise<any> {
+  private async analyzeImages(imagePaths: string[]): Promise<any> {
     const { data } = await firstValueFrom(
       this.httpService.post(this.analysisApiUrl, {
-        image_path: imagePath,
-        labels,
+        image_paths: imagePaths,
       }).pipe(
         catchError((error: AxiosError) => {
           const errorData = error.response?.data || 'Unknown error';
@@ -81,8 +80,11 @@ export class UploadsService {
     }
 
     const savedPromises = files.map((file) => {
+      // PostgreSQL에 저장하기 전에 파일 이름에서 NULL 바이트를 제거합니다.
+      const sanitizedOriginalName = file.originalname.replace(/\0/g, '');
+
       const newFile = this.fileRepository.create({
-        originalName: file.originalname,
+        originalName: sanitizedOriginalName,
         mimeType: file.mimetype,
         size: file.size,
         key: file.filename,
@@ -106,49 +108,57 @@ export class UploadsService {
       throw new BadRequestException('파일이 제공되지 않았습니다.');
     }
 
-    const savedPromises = files.map(async (file) => {
+    // 1. 모든 파일을 먼저 데이터베이스에 저장합니다.
+    const savedFilePromises = files.map((file) => {
+      // PostgreSQL에 저장하기 전에 파일 이름에서 NULL 바이트를 제거합니다.
+      const sanitizedOriginalName = file.originalname.replace(/\0/g, '');
+
       const newFile = this.fileRepository.create({
-        originalName: file.originalname,
+        originalName: sanitizedOriginalName,
         mimeType: file.mimetype,
         size: file.size,
         key: file.filename,
         url: `/uploads_temp/${file.filename}`,
         status: FileStatus.TEMPORARY,
       });
-      const savedFile = await this.fileRepository.save(newFile);
-
-      let analysisResult: { category?: string; itemName?: string, probability?: number } = {};
-
-      try {
-        const imageFullPath = path.join(process.cwd(), 'uploads_temp', savedFile.key);
-
-        // 모든 소분류 아이템을 대상으로 단일 분석 수행
-        const itemAnalysis = await this.analyzeImage(imageFullPath, allLabels);
-
-        // 분석 결과 로그 기록 (상위 5개)
-        console.log(`--- 이미지 분석 결과 (파일: ${file.filename}) ---`);
-        itemAnalysis.results.slice(0, 5).forEach(result => {
-          const percentage = (result.probability * 100).toFixed(2);
-          console.log(`- ${result.keyword}: ${percentage}%`);
-        });
-        console.log('-------------------------------------------');
-
-        const topResult = itemAnalysis.results[0];
-
-        if (topResult) {
-          // 결과에서 대분류와 소분류(아이템명) 설정
-          analysisResult.category = itemToCategoryMap[topResult.keyword];
-          analysisResult.itemName = topResult.keyword;
-          analysisResult.probability = topResult.probability;
-        }
-      } catch (e) {
-        console.error(`이미지 분석 실패 (파일: ${file.filename}): ${e.message}`);
-      }
-
-      return new UploadTempResponseDto(savedFile, analysisResult);
+      return this.fileRepository.save(newFile);
     });
+    const savedFiles = await Promise.all(savedFilePromises);
 
-    return Promise.all(savedPromises);
+    let analysisResult: { category?: string; itemName?: string, probability?: number } = {};
+
+    try {
+      // 2. 저장된 모든 파일의 전체 경로 배열을 생성합니다.
+      const imageFullPaths = savedFiles.map(sf => path.join('backend', 'uploads_temp', sf.key));
+
+      // AI 분석을 위해 전송하는 이미지 파일 경로들을 로그로 남깁니다.
+      console.log(`AI 분석 요청 (이미지 ${imageFullPaths.length}개): ${imageFullPaths.join(', ')}`);
+
+      // 3. 모든 이미지를 한번에 분석하도록 요청합니다.
+      const bulkAnalysis = await this.analyzeImages(imageFullPaths);
+
+      // 분석 결과 로그 기록 (상위 2개)
+      console.log(`--- 통합 이미지 분석 결과 ---`);
+      bulkAnalysis.results.forEach(result => {
+        const percentage = (result.probability * 100).toFixed(2);
+        console.log(`- ${result.keyword}: ${percentage}%`);
+      });
+      console.log('----------------------------------');
+
+      // 4. 가장 확률이 높은 결과를 사용합니다.
+      const topResult = bulkAnalysis.results[0];
+
+      if (topResult) {
+        analysisResult.category = topResult.keyword;
+        analysisResult.itemName = topResult.keyword;
+        analysisResult.probability = topResult.probability;
+      }
+    } catch (e) {
+      console.error(`통합 이미지 분석 실패: ${e.message}`);
+    }
+
+    // 5. 각 파일에 대해 동일한 분석 결과를 포함한 응답 DTO를 생성합니다.
+    return savedFiles.map(savedFile => new UploadTempResponseDto(savedFile, analysisResult));
   }
 
   async commitFiles(imageDtos: ImageCommitDto[]): Promise<FileModel[]> {

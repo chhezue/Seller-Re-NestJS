@@ -7,8 +7,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from schemas import AnalysisRequest, AnalysisResponse, AnalysisResult
 from model.loader import load_model
-from model.predictor import predict
+from model.predictor import predict_multiple
 import json
+import logging
+
+# 로깅 설정
+logging.basicConfig(
+    filename='error.log',
+    level=logging.ERROR,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # 서버 시작/종료 시 수행할 작업을 정의합니다.
 @asynccontextmanager
@@ -37,11 +45,11 @@ def read_root():
 @app.post("/analyze", response_model=AnalysisResponse)
 def analyze_image(request: AnalysisRequest):
     """
-    이미지 경로와 레이블 목록을 받아 이미지 분석을 수행합니다.
+    여러 이미지 경로를 받아 이미지 분석을 수행하고, 결과를 집계하여 반환합니다.
     """
     try:
-        # 예측 함수 호출
-        prediction_results = predict(request.image_path, request.labels)
+        # 여러 이미지에 대한 예측 함수 호출
+        prediction_results = predict_multiple(request.image_paths)
         
         # 결과를 AnalysisResult 모델 리스트로 변환
         response_results = [AnalysisResult(**item) for item in prediction_results]
@@ -50,6 +58,8 @@ def analyze_image(request: AnalysisRequest):
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        # 예외 로깅
+        logging.error(f"An unexpected error occurred: {e}", exc_info=True)
         # 그 외 모든 예외 처리
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
