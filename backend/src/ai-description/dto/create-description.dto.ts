@@ -10,8 +10,8 @@ import {
 } from 'class-validator';
 import { PRODUCT_CONDITION } from '../../product/const/product.const';
 
-// 사용자가 설명 자동 생성을 위해 전달하는 DTO
-export class GenerateDescriptionDto {
+// 사용자가 설명 생성을 위해 전달하는 DTO
+export class CreateDescriptionDto {
   @ApiProperty({ description: '제품명' })
   @IsString()
   @IsNotEmpty()

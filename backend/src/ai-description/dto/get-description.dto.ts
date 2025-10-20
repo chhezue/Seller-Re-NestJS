@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 // AI 설명 생성 API의 최종 응답 DTO
-export class DescriptionResponseDto {
+export class GetDescriptionDto {
   @ApiProperty({ description: 'AI가 생성한 상품 설명' })
   description: string;
 

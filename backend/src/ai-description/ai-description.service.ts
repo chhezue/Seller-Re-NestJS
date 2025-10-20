@@ -5,8 +5,8 @@ import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 import { CategoryModel } from '../common/entity/category.entity';
-import { GenerateDescriptionDto } from './dto/generate-description.dto';
-import { DescriptionResponseDto } from './dto/description-response.dto';
+import { CreateDescriptionDto } from './dto/create-description.dto';
+import { GetDescriptionDto } from './dto/get-description.dto';
 
 @Injectable()
 export class AiDescriptionService {
@@ -24,13 +24,11 @@ export class AiDescriptionService {
       'http://localhost:8001';
   }
 
-  /**
-   * AI 기반 상품 설명 생성 (통합 API)
-   * Python에서 모든 AI 처리를 수행: 이미지 분석 → 검증 → 설명 생성
-   */
+  // AI 기반 상품 설명 생성 (통합 API)
+  // Python에서 모든 AI 처리를 수행: 이미지 분석 → 검증 → 설명 & 경고 메세지 생성
   async generateDescription(
-    dto: GenerateDescriptionDto,
-  ): Promise<DescriptionResponseDto> {
+    dto: CreateDescriptionDto,
+  ): Promise<GetDescriptionDto> {
     this.logger.log(
       `AI 설명 생성 시작: ${dto.name} (이미지: ${dto.imageUrls.length}개)`,
     );
@@ -67,7 +65,7 @@ export class AiDescriptionService {
         ),
       );
 
-      const result: DescriptionResponseDto = {
+      const result: GetDescriptionDto = {
         description: response.data.description,
         warning: response.data.warning || null,
       };
@@ -98,21 +96,6 @@ export class AiDescriptionService {
         'AI 설명 생성 중 예상치 못한 오류가 발생했습니다.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
-    }
-  }
-
-  /**
-   * Python API 서버의 상태를 확인합니다.
-   */
-  async checkHealth(): Promise<boolean> {
-    try {
-      const response = await firstValueFrom(
-        this.httpService.get(`${this.imageAnalysisApiUrl}/`),
-      );
-      return response.status === 200;
-    } catch (error) {
-      this.logger.warn('Python API 서버 상태 확인 실패:', error.message);
-      return false;
     }
   }
 }
