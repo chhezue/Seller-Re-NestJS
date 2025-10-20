@@ -14,6 +14,7 @@ import { AccessTokenGuard } from './auth/guard/bearer-token.guard';
 import { CacheModule } from '@nestjs/cache-manager';
 import { S3Module } from './s3/s3.module';
 import { LikesModule } from './likes/likes.module';
+import { AiDescriptionModule } from './ai-description/ai-description.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { addTransactionalDataSource } from 'typeorm-transactional';
 import { DataSource } from 'typeorm';
@@ -57,6 +58,7 @@ import { DataSource } from 'typeorm';
     S3Module,
     ScheduleModule.forRoot(),
     LikesModule,
+    AiDescriptionModule,
   ],
   controllers: [AppController],
   providers: [
