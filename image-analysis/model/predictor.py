@@ -113,10 +113,32 @@ def predict_multiple(image_paths: List[str]) -> List[Dict[str, any]]:
     # 집계된 확률을 기준으로 정렬합니다.
     sorted_results = sorted(aggregated_probs.items(), key=lambda item: item[1], reverse=True)
     
-    # 상위 2개 결과를 선택합니다.
-    top_2 = sorted_results[:2]
-    
-    # 최종 결과를 형식에 맞게 변환합니다.
-    final_results = [{"keyword": keyword, "probability": prob} for keyword, prob in top_2]
+    # 최종 결과를 담을 변수
+    final_result = {}
+
+    if not sorted_results:
+        # 분석 결과가 없는 경우 빈 리스트 반환
+        return []
+
+    # 가장 확률이 높은 예측
+    top_prediction_keyword, top_prediction_prob = sorted_results[0]
+
+    if top_prediction_keyword == '_unlabeled':
+        # 최상위 예측이 _unlabeled인 경우
+        final_result['category'] = '_unlabeled'
+        final_result['probability'] = top_prediction_prob
         
-    return final_results
+        if len(sorted_results) > 1:
+            # 두 번째 예측이 있는 경우 itemName으로 설정
+            second_prediction_keyword, _ = sorted_results[1]
+            final_result['itemName'] = second_prediction_keyword
+        else:
+            # 두 번째 예측이 없는 경우 itemName도 _unlabeled로 설정
+            final_result['itemName'] = '_unlabeled'
+    else:
+        # 최상위 예측이 _unlabeled가 아닌 경우
+        final_result['category'] = top_prediction_keyword
+        final_result['itemName'] = top_prediction_keyword
+        final_result['probability'] = top_prediction_prob
+    
+    return [final_result]

@@ -8,7 +8,8 @@ class AnalysisRequest(BaseModel):
 
 class AnalysisResult(BaseModel):
     """분석 결과 항목 하나의 형식을 정의"""
-    keyword: str
+    category: str
+    itemName: str
     probability: float
 
 class AnalysisResponse(BaseModel):

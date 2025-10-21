@@ -137,11 +137,11 @@ export class UploadsService {
       // 3. 모든 이미지를 한번에 분석하도록 요청합니다.
       const bulkAnalysis = await this.analyzeImages(imageFullPaths);
 
-      // 분석 결과 로그 기록 (상위 2개)
+      // 분석 결과 로그 기록
       console.log(`--- 통합 이미지 분석 결과 ---`);
       bulkAnalysis.results.forEach(result => {
         const percentage = (result.probability * 100).toFixed(2);
-        console.log(`- ${result.keyword}: ${percentage}%`);
+        console.log(`- Category: ${result.category}, Item: ${result.itemName}, Probability: ${percentage}%`);
       });
       console.log('----------------------------------');
 
@@ -149,8 +149,8 @@ export class UploadsService {
       const topResult = bulkAnalysis.results[0];
 
       if (topResult) {
-        analysisResult.category = topResult.keyword;
-        analysisResult.itemName = topResult.keyword;
+        analysisResult.category = topResult.category;
+        analysisResult.itemName = topResult.itemName;
         analysisResult.probability = topResult.probability;
       }
     } catch (e) {

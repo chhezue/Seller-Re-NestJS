@@ -5,7 +5,7 @@ import os
 # --- 설정 ---
 CLASSES = ["Camera", "Book", "Washing machine"]
 MAX_SAMPLES = 100 # 각 클래스당 다운로드할 최대 샘플 수
-EXPORT_DIR = "dataset/train_openimages"
+EXPORT_DIR = "dataset/train"
 # ------------
 
 def download_open_images():
@@ -75,7 +75,7 @@ def download_open_images_validation():
         os.makedirs("dataset/validation_openimages")
 
     dataset.export(
-        export_dir="dataset/validation_openimages",
+        export_dir="dataset/validation",
         dataset_type=fo.types.ImageClassificationDirectoryTree,
         label_field="classification",
     )
