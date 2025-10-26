@@ -125,8 +125,6 @@ export class UploadsService {
     });
     const savedFiles = await Promise.all(savedFilePromises);
 
-    let analysisResult: { category?: string; itemName?: string, probability?: number } = {};
-
     try {
       // 2. 저장된 모든 파일의 전체 경로 배열을 생성합니다.
       const imageFullPaths = savedFiles.map(sf => path.join('backend', 'uploads_temp', sf.key));
@@ -142,23 +140,23 @@ export class UploadsService {
       bulkAnalysis.results.forEach(result => {
         const percentage = (result.probability * 100).toFixed(2);
         console.log(`- Category: ${result.category}, Item: ${result.itemName}, Probability: ${percentage}%`);
+        if (result.origin_classification) {
+          console.log(`  Origin: ${result.origin_classification} (Score: ${result.origin_score})`);
+        }
       });
       console.log('----------------------------------');
 
-      // 4. 가장 확률이 높은 결과를 사용합니다.
-      const topResult = bulkAnalysis.results[0];
-
-      if (topResult) {
-        analysisResult.category = topResult.category;
-        analysisResult.itemName = topResult.itemName;
-        analysisResult.probability = topResult.probability;
-      }
+      // 4. 각 파일에 대해 해당 분석 결과를 포함한 응답 DTO를 생성합니다.
+      // savedFiles와 bulkAnalysis.results는 순서가 일치한다고 가정합니다.
+      return savedFiles.map((savedFile, index) => {
+        const analysisResultForFile = bulkAnalysis.results[index];
+        return new UploadTempResponseDto(savedFile, analysisResultForFile);
+      });
     } catch (e) {
       console.error(`통합 이미지 분석 실패: ${e.message}`);
+      // 오류 발생 시, 분석 결과 없이 파일 정보만 반환하거나, 적절한 오류 처리를 할 수 있습니다.
+      return savedFiles.map(savedFile => new UploadTempResponseDto(savedFile));
     }
-
-    // 5. 각 파일에 대해 동일한 분석 결과를 포함한 응답 DTO를 생성합니다.
-    return savedFiles.map(savedFile => new UploadTempResponseDto(savedFile, analysisResult));
   }
 
   async commitFiles(imageDtos: ImageCommitDto[]): Promise<FileModel[]> {

@@ -11,6 +11,10 @@ class AnalysisResult(BaseModel):
     category: str
     itemName: str
     probability: float
+    # New fields for image origin analysis
+    origin_score: Optional[int] = None
+    origin_classification: Optional[str] = None
+    origin_likelihood: Optional[dict] = None
 
 class AnalysisResponse(BaseModel):
     """API 응답 본문의 형식을 정의"""

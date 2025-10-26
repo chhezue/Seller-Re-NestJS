@@ -73,23 +73,22 @@ def predict_multiple(image_paths: List[str]) -> List[Dict[str, any]]:
     if not model or not processor:
         raise RuntimeError("Model is not loaded. Please load the model before running prediction.")
 
-    aggregated_probs = defaultdict(float)
-    
     # 이 파일의 위치를 기준으로 프로젝트 루트 디렉토리를 계산합니다.
     # predictor.py -> model -> image-analysis -> project-root
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
     
-    processed_image_count = 0
+    all_image_results = []
     for image_path in image_paths:
         absolute_path = None
         try:
             # 백엔드에서 받은 상대 경로와 프로젝트 루트를 조합하여 절대 경로를 생성합니다.
             absolute_path = os.path.join(PROJECT_ROOT, image_path)
             image = Image.open(absolute_path)
-            processed_image_count += 1
         except FileNotFoundError:
-            # 이미지를 찾을 수 없는 경우, 어떤 경로에서 파일을 찾을 수 없었는지 로그를 남깁니다.
             print(f"Warning: Image file not found at {absolute_path or image_path}, skipping.")
+            continue
+        except Exception as e:
+            print(f"Error opening image {absolute_path or image_path}: {e}, skipping.")
             continue
 
         inputs = processor(images=image, return_tensors="pt")
@@ -100,45 +99,22 @@ def predict_multiple(image_paths: List[str]) -> List[Dict[str, any]]:
         logits = outputs.logits
         probabilities = torch.nn.functional.softmax(logits, dim=-1)[0]
 
-        # 모든 레이블에 대한 확률을 집계합니다.
-        for i, prob in enumerate(probabilities):
-            keyword = model.config.id2label[i]
-            aggregated_probs[keyword] += prob.item()
-
-    # 집계된 확률의 평균을 계산합니다.
-    if processed_image_count > 0:
-        for keyword in aggregated_probs:
-            aggregated_probs[keyword] /= processed_image_count
-
-    # 집계된 확률을 기준으로 정렬합니다.
-    sorted_results = sorted(aggregated_probs.items(), key=lambda item: item[1], reverse=True)
-    
-    # 최종 결과를 담을 변수
-    final_result = {}
-
-    if not sorted_results:
-        # 분석 결과가 없는 경우 빈 리스트 반환
-        return []
-
-    # 가장 확률이 높은 예측
-    top_prediction_keyword, top_prediction_prob = sorted_results[0]
-
-    if top_prediction_keyword == '_unlabeled':
-        # 최상위 예측이 _unlabeled인 경우
-        final_result['category'] = '_unlabeled'
-        final_result['probability'] = top_prediction_prob
+        # Get the top k predictions for this single image
+        num_classes = len(model.config.id2label)
+        k = min(5, num_classes) # Or whatever number of top predictions you want for a single image
+        topk_probs, topk_indices = torch.topk(probabilities, k)
         
-        if len(sorted_results) > 1:
-            # 두 번째 예측이 있는 경우 itemName으로 설정
-            second_prediction_keyword, _ = sorted_results[1]
-            final_result['itemName'] = second_prediction_keyword
-        else:
-            # 두 번째 예측이 없는 경우 itemName도 _unlabeled로 설정
-            final_result['itemName'] = '_unlabeled'
-    else:
-        # 최상위 예측이 _unlabeled가 아닌 경우
-        final_result['category'] = top_prediction_keyword
-        final_result['itemName'] = top_prediction_keyword
-        final_result['probability'] = top_prediction_prob
+        # For simplicity, let's just take the top prediction for category and itemName
+        # You might want to adjust this logic based on how you want to represent single image results
+        top_prediction_keyword = model.config.id2label[topk_indices[0].item()]
+        top_prediction_prob = topk_probs[0].item()
+
+        result_for_image = {
+            "category": top_prediction_keyword,
+            "itemName": top_prediction_keyword, # Assuming itemName is the same as category for simplicity
+            "probability": top_prediction_prob,
+            "absolute_image_path": absolute_path # Include the absolute path
+        }
+        all_image_results.append(result_for_image)
     
-    return [final_result]
+    return all_image_results
