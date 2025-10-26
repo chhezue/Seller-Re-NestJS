@@ -30,7 +30,6 @@ export class CreateDescriptionDto {
   @ApiProperty({ description: '업로드된 이미지의 임시 URL 배열' })
   @IsArray()
   @ArrayMinSize(1)
-  @IsUrl({}, { each: true })
   @IsNotEmpty()
   imageUrls: string[];
 }

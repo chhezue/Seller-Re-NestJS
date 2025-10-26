@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { UploadTempResponseDto } from './dto/upload-temp-response.dto';
@@ -10,39 +14,83 @@ import { promises as fs } from 'fs';
 import { HttpService } from '@nestjs/axios';
 import { CategoryModel } from '../common/entity/category.entity';
 import { catchError, firstValueFrom } from 'rxjs';
-import { AxiosError } from 'axios';
 
 // 1차 분석(카테고리)과 2차 분석(상세 품목)을 통합하여 정확도를 높이기 위한 새로운 상세 품목 목록
 const subCategoryMap = {
-  '디지털기기': ['스마트폰', '노트북', '태블릿', '카메라', '모니터', '키보드', '마우스', '오디오', '게임기'],
-  '생활가전': ['냉장고', '세탁기', '에어컨', '청소기', '전자레인지', '밥솥', '공기청정기'],
-  '가구/인테리어': ['침대', '소파', '테이블', '의자', '서랍장', '조명', '인테리어 소품'],
-  '생활/주방': ['냄비', '그릇', '컵', '수저', '조리도구', '청소용품', '생활용품'],
-  '유아동': ['장난감', '인형', '유아의류', '유모차', '카시트'],
-  '유아도서': ['유아도서'],
-  '여성의류': ['자켓', '블라우스', '티셔츠', '원피스', '스커트', '바지'],
-  '여성잡화': ['가방', '신발', '지갑', '주얼리', '모자', '스카프'],
+  디지털기기: [
+    '스마트폰',
+    '노트북',
+    '태블릿',
+    '카메라',
+    '모니터',
+    '키보드',
+    '마우스',
+    '오디오',
+    '게임기',
+  ],
+  생활가전: [
+    '냉장고',
+    '세탁기',
+    '에어컨',
+    '청소기',
+    '전자레인지',
+    '밥솥',
+    '공기청정기',
+  ],
+  '가구/인테리어': [
+    '침대',
+    '소파',
+    '테이블',
+    '의자',
+    '서랍장',
+    '조명',
+    '인테리어 소품',
+  ],
+  '생활/주방': [
+    '냄비',
+    '그릇',
+    '컵',
+    '수저',
+    '조리도구',
+    '청소용품',
+    '생활용품',
+  ],
+  유아동: ['장난감', '인형', '유아의류', '유모차', '카시트'],
+  유아도서: ['유아도서'],
+  여성의류: ['자켓', '블라우스', '티셔츠', '원피스', '스커트', '바지'],
+  여성잡화: ['가방', '신발', '지갑', '주얼리', '모자', '스카프'],
   '남성패션/잡화': ['자켓', '셔츠', '티셔츠', '바지', '신발', '가방', '지갑'],
   '뷰티/미용': ['스킨케어', '메이크업', '향수', '헤어용품', '네일'],
   '스포츠/레저': ['운동복', '운동화', '자전거', '골프', '캠핑', '낚시', '등산'],
-  '식물': ['화분', '관엽식물', '다육식물', '꽃'],
-  '취미/게임/음반': ['책', '음반', 'DVD', '게임타이틀', '피규어', '프라모델', '악기'],
-  '도서': ['소설', '만화', '잡지', '전공서적', '자기계발서'],
+  식물: ['화분', '관엽식물', '다육식물', '꽃'],
+  '취미/게임/음반': [
+    '책',
+    '음반',
+    'DVD',
+    '게임타이틀',
+    '피규어',
+    '프라모델',
+    '악기',
+  ],
+  도서: ['소설', '만화', '잡지', '전공서적', '자기계발서'],
   '티켓/교환권': ['티켓', '교환권'],
-  '가공식품': ['가공식품'],
-  '건강기능식품': ['건강기능식품'],
-  '반려동물용품': ['사료', '간식', '장난감', '의류', '이동장'],
+  가공식품: ['가공식품'],
+  건강기능식품: ['건강기능식품'],
+  반려동물용품: ['사료', '간식', '장난감', '의류', '이동장'],
   '기타 중고물품': ['기타 중고물품'],
 };
 
 // 모든 소분류 아이템 리스트와 아이템-카테고리 역방향 맵 생성
 const allLabels = Object.values(subCategoryMap).flat();
-const itemToCategoryMap = Object.entries(subCategoryMap).reduce((acc, [category, items]) => {
-  items.forEach(item => {
-    acc[item] = category;
-  });
-  return acc;
-}, {});
+const itemToCategoryMap = Object.entries(subCategoryMap).reduce(
+  (acc, [category, items]) => {
+    items.forEach((item) => {
+      acc[item] = category;
+    });
+    return acc;
+  },
+  {},
+);
 
 @Injectable()
 export class UploadsService {
@@ -59,15 +107,19 @@ export class UploadsService {
 
   private async analyzeImages(imagePaths: string[]): Promise<any> {
     const { data } = await firstValueFrom(
-      this.httpService.post(this.analysisApiUrl, {
-        image_paths: imagePaths,
-      }).pipe(
-        catchError((error: AxiosError) => {
-          const errorData = error.response?.data || 'Unknown error';
-          console.error(`AI 서버 통신 오류: ${JSON.stringify(errorData)}`);
-          throw new InternalServerErrorException('AI 분석 서버와 통신하는 중 오류가 발생했습니다.');
-        }),
-      ),
+      this.httpService
+        .post(this.analysisApiUrl, {
+          image_paths: imagePaths,
+        })
+        .pipe(
+          catchError((error: any) => {
+            const errorData = error.response?.data || 'Unknown error';
+            console.error(`AI 서버 통신 오류: ${JSON.stringify(errorData)}`);
+            throw new InternalServerErrorException(
+              'AI 분석 서버와 통신하는 중 오류가 발생했습니다.',
+            );
+          }),
+        ),
     );
     return data;
   }
@@ -100,7 +152,7 @@ export class UploadsService {
       (fileEntity) => new UploadTempResponseDto(fileEntity),
     );
   }
-  
+
   async uploadTempProductFiles(
     files: Array<Express.Multer.File>,
   ): Promise<UploadTempResponseDto[]> {
@@ -125,21 +177,29 @@ export class UploadsService {
     });
     const savedFiles = await Promise.all(savedFilePromises);
 
-    let analysisResult: { category?: string; itemName?: string, probability?: number } = {};
+    const analysisResult: {
+      category?: string;
+      itemName?: string;
+      probability?: number;
+    } = {};
 
     try {
       // 2. 저장된 모든 파일의 전체 경로 배열을 생성합니다.
-      const imageFullPaths = savedFiles.map(sf => path.join('backend', 'uploads_temp', sf.key));
+      const imageFullPaths = savedFiles.map((sf) =>
+        path.join('backend', 'uploads_temp', sf.key),
+      );
 
       // AI 분석을 위해 전송하는 이미지 파일 경로들을 로그로 남깁니다.
-      console.log(`AI 분석 요청 (이미지 ${imageFullPaths.length}개): ${imageFullPaths.join(', ')}`);
+      console.log(
+        `AI 분석 요청 (이미지 ${imageFullPaths.length}개): ${imageFullPaths.join(', ')}`,
+      );
 
       // 3. 모든 이미지를 한번에 분석하도록 요청합니다.
       const bulkAnalysis = await this.analyzeImages(imageFullPaths);
 
       // 분석 결과 로그 기록 (상위 2개)
       console.log(`--- 통합 이미지 분석 결과 ---`);
-      bulkAnalysis.results.forEach(result => {
+      bulkAnalysis.results.forEach((result) => {
         const percentage = (result.probability * 100).toFixed(2);
         console.log(`- ${result.keyword}: ${percentage}%`);
       });
@@ -158,7 +218,9 @@ export class UploadsService {
     }
 
     // 5. 각 파일에 대해 동일한 분석 결과를 포함한 응답 DTO를 생성합니다.
-    return savedFiles.map(savedFile => new UploadTempResponseDto(savedFile, analysisResult));
+    return savedFiles.map(
+      (savedFile) => new UploadTempResponseDto(savedFile, analysisResult),
+    );
   }
 
   async commitFiles(imageDtos: ImageCommitDto[]): Promise<FileModel[]> {
