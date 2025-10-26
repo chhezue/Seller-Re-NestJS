@@ -2,7 +2,6 @@ from PIL import Image
 import torch
 from .loader import get_model, get_processor
 from typing import List, Dict
-from collections import defaultdict
 import os
 
 def predict(image_path: str, labels: List[str] = None) -> List[Dict[str, any]]:
@@ -58,35 +57,41 @@ def predict(image_path: str, labels: List[str] = None) -> List[Dict[str, any]]:
 
 def predict_multiple(image_paths: List[str]) -> List[Dict[str, any]]:
     """
-    여러 이미지 경로를 받아 각각을 분석하고, 모든 분석 결과의 확률을 평균내어
-    가장 확률이 높은 상위 2개의 키워드를 반환합니다.
+    여러 이미지 경로를 받아 각각을 분석하고, 각 이미지별로 top-1 예측 결과를 반환합니다.
 
     Args:
         image_paths (List[str]): 분석할 이미지들의 파일 경로 리스트.
 
     Returns:
-        List[Dict[str, any]]: 상위 2개 예측 키워드와 평균 확률을 담은 딕셔너리 리스트.
+        List[Dict[str, any]]: 각 이미지의 top-1 예측 키워드와 확률을 담은 딕셔너리 리스트.
     """
     model = get_model()
     processor = get_processor()
 
     if not model or not processor:
         raise RuntimeError("Model is not loaded. Please load the model before running prediction.")
-
-    aggregated_probs = defaultdict(float)
     
     # 이 파일의 위치를 기준으로 프로젝트 루트 디렉토리를 계산합니다.
     # predictor.py -> model -> image-analysis -> project-root
     PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
     
-    processed_image_count = 0
+    results = []
+    
     for image_path in image_paths:
         absolute_path = None
         try:
+            # 경로 앞의 슬래시 제거 (절대 경로 방지)
+            cleaned_path = image_path.lstrip('/')
+            
             # 백엔드에서 받은 상대 경로와 프로젝트 루트를 조합하여 절대 경로를 생성합니다.
-            absolute_path = os.path.join(PROJECT_ROOT, image_path)
+            # "backend/" 접두사가 없으면 추가
+            if not cleaned_path.startswith('backend/'):
+                cleaned_path = f'backend/{cleaned_path}'
+            
+            absolute_path = os.path.join(PROJECT_ROOT, cleaned_path)
+            print(f"[DEBUG] 이미지 경로: {image_path} → {absolute_path}")
+            
             image = Image.open(absolute_path)
-            processed_image_count += 1
         except FileNotFoundError:
             # 이미지를 찾을 수 없는 경우, 어떤 경로에서 파일을 찾을 수 없었는지 로그를 남깁니다.
             print(f"Warning: Image file not found at {absolute_path or image_path}, skipping.")
@@ -100,23 +105,16 @@ def predict_multiple(image_paths: List[str]) -> List[Dict[str, any]]:
         logits = outputs.logits
         probabilities = torch.nn.functional.softmax(logits, dim=-1)[0]
 
-        # 모든 레이블에 대한 확률을 집계합니다.
-        for i, prob in enumerate(probabilities):
-            keyword = model.config.id2label[i]
-            aggregated_probs[keyword] += prob.item()
-
-    # 집계된 확률의 평균을 계산합니다.
-    if processed_image_count > 0:
-        for keyword in aggregated_probs:
-            aggregated_probs[keyword] /= processed_image_count
-
-    # 집계된 확률을 기준으로 정렬합니다.
-    sorted_results = sorted(aggregated_probs.items(), key=lambda item: item[1], reverse=True)
-    
-    # 상위 2개 결과를 선택합니다.
-    top_2 = sorted_results[:2]
-    
-    # 최종 결과를 형식에 맞게 변환합니다.
-    final_results = [{"keyword": keyword, "probability": prob} for keyword, prob in top_2]
+        # 가장 높은 확률의 카테고리 선택 (top-1)
+        top_prob, top_idx = torch.max(probabilities, dim=0)
+        keyword = model.config.id2label[top_idx.item()]
         
-    return final_results
+        # 각 이미지의 top-1 결과 추가
+        results.append({
+            "keyword": keyword, 
+            "probability": top_prob.item()
+        })
+        
+        print(f"[DEBUG] 이미지 분석 결과: {keyword} (신뢰도: {top_prob.item():.2%})")
+        
+    return results

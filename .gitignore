@@ -59,3 +59,50 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 /backend/node_modules/
 /backend/.env.development
 /backend/uploads_temp
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# image-analysis (AI/ML)
+/image-analysis/venv/
+/image-analysis/__pycache__/
+/image-analysis/**/__pycache__/
+/image-analysis/dataset/
+/image-analysis/my_custom_model*/
+/image-analysis/*.log
+/image-analysis/.env
+/image-analysis/temp_extract/
+/image-analysis/*.zip
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyTorch
+*.pth
+*.pt
+*.ckpt
+
+# TensorFlow
+*.h5
+*.pb
+
+# Model files (large binary files)
+*.pkl
+*.pickle
+*.joblib
+
+# Data files (large datasets)
+*.csv
+*.tsv
+*.parquet
+*.feather

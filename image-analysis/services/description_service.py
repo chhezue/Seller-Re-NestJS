@@ -81,10 +81,7 @@ class DescriptionService:
         # 여성잡화
         "boot": "여성잡화",
         "shoe": "여성잡화",
-        
-        # 남성패션/잡화 (Boot, Shoe는 남녀 공용일 수 있음)
-        # 문맥에 따라 여성잡화 또는 남성패션으로 매핑
-        
+                
         # 스포츠/레저
         "bicycle": "스포츠/레저",
         "land vehicle": "스포츠/레저",
@@ -113,6 +110,12 @@ class DescriptionService:
         "person": "기타 중고물품",  # 사람은 상품이 아니므로 기타
         "human eye": "기타 중고물품",
         "human beard": "기타 중고물품",
+    }
+    
+    # 다중 카테고리를 가질 수 있는 아이템들 (여러 카테고리에 일치 가능)
+    MULTI_CATEGORY_ITEMS = {
+        "shoe": ["여성의류", "여성잡화", "남성패션/잡화"],
+        "boot": ["여성의류", "여성잡화", "남성패션/잡화"],
     }
 
     @staticmethod
@@ -177,9 +180,10 @@ class DescriptionService:
         AI가 인식한 카테고리(영어)와 사용자가 선택한 카테고리(한글)를 비교합니다.
         
         비교 방법:
-        1. AI 카테고리를 매핑 테이블로 한글로 변환
-        2. 변환된 한글 카테고리와 사용자 카테고리 비교
-        3. 완전 일치 또는 부분 일치 확인
+        1. 다중 카테고리 아이템인지 확인 (shoe, boot 등)
+        2. AI 카테고리를 매핑 테이블로 한글로 변환
+        3. 변환된 한글 카테고리와 사용자 카테고리 비교
+        4. 완전 일치 또는 부분 일치 확인
         
         Args:
             ai_category (str): AI가 인식한 카테고리 (영어, 예: "Camera", "Mobile phone")
@@ -192,7 +196,21 @@ class DescriptionService:
         ai_lower = ai_category.lower().strip()
         user_norm = user_category.strip()
         
-        # 1. 매핑 테이블에서 AI 카테고리를 한글로 변환
+        # 1. 다중 카테고리 아이템 확인 (shoe, boot 등)
+        if ai_lower in DescriptionService.MULTI_CATEGORY_ITEMS:
+            possible_categories = DescriptionService.MULTI_CATEGORY_ITEMS[ai_lower]
+            logger.debug(f"🔍 다중 카테고리 아이템: '{ai_category}' → {possible_categories}")
+            
+            # 여러 가능한 카테고리 중 하나라도 사용자 카테고리와 일치하는지 확인
+            for possible_cat in possible_categories:
+                if possible_cat == user_norm or possible_cat in user_norm or user_norm in possible_cat:
+                    logger.debug(f"✅ 다중 카테고리 일치: '{ai_category}' → '{possible_cat}' == '{user_category}'")
+                    return True
+            
+            logger.debug(f"❌ 다중 카테고리 불일치: '{ai_category}' → {possible_categories} ≠ '{user_category}'")
+            return False
+        
+        # 2. 매핑 테이블에서 AI 카테고리를 한글로 변환
         mapped_korean = DescriptionService.CATEGORY_MAPPINGS.get(ai_lower)
         
         if not mapped_korean:
@@ -201,12 +219,11 @@ class DescriptionService:
             # 부분 일치 시도 (혹시 모를 경우 대비)
             if ai_lower in user_norm.lower() or user_norm.lower() in ai_lower:
                 logger.debug(f"✅ 카테고리 부분 일치 (매핑 없음): '{ai_category}' ↔ '{user_category}'")
-                return True
-            return False
-        
+            return True
+
         logger.debug(f"🔄 AI 카테고리 변환: '{ai_category}' → '{mapped_korean}'")
         
-        # 2. 변환된 한글 카테고리와 사용자 카테고리 비교
+        # 3. 변환된 한글 카테고리와 사용자 카테고리 비교
         # 완전 일치
         if mapped_korean == user_norm:
             logger.debug(f"✅ 카테고리 완전 일치: '{mapped_korean}' == '{user_category}'")
@@ -347,22 +364,24 @@ class DescriptionService:
         logger.info("")
         
         # ============================================================
-        # Step 2: 신뢰도 체크 (Confidence > 0.5 ?)
+        # Step 2: 신뢰도 체크 (Confidence > 0.3 ?)
         # ============================================================
+        CONFIDENCE_THRESHOLD = 0.3  # 30%
+        
         logger.info("🎯 [Step 2] AI 신뢰도 검증")
         logger.info("-" * 80)
-        logger.info(f"   신뢰도 임계값: 0.5 (50%)")
+        logger.info(f"   신뢰도 임계값: {CONFIDENCE_THRESHOLD} ({CONFIDENCE_THRESHOLD:.0%})")
         logger.info(f"   현재 신뢰도: {ai_confidence:.2%} ({ai_confidence:.4f})")
         
-        if ai_confidence <= 0.5:
+        if ai_confidence <= CONFIDENCE_THRESHOLD:
             # 분기 1: 신뢰도 낮음 (AI 무시)
-            logger.warning(f"❌ 신뢰도 낮음: {ai_confidence:.2%} <= 50%")
+            logger.warning(f"❌ 신뢰도 낮음: {ai_confidence:.2%} <= {CONFIDENCE_THRESHOLD:.0%}")
             logger.info("")
             logger.info("🔀 의사결정: AI 신뢰도 부족으로 AI 데이터 무시")
             logger.info("   ├─ Description: 사용자 데이터만 사용 (AI 키워드 미사용)")
             logger.info("   └─ Warning: null (이유: AI 신뢰도 낮음 - 경고 불필요)")
             logger.info("")
-            logger.info("💡 해설: 신뢰도가 50% 이하일 경우 AI 분석 결과가 부정확할 가능성이 높아")
+            logger.info(f"💡 해설: 신뢰도가 {CONFIDENCE_THRESHOLD:.0%} 이하일 경우 AI 분석 결과가 부정확할 가능성이 높아")
             logger.info("         AI 데이터를 무시하고 사용자가 입력한 정보만으로 설명을 생성합니다.")
             logger.info("=" * 80)
             
@@ -373,7 +392,7 @@ class DescriptionService:
                 "warning": None
             }
         
-        logger.info(f"✅ 신뢰도 충분: {ai_confidence:.2%} > 50%")
+        logger.info(f"✅ 신뢰도 충분: {ai_confidence:.2%} > {CONFIDENCE_THRESHOLD:.0%}")
         logger.info("   → AI 데이터 사용 가능, 다음 단계로 진행")
         logger.info("")
         
@@ -463,21 +482,24 @@ class DescriptionService:
         )
         
         # 신뢰도에 따라 경고 메시지 생성
+        HIGH_CONFIDENCE_WARNING_THRESHOLD = 0.7  # 70%
+        
         logger.info("   └─ Warning: 생성 필요")
         logger.info("")
         logger.info("⚠️  경고 메시지 생성 중...")
         logger.info(f"   현재 신뢰도: {ai_confidence:.2%}")
+        logger.info(f"   강력한 경고 임계값: {HIGH_CONFIDENCE_WARNING_THRESHOLD:.0%}")
         
-        if ai_confidence > 0.9:
+        if ai_confidence > HIGH_CONFIDENCE_WARNING_THRESHOLD:
             # 신뢰도 높음: 강력한 경고
-            logger.warning(f"   🚨 신뢰도 높음 ({ai_confidence:.2%} > 90%): 강력한 경고 생성")
+            logger.warning(f"   🚨 신뢰도 높음 ({ai_confidence:.2%} > {HIGH_CONFIDENCE_WARNING_THRESHOLD:.0%}): 강력한 경고 생성")
             logger.info(f"   이유: AI가 매우 확신하는데 사용자 입력과 다름 → 사용자에게 재확인 필요")
             warning = LLMService.generate_warning_high_confidence(
                 ai_category, category_name, ai_confidence, ai_item_names
             )
         else:
             # 신뢰도 중간: 부드러운 경고
-            logger.info(f"   💡 신뢰도 중간 ({ai_confidence:.2%}, 50~90%): 부드러운 경고 생성")
+            logger.info(f"   💡 신뢰도 중간 ({ai_confidence:.2%}, 30~{HIGH_CONFIDENCE_WARNING_THRESHOLD:.0%}): 부드러운 경고 생성")
             logger.info(f"   이유: AI가 어느 정도 확신하나 완전히 확실하지 않음 → 참고용 경고")
             warning = LLMService.generate_warning_medium_confidence(
                 ai_category, category_name, ai_confidence, ai_item_names
@@ -489,7 +511,7 @@ class DescriptionService:
         logger.info("")
         logger.info("💡 해설: AI 분석 결과와 사용자 입력이 다릅니다.")
         logger.info("         사용자가 올바른 정보를 입력했는지 확인할 수 있도록 경고를 표시합니다.")
-        logger.info("         신뢰도가 높을수록 강한 경고, 중간이면 부드러운 경고를 생성합니다.")
+        logger.info(f"         신뢰도 {HIGH_CONFIDENCE_WARNING_THRESHOLD:.0%} 초과: 강한 경고, {HIGH_CONFIDENCE_WARNING_THRESHOLD:.0%} 이하: 부드러운 경고를 생성합니다.")
         logger.info("=" * 80)
         
         return {

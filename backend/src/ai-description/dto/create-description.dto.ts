@@ -4,7 +4,6 @@ import {
   IsEnum,
   IsNotEmpty,
   IsString,
-  IsUrl,
   IsUUID,
   ArrayMinSize,
 } from 'class-validator';
