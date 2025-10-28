@@ -26,3 +26,15 @@ class DescriptionResponse(BaseModel):
     """상품 설명 생성 응답 스키마"""
     description: str = Field(..., description="생성된 상품 설명")
     warning: Optional[str] = Field(None, description="카테고리 불일치 경고 메시지 (있을 경우)")
+
+class AnalysisDescriptionRequest(BaseModel):
+    """상품 설명 분석 요청 스키마"""
+    name: str = Field(..., description="제품명")
+    condition: str = Field(..., description="제품 상태 (NEW | LIKE_NEW | USED | FOR_PARTS)")
+    description: str = Field(..., description="분석할 상품 설명")
+
+class AnalysisDescriptionResponse(BaseModel):
+    """상품 설명 분석 응답 스키마"""
+    conditionFeedback: str = Field(..., description="사용감 항목에 대한 분석 피드백")
+    requiredInfoFeedback: str = Field(..., description="필수 정보 항목에 대한 분석 피드백")
+    forbiddenWordsFeedback: str = Field(..., description="금칙어 항목에 대한 분석 피드백")

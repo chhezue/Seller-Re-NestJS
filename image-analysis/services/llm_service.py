@@ -1,13 +1,8 @@
-"""
-LLM 기반 상품 설명 생성 서비스
-
-GROQ API를 사용하여 상품 설명을 자동으로 생성합니다.
-"""
-
 import os
 import logging
 import requests
 from dotenv import load_dotenv
+from typing import Optional
 
 # .env 파일에서 환경 변수 로드
 load_dotenv()
@@ -68,13 +63,14 @@ class LLMService:
         return LLMService.CATEGORY_KOREAN_MAP.get(category_lower, category)
 
     @staticmethod
-    def _call_groq_api(prompt: str, model: str = "llama-3.3-70b-versatile") -> str:
+    def _call_groq_api(prompt: str, model: str = "llama-3.3-70b-versatile", system: Optional[str] = None) -> str:
         """
         GROQ API를 호출하여 LLM 응답을 받습니다.
 
         Args:
             prompt (str): LLM에 전달할 프롬프트
             model (str): 사용할 모델 이름 (기본값: llama-3.3-70b-versatile)
+            system (Optional[str]): 시스템 프롬프트 오버라이드 (없으면 기본 메시지 사용)
 
         Returns:
             str: LLM이 생성한 응답 텍스트
@@ -91,13 +87,17 @@ class LLMService:
             "Content-Type": "application/json",
         }
 
+        system_content = system if system is not None else (
+            "당신은 중고 거래 플랫폼의 상품 설명을 작성하는 전문가입니다. "
+            "간결하고 매력적인 상품 설명을 작성합니다."
+        )
+
         payload = {
             "model": model,
             "messages": [
                 {
                     "role": "system",
-                    "content": "당신은 중고 거래 플랫폼의 상품 설명을 작성하는 전문가입니다. "
-                               "간결하고 매력적인 상품 설명을 작성합니다."
+                    "content": system_content
                 },
                 {
                     "role": "user",

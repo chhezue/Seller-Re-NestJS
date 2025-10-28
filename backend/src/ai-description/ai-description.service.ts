@@ -111,7 +111,7 @@ export class AiDescriptionService {
 
       const response = await firstValueFrom(
         this.httpService.post(
-          `${this.imageAnalysisApiUrl}/analysis-description`,
+          `${this.imageAnalysisApiUrl}/analyze-description`,
           {
             name: dto.name,
             condition: dto.condition,

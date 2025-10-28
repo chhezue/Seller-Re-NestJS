@@ -10,7 +10,7 @@ import { AnalysisDescriptionResponseDto } from './dto/analysis-description.respo
 export class AiDescriptionController {
   constructor(private readonly aiDescriptionService: AiDescriptionService) {}
 
-  @Post()
+  @Post('/create')
   @ApiOperation({
     description:
       'AI 기반 상품 설명 자동 생성 (이미지 분석 + 검증 + 설명 생성 통합)',
@@ -21,7 +21,7 @@ export class AiDescriptionController {
     return this.aiDescriptionService.generateDescription(dto);
   }
 
-  @Post()
+  @Post('/analysis')
   @ApiOperation({ description: 'AI 기반 상품 설명 분석' })
   async analysisDescription(
     @Body() dto: AnalysisDescriptionRequestDto,

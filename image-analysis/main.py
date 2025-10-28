@@ -5,11 +5,11 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from schemas import AnalysisRequest, AnalysisResponse, AnalysisResult, DescriptionRequest, DescriptionResponse
+from schemas import AnalysisRequest, AnalysisResponse, AnalysisResult, DescriptionRequest, DescriptionResponse, AnalysisDescriptionRequest, AnalysisDescriptionResponse
 from model.loader import load_model
 from model.predictor import predict_multiple
 from services.description_service import DescriptionService
-import json
+from services.analysis_description_service import AnalysisDescriptionLLMService
 import logging
 from dotenv import load_dotenv
 
@@ -128,5 +128,22 @@ def generate_description(request: DescriptionRequest):
         # 예상치 못한 오류
         logging.error(f"Unexpected error in generate_description: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"설명 생성 중 오류가 발생했습니다: {str(e)}")
+
+@app.post("/analyze-description", response_model=AnalysisDescriptionResponse)
+def analyze_description_text(request: AnalysisDescriptionRequest):
+    try:
+        logging.info("설명 분석 요청 수신")
+        result = AnalysisDescriptionLLMService.analyze_description(
+            name=request.name,
+            condition=request.condition,
+            description=request.description,
+        )
+        return AnalysisDescriptionResponse(**result)
+    except ValueError as e:
+        logging.error(f"LLM 설정/파싱 오류: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"설명 분석 중 오류가 발생했습니다: {str(e)}")
+    except Exception as e:
+        logging.error(f"Unexpected error in analyze_description: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"설명 분석 중 알 수 없는 오류가 발생했습니다: {str(e)}")
 
 # uvicorn image_analysis.main:app --reload
