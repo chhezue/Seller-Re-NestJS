@@ -7,6 +7,8 @@ import { firstValueFrom } from 'rxjs';
 import { CategoryModel } from '../common/entity/category.entity';
 import { CreateDescriptionDto } from './dto/create-description.dto';
 import { GetDescriptionDto } from './dto/get-description.dto';
+import { AnalysisDescriptionRequestDto } from './dto/analysis-description.request.dto';
+import { AnalysisDescriptionResponseDto } from './dto/analysis-description.response.dto';
 
 @Injectable()
 export class AiDescriptionService {
@@ -94,6 +96,58 @@ export class AiDescriptionService {
 
       throw new HttpException(
         'AI 설명 생성 중 예상치 못한 오류가 발생했습니다.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async analysisDescription(
+    dto: AnalysisDescriptionRequestDto,
+  ): Promise<AnalysisDescriptionResponseDto> {
+    this.logger.log(`AI 설명 분석 시작: ${dto.name}`);
+
+    try {
+      this.logger.debug('Python API 호출 (설명 분석)...');
+
+      const response = await firstValueFrom(
+        this.httpService.post(
+          `${this.imageAnalysisApiUrl}/analysis-description`,
+          {
+            name: dto.name,
+            condition: dto.condition,
+            description: dto.description,
+          },
+        ),
+      );
+
+      const result: AnalysisDescriptionResponseDto = {
+        conditionFeedback: response.data.conditionFeedback,
+        requiredInfoFeedback: response.data.requiredInfoFeedback,
+        forbiddenWordsFeedback: response.data.forbiddenWordsFeedback,
+      };
+
+      this.logger.log('AI 설명 분석 완료');
+
+      return result;
+    } catch (error) {
+      this.logger.error('AI 설명 분석 중 오류 발생:', error);
+
+      if (error.code === 'ECONNREFUSED') {
+        throw new HttpException(
+          'AI 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.',
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+
+      if (error.response) {
+        throw new HttpException(
+          `AI 서버 오류: ${error.response.data?.detail || error.message}`,
+          error.response.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        );
+      }
+
+      throw new HttpException(
+        'AI 설명 분석 중 예상치 못한 오류가 발생했습니다.',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

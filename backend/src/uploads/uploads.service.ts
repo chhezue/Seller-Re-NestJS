@@ -12,85 +12,7 @@ import { S3Service } from '../s3/s3.service';
 import * as path from 'node:path';
 import { promises as fs } from 'fs';
 import { HttpService } from '@nestjs/axios';
-import { CategoryModel } from '../common/entity/category.entity';
 import { catchError, firstValueFrom } from 'rxjs';
-
-// 1차 분석(카테고리)과 2차 분석(상세 품목)을 통합하여 정확도를 높이기 위한 새로운 상세 품목 목록
-const subCategoryMap = {
-  디지털기기: [
-    '스마트폰',
-    '노트북',
-    '태블릿',
-    '카메라',
-    '모니터',
-    '키보드',
-    '마우스',
-    '오디오',
-    '게임기',
-  ],
-  생활가전: [
-    '냉장고',
-    '세탁기',
-    '에어컨',
-    '청소기',
-    '전자레인지',
-    '밥솥',
-    '공기청정기',
-  ],
-  '가구/인테리어': [
-    '침대',
-    '소파',
-    '테이블',
-    '의자',
-    '서랍장',
-    '조명',
-    '인테리어 소품',
-  ],
-  '생활/주방': [
-    '냄비',
-    '그릇',
-    '컵',
-    '수저',
-    '조리도구',
-    '청소용품',
-    '생활용품',
-  ],
-  유아동: ['장난감', '인형', '유아의류', '유모차', '카시트'],
-  유아도서: ['유아도서'],
-  여성의류: ['자켓', '블라우스', '티셔츠', '원피스', '스커트', '바지'],
-  여성잡화: ['가방', '신발', '지갑', '주얼리', '모자', '스카프'],
-  '남성패션/잡화': ['자켓', '셔츠', '티셔츠', '바지', '신발', '가방', '지갑'],
-  '뷰티/미용': ['스킨케어', '메이크업', '향수', '헤어용품', '네일'],
-  '스포츠/레저': ['운동복', '운동화', '자전거', '골프', '캠핑', '낚시', '등산'],
-  식물: ['화분', '관엽식물', '다육식물', '꽃'],
-  '취미/게임/음반': [
-    '책',
-    '음반',
-    'DVD',
-    '게임타이틀',
-    '피규어',
-    '프라모델',
-    '악기',
-  ],
-  도서: ['소설', '만화', '잡지', '전공서적', '자기계발서'],
-  '티켓/교환권': ['티켓', '교환권'],
-  가공식품: ['가공식품'],
-  건강기능식품: ['건강기능식품'],
-  반려동물용품: ['사료', '간식', '장난감', '의류', '이동장'],
-  '기타 중고물품': ['기타 중고물품'],
-};
-
-// 모든 소분류 아이템 리스트와 아이템-카테고리 역방향 맵 생성
-const allLabels = Object.values(subCategoryMap).flat();
-const itemToCategoryMap = Object.entries(subCategoryMap).reduce(
-  (acc, [category, items]) => {
-    items.forEach((item) => {
-      acc[item] = category;
-    });
-    return acc;
-  },
-  {},
-);
 
 @Injectable()
 export class UploadsService {
@@ -100,8 +22,6 @@ export class UploadsService {
     private readonly s3Service: S3Service,
     @InjectRepository(FileModel)
     private readonly fileRepository: Repository<FileModel>,
-    @InjectRepository(CategoryModel)
-    private readonly categoryRepository: Repository<CategoryModel>,
     private readonly httpService: HttpService,
   ) {}
 
